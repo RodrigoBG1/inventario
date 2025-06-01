@@ -1,1 +1,41 @@
-{"books":[{"id":1,"name":"Los 7 hábitos de la gente altamente efectiva","author":"Stephen R. Covey","year":1989},{"id":2,"name":"Padre rico, padre pobre","author":"Robert Kiyosaki","year":1997}]}
+{
+  "products": [
+    {
+      "id": 1,
+      "code": "ACE001",
+      "name": "Aceite Motor 20W-50",
+      "brand": "Castrol",
+      "viscosity": "20W-50",
+      "capacity": "1L",
+      "stock": 50,
+      "price": 25.99,
+      "cost": 18.50,
+      "created_at": "2025-06-01T00:00:00.000Z"
+    }
+  ],
+  "employees": [
+    {
+      "id": 1,
+      "employee_code": "ADMIN001",
+      "name": "Administrador Principal",
+      "role": "admin",
+      "routes": [],
+      "commission_rate": 0,
+      "password": "$2b$10$8QvJYhCwEQ2y2dYfxD5Jne8rPzf2jmW7YHxzqGj5g8h9i1j2k3l4m5",
+      "created_at": "2025-06-01T00:00:00.000Z"
+    },
+    {
+      "id": 2,
+      "employee_code": "EMP001",
+      "name": "Juan Pérez",
+      "role": "employee",
+      "routes": ["Zona Norte", "Centro"],
+      "commission_rate": 0.05,
+      "password": "$2b$10$8QvJYhCwEQ2y2dYfxD5Jne8rPzf2jmW7YHxzqGj5g8h9i1j2k3l4m5",
+      "created_at": "2025-06-01T00:00:00.000Z"
+    }
+  ],
+  "orders": [],
+  "sales": [],
+  "inventory_movements": []
+}
