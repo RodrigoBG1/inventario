@@ -5,6 +5,7 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
+    "start": "node index.js",
     "dev": "nodemon index.js"
   },
   "keywords": [
@@ -14,7 +15,9 @@
   "author": "Rodrigo Bonilla",
   "license": "ISC",
   "dependencies": {
-    "express": "^5.1.0"
+    "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.0",
+    "bcrypt": "^5.1.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.10"
