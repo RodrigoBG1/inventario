@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Empleados - Sistema de Aceites</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="../css/admin.css">
+</head>
+<body>
+    <div class="admin-container">
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <h2>Admin Panel</h2>
+                <span id="user-name"></span>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="dashboard.html">Dashboard</a></li>
+                <li><a href="products.html">Productos</a></li>
+                <li><a href="employees.html" class="active">Empleados</a></li>
+                <li><a href="orders.html">Pedidos</a></li>
+                <li><a href="reports.html">Reportes</a></li>
+                <li><a href="#" onclick="logout()">Cerrar Sesión</a></li>
+            </ul>
+        </nav>
+
+        <main class="main-content">
+            <header class="content-header">
+                <h1>Gestión de Empleados</h1>
+                <button class="btn btn-primary" onclick="openEmployeeModal()">
+                    ➕ Nuevo Empleado
+                </button>
+            </header>
+
+            <div class="employees-container">
+                <table id="employees-table">
+                    <thead>
+                        <tr>
+                            <th>Código</th>
+                            <th>Nombre</th>
+                            <th>Rol</th>
+                            <th>Rutas</th>
+                            <th>Comisión</th>
+                            <th>Fecha Registro</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal para agregar empleado -->
+    <div id="employee-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Nuevo Empleado</h3>
+                <span class="close" onclick="closeEmployeeModal()">&times;</span>
+            </div>
+            <form id="employee-form">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="employee-code">Código de Empleado:</label>
+                        <input type="text" id="employee-code" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="employee-name">Nombre Completo:</label>
+                        <input type="text" id="employee-name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="employee-role">Rol:</label>
+                        <select id="employee-role" required>
+                            <option value="employee">Empleado</option>
+                            <option value="admin">Administrador</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="employee-password">Contraseña:</label>
+                        <input type="password" id="employee-password" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="employee-commission">Tasa de Comisión (%):</label>
+                        <input type="number" id="employee-commission" step="0.01" min="0" max="100" value="5">
+                    </div>
+                    <div class="form-group">
+                        <label for="employee-routes">Rutas (separadas por coma):</label>
+                        <input type="text" id="employee-routes" placeholder="Zona Norte, Centro, Sur">
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeEmployeeModal()">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        Crear Empleado
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="../js/api.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/admin.js"></script>
+</body>
+</html>

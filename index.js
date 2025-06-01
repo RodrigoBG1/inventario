@@ -3,11 +3,17 @@ import fs from "fs";
 import bodyParser from "body-parser";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
+import path from "path";
+import { fileURLToPath } from "url";
 
 const app = express();
 app.use(bodyParser.json());
 
-const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-here"; // En producción usar variable de entorno
+// Para obtener __dirname en ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-here";
 
 const readData = () => {
   try {
@@ -58,6 +64,10 @@ const requireAdmin = (req, res, next) => {
   next();
 };
 
+// ========== SERVIR ARCHIVOS ESTÁTICOS ==========
+// Servir archivos estáticos del frontend
+app.use(express.static(path.join(__dirname, 'frontend')));
+
 // ========== AUTENTICACIÓN ==========
 app.post("/auth/login", async (req, res) => {
   const { employee_code, password } = req.body;
@@ -83,12 +93,12 @@ app.post("/auth/login", async (req, res) => {
 });
 
 // ========== PRODUCTOS (Solo Admin) ==========
-app.get("/products", authenticateToken, (req, res) => {
+app.get("/api/products", authenticateToken, (req, res) => {
   const data = readData();
   res.json(data.products);
 });
 
-app.get("/products/:id", authenticateToken, (req, res) => {
+app.get("/api/products/:id", authenticateToken, (req, res) => {
   const data = readData();
   const id = parseInt(req.params.id);
   const product = data.products.find((product) => product.id === id);
@@ -98,7 +108,7 @@ app.get("/products/:id", authenticateToken, (req, res) => {
   res.json(product);
 });
 
-app.post("/products", authenticateToken, requireAdmin, (req, res) => {
+app.post("/api/products", authenticateToken, requireAdmin, (req, res) => {
   const data = readData();
   const body = req.body;
   const newProduct = {
@@ -119,7 +129,7 @@ app.post("/products", authenticateToken, requireAdmin, (req, res) => {
   res.json(newProduct);
 });
 
-app.put("/products/:id", authenticateToken, requireAdmin, (req, res) => {
+app.put("/api/products/:id", authenticateToken, requireAdmin, (req, res) => {
   const data = readData();
   const body = req.body;
   const id = parseInt(req.params.id);
@@ -138,7 +148,7 @@ app.put("/products/:id", authenticateToken, requireAdmin, (req, res) => {
   res.json({ message: "Producto actualizado exitosamente" });
 });
 
-app.delete("/products/:id", authenticateToken, requireAdmin, (req, res) => {
+app.delete("/api/products/:id", authenticateToken, requireAdmin, (req, res) => {
   const data = readData();
   const id = parseInt(req.params.id);
   const productIndex = data.products.findIndex((product) => product.id === id);
@@ -153,7 +163,7 @@ app.delete("/products/:id", authenticateToken, requireAdmin, (req, res) => {
 });
 
 // ========== EMPLEADOS (Solo Admin) ==========
-app.get("/employees", authenticateToken, requireAdmin, (req, res) => {
+app.get("/api/employees", authenticateToken, requireAdmin, (req, res) => {
   const data = readData();
   // No enviar passwords en la respuesta
   const employees = data.employees.map(emp => {
@@ -163,7 +173,7 @@ app.get("/employees", authenticateToken, requireAdmin, (req, res) => {
   res.json(employees);
 });
 
-app.post("/employees", authenticateToken, requireAdmin, async (req, res) => {
+app.post("/api/employees", authenticateToken, requireAdmin, async (req, res) => {
   const data = readData();
   const body = req.body;
   
@@ -196,7 +206,7 @@ app.post("/employees", authenticateToken, requireAdmin, async (req, res) => {
 });
 
 // ========== PEDIDOS ==========
-app.get("/orders", authenticateToken, (req, res) => {
+app.get("/api/orders", authenticateToken, (req, res) => {
   const data = readData();
   let orders = data.orders;
   
@@ -208,7 +218,7 @@ app.get("/orders", authenticateToken, (req, res) => {
   res.json(orders);
 });
 
-app.post("/orders", authenticateToken, (req, res) => {
+app.post("/api/orders", authenticateToken, (req, res) => {
   const data = readData();
   const body = req.body;
   
@@ -233,7 +243,7 @@ app.post("/orders", authenticateToken, (req, res) => {
   res.json(newOrder);
 });
 
-app.put("/orders/:id/confirm", authenticateToken, requireAdmin, (req, res) => {
+app.put("/api/orders/:id/confirm", authenticateToken, requireAdmin, (req, res) => {
   const data = readData();
   const id = parseInt(req.params.id);
   const orderIndex = data.orders.findIndex((order) => order.id === id);
@@ -289,7 +299,7 @@ app.put("/orders/:id/confirm", authenticateToken, requireAdmin, (req, res) => {
 });
 
 // ========== VENTAS ==========
-app.get("/sales", authenticateToken, (req, res) => {
+app.get("/api/sales", authenticateToken, (req, res) => {
   const data = readData();
   let sales = data.sales;
   
@@ -302,7 +312,7 @@ app.get("/sales", authenticateToken, (req, res) => {
 });
 
 // ========== REPORTES (Solo Admin) ==========
-app.get("/reports/sales-by-employee", authenticateToken, requireAdmin, (req, res) => {
+app.get("/api/reports/sales-by-employee", authenticateToken, requireAdmin, (req, res) => {
   const data = readData();
   const salesByEmployee = {};
   
@@ -323,7 +333,7 @@ app.get("/reports/sales-by-employee", authenticateToken, requireAdmin, (req, res
   res.json(Object.values(salesByEmployee));
 });
 
-app.get("/reports/inventory", authenticateToken, requireAdmin, (req, res) => {
+app.get("/api/reports/inventory", authenticateToken, requireAdmin, (req, res) => {
   const data = readData();
   res.json({
     products: data.products,
@@ -332,9 +342,45 @@ app.get("/reports/inventory", authenticateToken, requireAdmin, (req, res) => {
   });
 });
 
-// ========== RUTAS BÁSICAS ==========
+// ========== RUTAS DEL FRONTEND ==========
+// Ruta principal para servir el login
 app.get("/", (req, res) => {
-  res.send("API Sistema de Aceites de Motor v1.0");
+  res.sendFile(path.join(__dirname, 'frontend/index.html'));
+});
+
+// Rutas para las páginas de admin
+app.get("/admin/*", (req, res) => {
+  const page = req.path.replace('/admin/', '');
+  const filePath = path.join(__dirname, `frontend/admin/${page}`);
+  
+  // Verificar si el archivo existe
+  if (fs.existsSync(filePath)) {
+    res.sendFile(filePath);
+  } else {
+    res.sendFile(path.join(__dirname, 'frontend/admin/dashboard.html'));
+  }
+});
+
+// Rutas para las páginas de empleados
+app.get("/employee/*", (req, res) => {
+  const page = req.path.replace('/employee/', '');
+  const filePath = path.join(__dirname, `frontend/employee/${page}`);
+  
+  // Verificar si el archivo existe
+  if (fs.existsSync(filePath)) {
+    res.sendFile(filePath);
+  } else {
+    res.sendFile(path.join(__dirname, 'frontend/employee/dashboard.html'));
+  }
+});
+
+// API status para verificar que funciona
+app.get("/api/status", (req, res) => {
+  res.json({ 
+    status: 'API funcionando correctamente',
+    version: '1.0',
+    timestamp: new Date().toISOString()
+  });
 });
 
 // Manejo de errores
@@ -346,4 +392,5 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server listening on port ${PORT}`);
+  console.log("Sistema de Aceites de Motor API iniciado");
 });
