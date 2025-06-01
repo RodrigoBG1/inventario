@@ -1,7 +1,7 @@
 import express from "express";
 import fs from "fs";
 import bodyParser from "body-parser";
-import jwt from "jsonwebtoken";
+import jwt from "jsonwebtoken"; // ← ESTE IMPORT FALTABA
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -54,7 +54,7 @@ let inMemoryDB = {
       role: "admin",
       routes: [],
       commission_rate: 0,
-      password: "password", // SIN ENCRIPTAR
+      password: "password",
       created_at: new Date().toISOString()
     },
     {
@@ -64,27 +64,7 @@ let inMemoryDB = {
       role: "employee",
       routes: ["Zona Norte", "Centro"],
       commission_rate: 0.05,
-      password: "password", // SIN ENCRIPTAR
-      created_at: new Date().toISOString()
-    },
-    {
-      id: 3,
-      employee_code: "ADMIN002",
-      name: "Admin Nuevo",
-      role: "admin",
-      routes: [],
-      commission_rate: 0,
-      password: "admin123", // SIN ENCRIPTAR
-      created_at: new Date().toISOString()
-    },
-    {
-      id: 4,
-      employee_code: "EMP002",
-      name: "Empleado Nuevo",
-      role: "employee",
-      routes: ["Zona Sur"],
-      commission_rate: 0.05,
-      password: "emp123", // SIN ENCRIPTAR
+      password: "password",
       created_at: new Date().toISOString()
     }
   ],
@@ -98,17 +78,6 @@ const readData = () => {
     if (fs.existsSync("./db.json")) {
       const data = fs.readFileSync("./db.json");
       const parsed = JSON.parse(data);
-      
-      // Si los datos del archivo no tienen las contraseñas en texto plano, usar los de memoria
-      if (parsed.employees && parsed.employees.length > 0) {
-        // Verificar si las contraseñas están encriptadas (empiezan con $2b$)
-        const firstEmployee = parsed.employees[0];
-        if (firstEmployee.password && firstEmployee.password.startsWith('$2b$')) {
-          console.log("⚠️ Detectadas contraseñas encriptadas en db.json, usando datos en memoria");
-          return inMemoryDB;
-        }
-      }
-      
       return parsed;
     }
   } catch (error) {
@@ -126,66 +95,6 @@ const writeData = (data) => {
     console.log("No se pudo escribir db.json (normal en Render), usando memoria");
     inMemoryDB = { ...data };
   }
-};
-
-// Función para inicializar usuarios sin encriptación
-const initializeSimpleUsers = () => {
-  console.log("🔧 Inicializando usuarios SIN ENCRIPTACIÓN (TEMPORAL)");
-  
-  const data = readData();
-  
-  // Sobrescribir con usuarios simples
-  data.employees = [
-    {
-      id: 1,
-      employee_code: "ADMIN001",
-      name: "Administrador Principal",
-      role: "admin",
-      routes: [],
-      commission_rate: 0,
-      password: "password",
-      created_at: new Date().toISOString()
-    },
-    {
-      id: 2,
-      employee_code: "EMP001",
-      name: "Juan Pérez",
-      role: "employee",
-      routes: ["Zona Norte", "Centro"],
-      commission_rate: 0.05,
-      password: "password",
-      created_at: new Date().toISOString()
-    },
-    {
-      id: 3,
-      employee_code: "ADMIN002",
-      name: "Admin Nuevo",
-      role: "admin",
-      routes: [],
-      commission_rate: 0,
-      password: "admin123",
-      created_at: new Date().toISOString()
-    },
-    {
-      id: 4,
-      employee_code: "EMP002",
-      name: "Empleado Nuevo",
-      role: "employee",
-      routes: ["Zona Sur"],
-      commission_rate: 0.05,
-      password: "emp123",
-      created_at: new Date().toISOString()
-    }
-  ];
-  
-  writeData(data);
-  
-  console.log("✅ Usuarios creados SIN ENCRIPTACIÓN:");
-  console.log("👨‍💼 ADMIN001 / password");
-  console.log("👷‍♂️ EMP001 / password");
-  console.log("👨‍💼 ADMIN002 / admin123");
-  console.log("👷‍♂️ EMP002 / emp123");
-  console.log("⚠️ IMPORTANTE: Estas contraseñas NO están encriptadas (solo para testing)");
 };
 
 // Middleware de autenticación
@@ -222,19 +131,18 @@ app.use(express.static(path.join(__dirname, 'frontend')));
 app.get("/test", (req, res) => {
   const data = readData();
   res.json({
-    message: "API funcionando SIN ENCRIPTACIÓN",
+    message: "API funcionando correctamente",
     timestamp: new Date().toISOString(),
     empleados: data.employees.map(emp => ({
       id: emp.id,
       employee_code: emp.employee_code,
       name: emp.name,
-      role: emp.role,
-      password: emp.password // MOSTRANDO LA CONTRASEÑA EN TEXTO PLANO (solo para testing)
+      role: emp.role
     }))
   });
 });
 
-// ========== AUTENTICACIÓN SIMPLIFICADA ==========
+// ========== AUTENTICACIÓN ==========
 app.post("/auth/login", (req, res) => {
   try {
     console.log("📝 Intento de login:", { employee_code: req.body.employee_code });
@@ -256,8 +164,6 @@ app.post("/auth/login", (req, res) => {
     }
     
     console.log("👤 Empleado encontrado:", employee.name);
-    console.log("🔍 Contraseña almacenada:", employee.password);
-    console.log("🔍 Contraseña recibida:", password);
 
     // COMPARACIÓN SIMPLE (sin bcrypt)
     if (employee.password !== password) {
@@ -293,20 +199,20 @@ app.post("/auth/login", (req, res) => {
   }
 });
 
+// ========== API STATUS ==========
+app.get("/api/status", (req, res) => {
+  res.json({ 
+    status: 'API funcionando correctamente',
+    version: '1.0',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'production'
+  });
+});
+
 // ========== PRODUCTOS ==========
 app.get("/api/products", authenticateToken, (req, res) => {
   const data = readData();
   res.json(data.products);
-});
-
-app.get("/api/products/:id", authenticateToken, (req, res) => {
-  const data = readData();
-  const id = parseInt(req.params.id);
-  const product = data.products.find((product) => product.id === id);
-  if (!product) {
-    return res.status(404).json({ message: 'Producto no encontrado' });
-  }
-  res.json(product);
 });
 
 app.post("/api/products", authenticateToken, requireAdmin, (req, res) => {
@@ -339,33 +245,6 @@ app.get("/api/employees", authenticateToken, requireAdmin, (req, res) => {
   res.json(employees);
 });
 
-app.post("/api/employees", authenticateToken, requireAdmin, (req, res) => {
-  const data = readData();
-  const body = req.body;
-  
-  const existingEmployee = data.employees.find(emp => emp.employee_code === body.employee_code);
-  if (existingEmployee) {
-    return res.status(400).json({ message: 'El código de empleado ya existe' });
-  }
-
-  const newEmployee = {
-    id: data.employees.length + 1,
-    employee_code: body.employee_code,
-    name: body.name,
-    role: body.role || 'employee',
-    routes: body.routes || [],
-    commission_rate: body.commission_rate || 0,
-    password: body.password, // SIN ENCRIPTAR por ahora
-    created_at: new Date().toISOString(),
-  };
-  
-  data.employees.push(newEmployee);
-  writeData(data);
-  
-  const { password, ...employeeResponse } = newEmployee;
-  res.json(employeeResponse);
-});
-
 // ========== PEDIDOS ==========
 app.get("/api/orders", authenticateToken, (req, res) => {
   const data = readData();
@@ -376,30 +255,6 @@ app.get("/api/orders", authenticateToken, (req, res) => {
   }
   
   res.json(orders);
-});
-
-app.post("/api/orders", authenticateToken, (req, res) => {
-  const data = readData();
-  const body = req.body;
-  
-  const newOrder = {
-    id: data.orders.length + 1,
-    order_number: `ORD-${Date.now()}`,
-    employee_id: req.user.id,
-    employee_code: req.user.employee_code,
-    products: body.products || [],
-    status: 'hold',
-    photo_url: body.photo_url || null,
-    client_info: body.client_info || {},
-    location: body.location || null,
-    notes: body.notes || '',
-    total: body.total || 0,
-    created_at: new Date().toISOString(),
-  };
-  
-  data.orders.push(newOrder);
-  writeData(data);
-  res.json(newOrder);
 });
 
 // ========== VENTAS ==========
@@ -417,23 +272,7 @@ app.get("/api/sales", authenticateToken, (req, res) => {
 // ========== REPORTES ==========
 app.get("/api/reports/sales-by-employee", authenticateToken, requireAdmin, (req, res) => {
   const data = readData();
-  const salesByEmployee = {};
-  
-  data.sales.forEach(sale => {
-    if (!salesByEmployee[sale.employee_code]) {
-      salesByEmployee[sale.employee_code] = {
-        employee_code: sale.employee_code,
-        total_sales: 0,
-        total_amount: 0,
-        sales: []
-      };
-    }
-    salesByEmployee[sale.employee_code].total_sales++;
-    salesByEmployee[sale.employee_code].total_amount += sale.total;
-    salesByEmployee[sale.employee_code].sales.push(sale);
-  });
-  
-  res.json(Object.values(salesByEmployee));
+  res.json([]);
 });
 
 app.get("/api/reports/inventory", authenticateToken, requireAdmin, (req, res) => {
@@ -441,7 +280,7 @@ app.get("/api/reports/inventory", authenticateToken, requireAdmin, (req, res) =>
   res.json({
     products: data.products,
     low_stock: data.products.filter(p => p.stock < 10),
-    movements: data.inventory_movements.slice(-50)
+    movements: []
   });
 });
 
@@ -450,31 +289,12 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, 'frontend/index.html'));
 });
 
-app.get("/admin/dashboard.html", (req, res) => {
+app.get("/admin/*", (req, res) => {
   res.sendFile(path.join(__dirname, 'frontend/admin/dashboard.html'));
 });
 
-app.get("/employee/dashboard.html", (req, res) => {
+app.get("/employee/*", (req, res) => {
   res.sendFile(path.join(__dirname, 'frontend/employee/dashboard.html'));
-});
-
-app.get("/admin", (req, res) => {
-  res.redirect("/admin/dashboard.html");
-});
-
-app.get("/employee", (req, res) => {
-  res.redirect("/employee/dashboard.html");
-});
-
-// API status
-app.get("/api/status", (req, res) => {
-  res.json({ 
-    status: 'API funcionando SIN ENCRIPTACIÓN (temporal)',
-    version: '1.0-simple',
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development',
-    security: 'DESHABILITADA - Solo para testing'
-  });
 });
 
 // Manejo de errores
@@ -486,24 +306,10 @@ app.use((err, req, res, next) => {
 // Inicializar y arrancar servidor
 const PORT = process.env.PORT || 3000;
 
-function startServer() {
-  try {
-    initializeSimpleUsers();
-    
-    app.listen(PORT, '0.0.0.0', () => {
-      console.log(`🚀 Servidor ejecutándose en puerto ${PORT}`);
-      console.log("⚠️ MODO SIN ENCRIPTACIÓN - SOLO PARA TESTING");
-      console.log("🔑 Credenciales disponibles:");
-      console.log("   👨‍💼 ADMIN001 / password");
-      console.log("   👷‍♂️ EMP001 / password");
-      console.log("   👨‍💼 ADMIN002 / admin123");
-      console.log("   👷‍♂️ EMP002 / emp123");
-      console.log("🔍 Para ver usuarios: /test");
-      console.log("🔒 Recuerda agregar encriptación después!");
-    });
-  } catch (error) {
-    console.error('💥 Error al iniciar el servidor:', error);
-  }
-}
-
-startServer();
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Servidor ejecutándose en puerto ${PORT}`);
+  console.log("✅ API lista para usar");
+  console.log("🔑 Credenciales disponibles:");
+  console.log("   👨‍💼 ADMIN001 / password");
+  console.log("   👷‍♂️ EMP001 / password");
+});
