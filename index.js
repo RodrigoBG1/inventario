@@ -2,7 +2,6 @@ import express from "express";
 import fs from "fs";
 import bodyParser from "body-parser";
 import jwt from "jsonwebtoken";
-import bcrypt from "bcrypt";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -31,7 +30,7 @@ const __dirname = path.dirname(__filename);
 
 const JWT_SECRET = process.env.JWT_SECRET || "aceites-motor-secret-key-2025";
 
-// Base de datos en memoria para Render (ya que el filesystem es efímero)
+// Base de datos simplificada (sin encriptación)
 let inMemoryDB = {
   products: [
     {
@@ -47,7 +46,48 @@ let inMemoryDB = {
       created_at: new Date().toISOString()
     }
   ],
-  employees: [],
+  employees: [
+    {
+      id: 1,
+      employee_code: "ADMIN001",
+      name: "Administrador Principal",
+      role: "admin",
+      routes: [],
+      commission_rate: 0,
+      password: "password", // SIN ENCRIPTAR
+      created_at: new Date().toISOString()
+    },
+    {
+      id: 2,
+      employee_code: "EMP001",
+      name: "Juan Pérez",
+      role: "employee",
+      routes: ["Zona Norte", "Centro"],
+      commission_rate: 0.05,
+      password: "password", // SIN ENCRIPTAR
+      created_at: new Date().toISOString()
+    },
+    {
+      id: 3,
+      employee_code: "ADMIN002",
+      name: "Admin Nuevo",
+      role: "admin",
+      routes: [],
+      commission_rate: 0,
+      password: "admin123", // SIN ENCRIPTAR
+      created_at: new Date().toISOString()
+    },
+    {
+      id: 4,
+      employee_code: "EMP002",
+      name: "Empleado Nuevo",
+      role: "employee",
+      routes: ["Zona Sur"],
+      commission_rate: 0.05,
+      password: "emp123", // SIN ENCRIPTAR
+      created_at: new Date().toISOString()
+    }
+  ],
   orders: [],
   sales: [],
   inventory_movements: []
@@ -55,78 +95,97 @@ let inMemoryDB = {
 
 const readData = () => {
   try {
-    // Intentar leer del archivo primero
     if (fs.existsSync("./db.json")) {
       const data = fs.readFileSync("./db.json");
-      return JSON.parse(data);
+      const parsed = JSON.parse(data);
+      
+      // Si los datos del archivo no tienen las contraseñas en texto plano, usar los de memoria
+      if (parsed.employees && parsed.employees.length > 0) {
+        // Verificar si las contraseñas están encriptadas (empiezan con $2b$)
+        const firstEmployee = parsed.employees[0];
+        if (firstEmployee.password && firstEmployee.password.startsWith('$2b$')) {
+          console.log("⚠️ Detectadas contraseñas encriptadas en db.json, usando datos en memoria");
+          return inMemoryDB;
+        }
+      }
+      
+      return parsed;
     }
   } catch (error) {
     console.log("No se pudo leer db.json, usando datos en memoria");
   }
   
-  // Si no hay archivo, usar datos en memoria
   return inMemoryDB;
 };
 
 const writeData = (data) => {
   try {
-    // Actualizar datos en memoria
     inMemoryDB = { ...data };
-    
-    // Intentar escribir al archivo (puede fallar en Render)
     fs.writeFileSync("./db.json", JSON.stringify(data, null, 2));
   } catch (error) {
     console.log("No se pudo escribir db.json (normal en Render), usando memoria");
-    // En Render, solo mantenemos los datos en memoria
     inMemoryDB = { ...data };
   }
 };
 
-// Función para inicializar usuarios por defecto
-const initializeDefaultUsers = async () => {
+// Función para inicializar usuarios sin encriptación
+const initializeSimpleUsers = () => {
+  console.log("🔧 Inicializando usuarios SIN ENCRIPTACIÓN (TEMPORAL)");
+  
   const data = readData();
   
-  // Si no hay empleados, crear los por defecto
-  if (data.employees.length === 0) {
-    console.log("Inicializando usuarios por defecto...");
-    
-    try {
-      const adminPassword = await bcrypt.hash("admin123", 10);
-      const empPassword = await bcrypt.hash("emp123", 10);
-      
-      data.employees = [
-        {
-          id: 1,
-          employee_code: "ADMIN001",
-          name: "Administrador Principal",
-          role: "admin",
-          routes: [],
-          commission_rate: 0,
-          password: adminPassword,
-          created_at: new Date().toISOString()
-        },
-        {
-          id: 2,
-          employee_code: "EMP001",
-          name: "Juan Pérez",
-          role: "employee",
-          routes: ["Zona Norte", "Centro"],
-          commission_rate: 0.05,
-          password: empPassword,
-          created_at: new Date().toISOString()
-        }
-      ];
-      
-      writeData(data);
-      console.log("✅ Usuarios creados exitosamente:");
-      console.log("👨‍💼 Admin: ADMIN001 / admin123");
-      console.log("👷‍♂️ Empleado: EMP001 / emp123");
-    } catch (error) {
-      console.error("❌ Error creando usuarios:", error);
+  // Sobrescribir con usuarios simples
+  data.employees = [
+    {
+      id: 1,
+      employee_code: "ADMIN001",
+      name: "Administrador Principal",
+      role: "admin",
+      routes: [],
+      commission_rate: 0,
+      password: "password",
+      created_at: new Date().toISOString()
+    },
+    {
+      id: 2,
+      employee_code: "EMP001",
+      name: "Juan Pérez",
+      role: "employee",
+      routes: ["Zona Norte", "Centro"],
+      commission_rate: 0.05,
+      password: "password",
+      created_at: new Date().toISOString()
+    },
+    {
+      id: 3,
+      employee_code: "ADMIN002",
+      name: "Admin Nuevo",
+      role: "admin",
+      routes: [],
+      commission_rate: 0,
+      password: "admin123",
+      created_at: new Date().toISOString()
+    },
+    {
+      id: 4,
+      employee_code: "EMP002",
+      name: "Empleado Nuevo",
+      role: "employee",
+      routes: ["Zona Sur"],
+      commission_rate: 0.05,
+      password: "emp123",
+      created_at: new Date().toISOString()
     }
-  } else {
-    console.log("✅ Usuarios ya existen en la base de datos");
-  }
+  ];
+  
+  writeData(data);
+  
+  console.log("✅ Usuarios creados SIN ENCRIPTACIÓN:");
+  console.log("👨‍💼 ADMIN001 / password");
+  console.log("👷‍♂️ EMP001 / password");
+  console.log("👨‍💼 ADMIN002 / admin123");
+  console.log("👷‍♂️ EMP002 / emp123");
+  console.log("⚠️ IMPORTANTE: Estas contraseñas NO están encriptadas (solo para testing)");
 };
 
 // Middleware de autenticación
@@ -163,19 +222,20 @@ app.use(express.static(path.join(__dirname, 'frontend')));
 app.get("/test", (req, res) => {
   const data = readData();
   res.json({
-    message: "API funcionando",
+    message: "API funcionando SIN ENCRIPTACIÓN",
     timestamp: new Date().toISOString(),
     empleados: data.employees.map(emp => ({
       id: emp.id,
       employee_code: emp.employee_code,
       name: emp.name,
-      role: emp.role
+      role: emp.role,
+      password: emp.password // MOSTRANDO LA CONTRASEÑA EN TEXTO PLANO (solo para testing)
     }))
   });
 });
 
-// ========== AUTENTICACIÓN ==========
-app.post("/auth/login", async (req, res) => {
+// ========== AUTENTICACIÓN SIMPLIFICADA ==========
+app.post("/auth/login", (req, res) => {
   try {
     console.log("📝 Intento de login:", { employee_code: req.body.employee_code });
     
@@ -196,10 +256,12 @@ app.post("/auth/login", async (req, res) => {
     }
     
     console.log("👤 Empleado encontrado:", employee.name);
+    console.log("🔍 Contraseña almacenada:", employee.password);
+    console.log("🔍 Contraseña recibida:", password);
 
-    const validPassword = await bcrypt.compare(password, employee.password);
-    if (!validPassword) {
-      console.log("❌ Contraseña incorrecta para:", employee_code);
+    // COMPARACIÓN SIMPLE (sin bcrypt)
+    if (employee.password !== password) {
+      console.log("❌ Contraseña incorrecta");
       return res.status(401).json({ message: 'Credenciales inválidas - Contraseña incorrecta' });
     }
 
@@ -224,6 +286,7 @@ app.post("/auth/login", async (req, res) => {
         employee_code: employee.employee_code
       } 
     });
+    
   } catch (error) {
     console.error('💥 Error en login:', error);
     res.status(500).json({ message: 'Error interno del servidor', error: error.message });
@@ -266,39 +329,6 @@ app.post("/api/products", authenticateToken, requireAdmin, (req, res) => {
   res.json(newProduct);
 });
 
-app.put("/api/products/:id", authenticateToken, requireAdmin, (req, res) => {
-  const data = readData();
-  const body = req.body;
-  const id = parseInt(req.params.id);
-  const productIndex = data.products.findIndex((product) => product.id === id);
-  
-  if (productIndex === -1) {
-    return res.status(404).json({ message: 'Producto no encontrado' });
-  }
-  
-  data.products[productIndex] = {
-    ...data.products[productIndex],
-    ...body,
-    updated_at: new Date().toISOString()
-  };
-  writeData(data);
-  res.json({ message: "Producto actualizado exitosamente" });
-});
-
-app.delete("/api/products/:id", authenticateToken, requireAdmin, (req, res) => {
-  const data = readData();
-  const id = parseInt(req.params.id);
-  const productIndex = data.products.findIndex((product) => product.id === id);
-  
-  if (productIndex === -1) {
-    return res.status(404).json({ message: 'Producto no encontrado' });
-  }
-  
-  data.products.splice(productIndex, 1);
-  writeData(data);
-  res.json({ message: "Producto eliminado exitosamente" });
-});
-
 // ========== EMPLEADOS ==========
 app.get("/api/employees", authenticateToken, requireAdmin, (req, res) => {
   const data = readData();
@@ -309,7 +339,7 @@ app.get("/api/employees", authenticateToken, requireAdmin, (req, res) => {
   res.json(employees);
 });
 
-app.post("/api/employees", authenticateToken, requireAdmin, async (req, res) => {
+app.post("/api/employees", authenticateToken, requireAdmin, (req, res) => {
   const data = readData();
   const body = req.body;
   
@@ -318,8 +348,6 @@ app.post("/api/employees", authenticateToken, requireAdmin, async (req, res) => 
     return res.status(400).json({ message: 'El código de empleado ya existe' });
   }
 
-  const hashedPassword = await bcrypt.hash(body.password, 10);
-  
   const newEmployee = {
     id: data.employees.length + 1,
     employee_code: body.employee_code,
@@ -327,7 +355,7 @@ app.post("/api/employees", authenticateToken, requireAdmin, async (req, res) => 
     role: body.role || 'employee',
     routes: body.routes || [],
     commission_rate: body.commission_rate || 0,
-    password: hashedPassword,
+    password: body.password, // SIN ENCRIPTAR por ahora
     created_at: new Date().toISOString(),
   };
   
@@ -426,32 +454,8 @@ app.get("/admin/dashboard.html", (req, res) => {
   res.sendFile(path.join(__dirname, 'frontend/admin/dashboard.html'));
 });
 
-app.get("/admin/products.html", (req, res) => {
-  res.sendFile(path.join(__dirname, 'frontend/admin/products.html'));
-});
-
-app.get("/admin/employees.html", (req, res) => {
-  res.sendFile(path.join(__dirname, 'frontend/admin/employees.html'));
-});
-
-app.get("/admin/orders.html", (req, res) => {
-  res.sendFile(path.join(__dirname, 'frontend/admin/orders.html'));
-});
-
-app.get("/admin/reports.html", (req, res) => {
-  res.sendFile(path.join(__dirname, 'frontend/admin/reports.html'));
-});
-
 app.get("/employee/dashboard.html", (req, res) => {
   res.sendFile(path.join(__dirname, 'frontend/employee/dashboard.html'));
-});
-
-app.get("/employee/orders.html", (req, res) => {
-  res.sendFile(path.join(__dirname, 'frontend/employee/orders.html'));
-});
-
-app.get("/employee/sales.html", (req, res) => {
-  res.sendFile(path.join(__dirname, 'frontend/employee/sales.html'));
 });
 
 app.get("/admin", (req, res) => {
@@ -465,10 +469,11 @@ app.get("/employee", (req, res) => {
 // API status
 app.get("/api/status", (req, res) => {
   res.json({ 
-    status: 'API funcionando correctamente en Render',
-    version: '1.0',
+    status: 'API funcionando SIN ENCRIPTACIÓN (temporal)',
+    version: '1.0-simple',
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development'
+    environment: process.env.NODE_ENV || 'development',
+    security: 'DESHABILITADA - Solo para testing'
   });
 });
 
@@ -481,17 +486,20 @@ app.use((err, req, res, next) => {
 // Inicializar y arrancar servidor
 const PORT = process.env.PORT || 3000;
 
-async function startServer() {
+function startServer() {
   try {
-    await initializeDefaultUsers();
+    initializeSimpleUsers();
     
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`🚀 Servidor ejecutándose en puerto ${PORT}`);
-      console.log(`🌐 URL: https://tu-app.onrender.com`);
-      console.log("🔑 Credenciales de acceso:");
-      console.log("   👨‍💼 Admin: ADMIN001 / admin123");
-      console.log("   👷‍♂️ Empleado: EMP001 / emp123");
-      console.log("🔍 Para debugging visita: /test");
+      console.log("⚠️ MODO SIN ENCRIPTACIÓN - SOLO PARA TESTING");
+      console.log("🔑 Credenciales disponibles:");
+      console.log("   👨‍💼 ADMIN001 / password");
+      console.log("   👷‍♂️ EMP001 / password");
+      console.log("   👨‍💼 ADMIN002 / admin123");
+      console.log("   👷‍♂️ EMP002 / emp123");
+      console.log("🔍 Para ver usuarios: /test");
+      console.log("🔒 Recuerda agregar encriptación después!");
     });
   } catch (error) {
     console.error('💥 Error al iniciar el servidor:', error);
