@@ -40,6 +40,45 @@ const writeData = (data) => {
   }
 };
 
+// Función para inicializar usuarios por defecto
+const initializeDefaultUsers = async () => {
+  const data = readData();
+  
+  // Si no hay empleados, crear los por defecto
+  if (data.employees.length === 0) {
+    const adminPassword = await bcrypt.hash("password", 10);
+    const empPassword = await bcrypt.hash("password", 10);
+    
+    data.employees = [
+      {
+        id: 1,
+        employee_code: "ADMIN001",
+        name: "Administrador Principal",
+        role: "admin",
+        routes: [],
+        commission_rate: 0,
+        password: adminPassword,
+        created_at: new Date().toISOString()
+      },
+      {
+        id: 2,
+        employee_code: "EMP001",
+        name: "Juan Pérez",
+        role: "employee",
+        routes: ["Zona Norte", "Centro"],
+        commission_rate: 0.05,
+        password: empPassword,
+        created_at: new Date().toISOString()
+      }
+    ];
+    
+    writeData(data);
+    console.log("Usuarios por defecto creados:");
+    console.log("Admin: ADMIN001 / password");
+    console.log("Empleado: EMP001 / password");
+  }
+};
+
 // Middleware de autenticación
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
@@ -70,26 +109,48 @@ app.use(express.static(path.join(__dirname, 'frontend')));
 
 // ========== AUTENTICACIÓN ==========
 app.post("/auth/login", async (req, res) => {
-  const { employee_code, password } = req.body;
-  const data = readData();
-  
-  const employee = data.employees.find(emp => emp.employee_code === employee_code);
-  if (!employee) {
-    return res.status(401).json({ message: 'Credenciales inválidas' });
+  try {
+    const { employee_code, password } = req.body;
+    
+    if (!employee_code || !password) {
+      return res.status(400).json({ message: 'Código de empleado y contraseña son requeridos' });
+    }
+    
+    const data = readData();
+    
+    const employee = data.employees.find(emp => emp.employee_code === employee_code);
+    if (!employee) {
+      return res.status(401).json({ message: 'Credenciales inválidas' });
+    }
+
+    const validPassword = await bcrypt.compare(password, employee.password);
+    if (!validPassword) {
+      return res.status(401).json({ message: 'Credenciales inválidas' });
+    }
+
+    const token = jwt.sign(
+      { 
+        id: employee.id, 
+        employee_code: employee.employee_code, 
+        role: employee.role 
+      },
+      JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    res.json({ 
+      token, 
+      user: { 
+        id: employee.id, 
+        name: employee.name, 
+        role: employee.role,
+        employee_code: employee.employee_code
+      } 
+    });
+  } catch (error) {
+    console.error('Error en login:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
   }
-
-  const validPassword = await bcrypt.compare(password, employee.password);
-  if (!validPassword) {
-    return res.status(401).json({ message: 'Credenciales inválidas' });
-  }
-
-  const token = jwt.sign(
-    { id: employee.id, employee_code: employee.employee_code, role: employee.role },
-    JWT_SECRET,
-    { expiresIn: '24h' }
-  );
-
-  res.json({ token, user: { id: employee.id, name: employee.name, role: employee.role } });
 });
 
 // ========== PRODUCTOS (Solo Admin) ==========
@@ -407,8 +468,22 @@ app.use((err, req, res, next) => {
   res.status(500).json({ message: 'Error interno del servidor' });
 });
 
+// Inicializar usuarios por defecto al arrancar
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server listening on port ${PORT}`);
-  console.log("Sistema de Aceites de Motor API iniciado");
-});
+
+async function startServer() {
+  try {
+    await initializeDefaultUsers();
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`Server listening on port ${PORT}`);
+      console.log("Sistema de Aceites de Motor API iniciado");
+      console.log("Usuarios disponibles:");
+      console.log("- Admin: ADMIN001 / password");
+      console.log("- Empleado: EMP001 / password");
+    });
+  } catch (error) {
+    console.error('Error al iniciar el servidor:', error);
+  }
+}
+
+startServer();
