@@ -1,11 +1,14 @@
-// Configuración de la API
+// Configuración de la API para Render
 const API_BASE_URL = window.location.hostname === 'localhost' 
   ? 'http://localhost:3000' 
-  : '';
+  : window.location.origin; // Para Render usa el mismo origen
 
 // Función para hacer login
 async function login(employeeCode, password) {
     try {
+        console.log('🔄 Intentando login con:', employeeCode);
+        console.log('🔗 URL de API:', `${API_BASE_URL}/auth/login`);
+        
         const response = await fetch(`${API_BASE_URL}/auth/login`, {
             method: 'POST',
             headers: {
@@ -17,12 +20,16 @@ async function login(employeeCode, password) {
             })
         });
 
+        console.log('📡 Respuesta del servidor:', response.status);
         const data = await response.json();
+        console.log('📄 Datos recibidos:', data);
 
         if (response.ok) {
             // Guardar token y datos del usuario
             localStorage.setItem('token', data.token);
             localStorage.setItem('user', JSON.stringify(data.user));
+            
+            console.log('✅ Login exitoso, redirigiendo...');
             
             // Redirigir según el rol
             if (data.user.role === 'admin') {
@@ -32,10 +39,18 @@ async function login(employeeCode, password) {
             }
         } else {
             showError(data.message || 'Error de autenticación');
+            console.error('❌ Error de login:', data.message);
         }
     } catch (error) {
-        showError('Error de conexión. Verifica que el servidor esté funcionando.');
-        console.error('Error:', error);
+        const errorMsg = 'Error de conexión. Verifica que el servidor esté funcionando.';
+        showError(errorMsg);
+        console.error('💥 Error de conexión:', error);
+        
+        // Mostrar información adicional para debugging
+        console.log('🔍 Información de debugging:');
+        console.log('- URL actual:', window.location.href);
+        console.log('- API URL:', API_BASE_URL);
+        console.log('- Hostname:', window.location.hostname);
     }
 }
 
@@ -52,11 +67,20 @@ function checkAuth() {
     const user = localStorage.getItem('user');
     
     if (!token || !user) {
+        console.log('❌ No hay token o usuario, redirigiendo al login');
         window.location.href = '/';
         return null;
     }
     
-    return JSON.parse(user);
+    try {
+        return JSON.parse(user);
+    } catch (error) {
+        console.error('Error parsing user data:', error);
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/';
+        return null;
+    }
 }
 
 // Función para verificar si el usuario es admin
@@ -102,18 +126,44 @@ document.addEventListener('DOMContentLoaded', function() {
     const loginForm = document.getElementById('loginForm');
     
     if (loginForm) {
+        // Agregar valores por defecto para testing en Render
+        if (window.location.hostname !== 'localhost') {
+            const employeeCodeInput = document.getElementById('employee_code');
+            const passwordInput = document.getElementById('password');
+            
+            // Pre-llenar con credenciales de admin para facilitar testing
+            if (employeeCodeInput && !employeeCodeInput.value) {
+                employeeCodeInput.placeholder = 'ADMIN001 o EMP001';
+            }
+            if (passwordInput && !passwordInput.value) {
+                passwordInput.placeholder = 'admin123 o emp123';
+            }
+        }
+        
         loginForm.addEventListener('submit', async function(e) {
             e.preventDefault();
             
-            const employeeCode = document.getElementById('employee_code').value;
-            const password = document.getElementById('password').value;
+            const employeeCode = document.getElementById('employee_code').value.trim();
+            const password = document.getElementById('password').value.trim();
             
             if (!employeeCode || !password) {
                 showError('Por favor, completa todos los campos');
                 return;
             }
             
-            await login(employeeCode, password);
+            // Deshabilitar el botón mientras se procesa
+            const submitBtn = loginForm.querySelector('button[type="submit"]');
+            const originalText = submitBtn.textContent;
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Iniciando sesión...';
+            
+            try {
+                await login(employeeCode, password);
+            } finally {
+                // Re-habilitar el botón
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalText;
+            }
         });
     }
 
@@ -126,6 +176,18 @@ document.addEventListener('DOMContentLoaded', function() {
             if (userNameElement) {
                 userNameElement.textContent = user.name;
             }
+            
+            console.log('✅ Usuario autenticado:', user.name, '- Rol:', user.role);
         }
+    }
+    
+    // Agregar información de debugging en desarrollo
+    if (window.location.hostname !== 'localhost') {
+        console.log('🔍 Información de la aplicación:');
+        console.log('- Entorno: Render (Producción)');
+        console.log('- API Base URL:', API_BASE_URL);
+        console.log('- Credenciales disponibles:');
+        console.log('  👨‍💼 Admin: ADMIN001 / admin123');
+        console.log('  👷‍♂️ Empleado: EMP001 / emp123');
     }
 });
