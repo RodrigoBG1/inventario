@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mis Ventas - Sistema de Aceites</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="../css/employee.css">
+</head>
+<body>
+    <div class="employee-container">
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <h2>Panel Empleado</h2>
+                <span id="user-name"></span>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="dashboard.html">Inicio</a></li>
+                <li><a href="orders.html">Crear Pedido</a></li>
+                <li><a href="sales.html" class="active">Mis Ventas</a></li>
+                <li><a href="#" onclick="logout()">Cerrar Sesión</a></li>
+            </ul>
+        </nav>
+
+        <main class="main-content">
+            <header class="content-header">
+                <h1>Mis Ventas</h1>
+            </header>
+
+            <!-- Resumen de Ventas -->
+            <div class="sales-summary">
+                <div class="summary-grid">
+                    <div class="summary-item">
+                        <span class="summary-value" id="total-sales-count">0</span>
+                        <span class="summary-label">Total Ventas</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-value" id="total-sales-amount">$0</span>
+                        <span class="summary-label">Monto Total</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-value" id="monthly-sales-amount">$0</span>
+                        <span class="summary-label">Ventas del Mes</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-value" id="commission-amount">$0</span>
+                        <span class="summary-label">Comisiones</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filtros -->
+            <div class="sales-filters">
+                <div class="filter-group">
+                    <label>Desde:</label>
+                    <input type="date" id="filter-start-date">
+                </div>
+                <div class="filter-group">
+                    <label>Hasta:</label>
+                    <input type="date" id="filter-end-date">
+                </div>
+                <div class="filter-group">
+                    <label>Estado:</label>
+                    <select id="filter-status">
+                        <option value="">Todos</option>
+                        <option value="confirmed">Confirmadas</option>
+                        <option value="pending">Pendientes</option>
+                    </select>
+                </div>
+                <button class="btn btn-primary" onclick="filterSales()">
+                    🔍 Filtrar
+                </button>
+            </div>
+
+            <!-- Tabla de Ventas -->
+            <div class="sales-container">
+                <table id="sales-table">
+                    <thead>
+                        <tr>
+                            <th>Número</th>
+                            <th>Cliente</th>
+                            <th>Total</th>
+                            <th>Método Pago</th>
+                            <th>Fecha</th>
+                            <th>Comisión</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+
+            <!-- Mis Pedidos Pendientes -->
+            <div class="pending-orders">
+                <h3>Mis Pedidos Pendientes</h3>
+                <table id="pending-orders-table">
+                    <thead>
+                        <tr>
+                            <th>Número</th>
+                            <th>Cliente</th>
+                            <th>Total</th>
+                            <th>Estado</th>
+                            <th>Fecha</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal para detalles de venta -->
+    <div id="sale-details-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Detalles de Venta</h3>
+                <span class="close" onclick="closeSaleDetailsModal()">&times;</span>
+            </div>
+            <div id="sale-details-content"></div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeSaleDetailsModal()">
+                    Cerrar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="../js/api.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/employee.js"></script>
+</body>
+</html>

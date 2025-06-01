@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crear Pedido - Sistema de Aceites</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="../css/employee.css">
+</head>
+<body>
+    <div class="employee-container">
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <h2>Panel Empleado</h2>
+                <span id="user-name"></span>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="dashboard.html">Inicio</a></li>
+                <li><a href="orders.html" class="active">Crear Pedido</a></li>
+                <li><a href="sales.html">Mis Ventas</a></li>
+                <li><a href="#" onclick="logout()">Cerrar Sesión</a></li>
+            </ul>
+        </nav>
+
+        <main class="main-content">
+            <header class="content-header">
+                <h1>Nuevo Pedido</h1>
+                <div class="header-actions">
+                    <button id="location-btn" class="btn-location" onclick="getCurrentLocationForOrder()">
+                        📍 Obtener Ubicación
+                    </button>
+                    <span id="location-status"></span>
+                </div>
+            </header>
+
+            <div class="order-form-container">
+                <form id="order-form">
+                    <!-- Información del Cliente -->
+                    <div class="form-section">
+                        <h3>Información del Cliente</h3>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="client-name">Nombre del Cliente:</label>
+                                <input type="text" id="client-name" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="client-phone">Teléfono:</label>
+                                <input type="tel" id="client-phone">
+                            </div>
+                            <div class="form-group">
+                                <label for="client-address">Dirección:</label>
+                                <input type="text" id="client-address">
+                            </div>
+                            <div class="form-group">
+                                <label for="client-email">Email:</label>
+                                <input type="email" id="client-email">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Productos -->
+                    <div class="form-section">
+                        <h3>Productos</h3>
+                        <div class="products-selection">
+                            <div class="add-product">
+                                <select id="product-select">
+                                    <option value="">Seleccionar producto...</option>
+                                </select>
+                                <input type="number" id="product-quantity" placeholder="Cantidad" min="1">
+                                <button type="button" class="btn btn-primary" onclick="addProductToOrder()">
+                                    Agregar
+                                </button>
+                            </div>
+                            
+                            <div class="selected-products">
+                                <table id="order-products-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Producto</th>
+                                            <th>Precio</th>
+                                            <th>Cantidad</th>
+                                            <th>Subtotal</th>
+                                            <th>Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Foto del Pedido -->
+                    <div class="form-section">
+                        <h3>Foto del Pedido (Opcional)</h3>
+                        <div class="photo-upload">
+                            <input type="file" id="order-photo" accept="image/*" capture="camera">
+                            <div id="photo-preview"></div>
+                        </div>
+                    </div>
+
+                    <!-- Notas -->
+                    <div class="form-section">
+                        <h3>Notas Adicionales</h3>
+                        <div class="form-group">
+                            <textarea id="order-notes" rows="4" placeholder="Observaciones, instrucciones especiales, etc."></textarea>
+                        </div>
+                    </div>
+
+                    <!-- Total -->
+                    <div class="form-section">
+                        <div class="order-total">
+                            <h3>Total: <span id="order-total">$0.00</span></h3>
+                        </div>
+                    </div>
+
+                    <!-- Botones -->
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" onclick="clearOrder()">
+                            Limpiar
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            Crear Pedido
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </main>
+    </div>
+
+    <script src="../js/api.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/employee.js"></script>
+</body>
+</html>

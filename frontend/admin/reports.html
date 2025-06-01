@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reportes - Sistema de Aceites</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="../css/admin.css">
+</head>
+<body>
+    <div class="admin-container">
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <h2>Admin Panel</h2>
+                <span id="user-name"></span>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="dashboard.html">Dashboard</a></li>
+                <li><a href="products.html">Productos</a></li>
+                <li><a href="employees.html">Empleados</a></li>
+                <li><a href="orders.html">Pedidos</a></li>
+                <li><a href="reports.html" class="active">Reportes</a></li>
+                <li><a href="#" onclick="logout()">Cerrar Sesión</a></li>
+            </ul>
+        </nav>
+
+        <main class="main-content">
+            <header class="content-header">
+                <h1>Reportes y Estadísticas</h1>
+                <div class="date-filter">
+                    <input type="date" id="start-date">
+                    <input type="date" id="end-date">
+                    <button class="btn btn-primary" onclick="updateReports()">
+                        🔄 Actualizar
+                    </button>
+                </div>
+            </header>
+
+            <div class="reports-grid">
+                <!-- Ventas por Empleado -->
+                <div class="report-card">
+                    <h3>Ventas por Empleado</h3>
+                    <div id="sales-by-employee"></div>
+                </div>
+
+                <!-- Estado del Inventario -->
+                <div class="report-card">
+                    <h3>Estado del Inventario</h3>
+                    <div id="inventory-report"></div>
+                </div>
+
+                <!-- Productos Más Vendidos -->
+                <div class="report-card">
+                    <h3>Productos Más Vendidos</h3>
+                    <table id="top-products-table">
+                        <thead>
+                            <tr>
+                                <th>Producto</th>
+                                <th>Cantidad</th>
+                                <th>Total</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+
+                <!-- Ventas por Período -->
+                <div class="report-card">
+                    <h3>Ventas por Período</h3>
+                    <div class="period-stats">
+                        <div class="period-stat">
+                            <span class="period-label">Hoy:</span>
+                            <span class="period-value" id="today-sales">$0</span>
+                        </div>
+                        <div class="period-stat">
+                            <span class="period-label">Esta Semana:</span>
+                            <span class="period-value" id="week-sales">$0</span>
+                        </div>
+                        <div class="period-stat">
+                            <span class="period-label">Este Mes:</span>
+                            <span class="period-value" id="month-sales">$0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Gráfico simple de ventas mensuales -->
+            <div class="chart-container">
+                <h3>Ventas de los Últimos Meses</h3>
+                <div id="sales-chart" class="simple-chart">
+                    <!-- Implementación simple sin librerías externas -->
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="../js/api.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/admin.js"></script>
+</body>
+</html>
