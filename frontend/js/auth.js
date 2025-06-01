@@ -26,9 +26,9 @@ async function login(employeeCode, password) {
             
             // Redirigir según el rol
             if (data.user.role === 'admin') {
-                window.location.href = 'admin/dashboard.html';
+                window.location.href = '/admin/dashboard.html';
             } else {
-                window.location.href = 'employee/dashboard.html';
+                window.location.href = '/employee/dashboard.html';
             }
         } else {
             showError(data.message || 'Error de autenticación');
@@ -43,7 +43,7 @@ async function login(employeeCode, password) {
 function logout() {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
-    window.location.href = '../index.html';
+    window.location.href = '/';
 }
 
 // Función para verificar si el usuario está autenticado
@@ -52,7 +52,7 @@ function checkAuth() {
     const user = localStorage.getItem('user');
     
     if (!token || !user) {
-        window.location.href = '../index.html';
+        window.location.href = '/';
         return null;
     }
     
@@ -64,7 +64,7 @@ function requireAdmin() {
     const user = checkAuth();
     if (!user || user.role !== 'admin') {
         alert('Acceso denegado. Se requieren permisos de administrador.');
-        window.location.href = '../index.html';
+        window.location.href = '/';
         return false;
     }
     return true;

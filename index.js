@@ -348,30 +348,48 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, 'frontend/index.html'));
 });
 
-// Rutas para las páginas de admin
-app.get("/admin/*", (req, res) => {
-  const page = req.path.replace('/admin/', '');
-  const filePath = path.join(__dirname, `frontend/admin/${page}`);
-  
-  // Verificar si el archivo existe
-  if (fs.existsSync(filePath)) {
-    res.sendFile(filePath);
-  } else {
-    res.sendFile(path.join(__dirname, 'frontend/admin/dashboard.html'));
-  }
+// Rutas específicas para admin
+app.get("/admin/dashboard.html", (req, res) => {
+  res.sendFile(path.join(__dirname, 'frontend/admin/dashboard.html'));
 });
 
-// Rutas para las páginas de empleados
-app.get("/employee/*", (req, res) => {
-  const page = req.path.replace('/employee/', '');
-  const filePath = path.join(__dirname, `frontend/employee/${page}`);
-  
-  // Verificar si el archivo existe
-  if (fs.existsSync(filePath)) {
-    res.sendFile(filePath);
-  } else {
-    res.sendFile(path.join(__dirname, 'frontend/employee/dashboard.html'));
-  }
+app.get("/admin/products.html", (req, res) => {
+  res.sendFile(path.join(__dirname, 'frontend/admin/products.html'));
+});
+
+app.get("/admin/employees.html", (req, res) => {
+  res.sendFile(path.join(__dirname, 'frontend/admin/employees.html'));
+});
+
+app.get("/admin/orders.html", (req, res) => {
+  res.sendFile(path.join(__dirname, 'frontend/admin/orders.html'));
+});
+
+app.get("/admin/reports.html", (req, res) => {
+  res.sendFile(path.join(__dirname, 'frontend/admin/reports.html'));
+});
+
+// Rutas específicas para empleados
+app.get("/employee/dashboard.html", (req, res) => {
+  res.sendFile(path.join(__dirname, 'frontend/employee/dashboard.html'));
+});
+
+app.get("/employee/orders.html", (req, res) => {
+  res.sendFile(path.join(__dirname, 'frontend/employee/orders.html'));
+});
+
+app.get("/employee/sales.html", (req, res) => {
+  res.sendFile(path.join(__dirname, 'frontend/employee/sales.html'));
+});
+
+// Ruta catch-all para admin (debe ir al final)
+app.get("/admin", (req, res) => {
+  res.redirect("/admin/dashboard.html");
+});
+
+// Ruta catch-all para employee (debe ir al final)
+app.get("/employee", (req, res) => {
+  res.redirect("/employee/dashboard.html");
 });
 
 // API status para verificar que funciona
