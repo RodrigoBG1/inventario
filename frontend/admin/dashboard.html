@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel Administrador - Sistema de Aceites</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="../css/admin.css">
+</head>
+<body>
+    <div class="admin-container">
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <h2>Admin Panel</h2>
+                <span id="user-name"></span>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="dashboard.html" class="active">Dashboard</a></li>
+                <li><a href="products.html">Productos</a></li>
+                <li><a href="employees.html">Empleados</a></li>
+                <li><a href="orders.html">Pedidos</a></li>
+                <li><a href="reports.html">Reportes</a></li>
+                <li><a href="#" onclick="logout()">Cerrar Sesión</a></li>
+            </ul>
+        </nav>
+
+        <main class="main-content">
+            <header class="content-header">
+                <h1>Dashboard</h1>
+            </header>
+
+            <div class="dashboard-stats">
+                <div class="stat-card">
+                    <h3>Productos en Stock</h3>
+                    <span id="total-products" class="stat-number">0</span>
+                </div>
+                <div class="stat-card">
+                    <h3>Pedidos Pendientes</h3>
+                    <span id="pending-orders" class="stat-number">0</span>
+                </div>
+                <div class="stat-card">
+                    <h3>Ventas del Mes</h3>
+                    <span id="monthly-sales" class="stat-number">$0</span>
+                </div>
+                <div class="stat-card">
+                    <h3>Empleados Activos</h3>
+                    <span id="active-employees" class="stat-number">0</span>
+                </div>
+            </div>
+
+            <div class="dashboard-content">
+                <div class="recent-orders">
+                    <h3>Pedidos Recientes</h3>
+                    <table id="recent-orders-table">
+                        <thead>
+                            <tr>
+                                <th>Número</th>
+                                <th>Empleado</th>
+                                <th>Total</th>
+                                <th>Estado</th>
+                                <th>Fecha</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+
+                <div class="low-stock">
+                    <h3>Productos con Stock Bajo</h3>
+                    <table id="low-stock-table">
+                        <thead>
+                            <tr>
+                                <th>Código</th>
+                                <th>Producto</th>
+                                <th>Stock</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="../js/api.js"></script>
+    <script src="../js/admin.js"></script>
+</body>
+</html>

@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel Empleado - Sistema de Aceites</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="../css/employee.css">
+</head>
+<body>
+    <div class="employee-container">
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <h2>Panel Empleado</h2>
+                <span id="user-name"></span>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="dashboard.html" class="active">Inicio</a></li>
+                <li><a href="orders.html">Crear Pedido</a></li>
+                <li><a href="sales.html">Mis Ventas</a></li>
+                <li><a href="#" onclick="logout()">Cerrar Sesión</a></li>
+            </ul>
+        </nav>
+
+        <main class="main-content">
+            <header class="content-header">
+                <h1>Bienvenido</h1>
+                <button id="location-btn" class="btn-location" onclick="getCurrentLocation()">
+                    📍 Obtener Ubicación
+                </button>
+            </header>
+
+            <div class="employee-stats">
+                <div class="stat-card">
+                    <h3>Mis Pedidos Hoy</h3>
+                    <span id="today-orders" class="stat-number">0</span>
+                </div>
+                <div class="stat-card">
+                    <h3>Ventas del Mes</h3>
+                    <span id="monthly-sales" class="stat-number">$0</span>
+                </div>
+                <div class="stat-card">
+                    <h3>Comisiones</h3>
+                    <span id="commissions" class="stat-number">$0</span>
+                </div>
+            </div>
+
+            <div class="quick-actions">
+                <h3>Acciones Rápidas</h3>
+                <div class="action-buttons">
+                    <button class="btn-action" onclick="window.location.href='orders.html'">
+                        📝 Nuevo Pedido
+                    </button>
+                    <button class="btn-action" onclick="window.location.href='sales.html'">
+                        📊 Ver Ventas
+                    </button>
+                    <button class="btn-action" onclick="viewProducts()">
+                        📦 Ver Productos
+                    </button>
+                </div>
+            </div>
+
+            <div class="recent-activity">
+                <h3>Actividad Reciente</h3>
+                <div id="recent-activity-list">
+                    <!-- Se llena dinámicamente -->
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="../js/api.js"></script>
+    <script src="../js/employee.js"></script>
+</body>
+</html>
