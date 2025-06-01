@@ -21,7 +21,7 @@
       "role": "admin",
       "routes": [],
       "commission_rate": 0,
-      "password": "$2b$10$8QvJYhCwEQ2y2dYfxD5Jne8rPzf2jmW7YHxzqGj5g8h9i1j2k3l4m5",
+      "password": "password",
       "created_at": "2025-06-01T00:00:00.000Z"
     },
     {
@@ -31,7 +31,7 @@
       "role": "employee",
       "routes": ["Zona Norte", "Centro"],
       "commission_rate": 0.05,
-      "password": "$2b$10$8QvJYhCwEQ2y2dYfxD5Jne8rPzf2jmW7YHxzqGj5g8h9i1j2k3l4m5",
+      "password": "password",
       "created_at": "2025-06-01T00:00:00.000Z"
     }
   ],
