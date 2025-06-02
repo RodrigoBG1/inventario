@@ -10,16 +10,15 @@ const app = express();
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// CORS mejorado
+// CORS simplificado para Express 4.x
 app.use((req, res, next) => {
-  const origin = req.headers.origin;
+  const origin = req.get('origin');
   
-  // En desarrollo, permitir localhost
-  if (req.headers.host && req.headers.host.includes('localhost')) {
-    res.header('Access-Control-Allow-Origin', origin || '*');
+  // Permitir el origen de la request o usar wildcard en desarrollo
+  if (process.env.NODE_ENV === 'production') {
+    res.header('Access-Control-Allow-Origin', origin || req.get('host'));
   } else {
-    // En producción, usar el mismo origen
-    res.header('Access-Control-Allow-Origin', origin || req.headers.host);
+    res.header('Access-Control-Allow-Origin', '*');
   }
   
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
@@ -56,7 +55,7 @@ if (supabaseUrl && supabaseServiceKey) {
   console.log('⚠️ Supabase no configurado - usando datos en memoria');
 }
 
-// Base de datos de respaldo (si Supabase no está disponible)
+// Base de datos de respaldo
 const fallbackDatabase = {
   products: [
     {
@@ -109,7 +108,7 @@ async function getProducts() {
         .order('created_at', { ascending: false });
       
       if (error) throw error;
-      return data;
+      return data || [];
     } catch (error) {
       console.error('Error getting products from Supabase:', error);
       return fallbackDatabase.products;
@@ -126,7 +125,7 @@ async function getEmployees() {
         .select('id, employee_code, name, role, routes, commission_rate, created_at');
       
       if (error) throw error;
-      return data;
+      return data || [];
     } catch (error) {
       console.error('Error getting employees from Supabase:', error);
       return fallbackDatabase.employees.map(emp => {
@@ -173,6 +172,7 @@ async function createProduct(productData) {
       return data;
     } catch (error) {
       console.error('Error creating product in Supabase:', error);
+      // Fallback a memoria si falla Supabase
     }
   }
   
@@ -199,10 +199,11 @@ async function updateProduct(id, productData) {
       return data;
     } catch (error) {
       console.error('Error updating product in Supabase:', error);
+      // Fallback a memoria si falla Supabase
     }
   }
   
-  const index = fallbackDatabase.products.findIndex(p => p.id === id);
+  const index = fallbackDatabase.products.findIndex(p => p.id === parseInt(id));
   if (index === -1) throw new Error('Producto no encontrado');
   
   fallbackDatabase.products[index] = { ...fallbackDatabase.products[index], ...productData };
@@ -221,10 +222,11 @@ async function deleteProduct(id) {
       return { message: 'Producto eliminado' };
     } catch (error) {
       console.error('Error deleting product in Supabase:', error);
+      // Fallback a memoria si falla Supabase
     }
   }
   
-  const index = fallbackDatabase.products.findIndex(p => p.id === id);
+  const index = fallbackDatabase.products.findIndex(p => p.id === parseInt(id));
   if (index === -1) throw new Error('Producto no encontrado');
   
   fallbackDatabase.products.splice(index, 1);
@@ -243,7 +245,7 @@ async function getOrders(employeeId = null, role = null) {
       const { data, error } = await query.order('created_at', { ascending: false });
       
       if (error) throw error;
-      return data;
+      return data || [];
     } catch (error) {
       console.error('Error getting orders from Supabase:', error);
     }
@@ -269,6 +271,7 @@ async function createOrder(orderData) {
       return data;
     } catch (error) {
       console.error('Error creating order in Supabase:', error);
+      // Fallback a memoria si falla Supabase
     }
   }
   
@@ -293,7 +296,7 @@ async function getSales(employeeId = null, role = null) {
       const { data, error } = await query.order('created_at', { ascending: false });
       
       if (error) throw error;
-      return data;
+      return data || [];
     } catch (error) {
       console.error('Error getting sales from Supabase:', error);
     }
@@ -332,23 +335,11 @@ const adminOnly = (req, res, next) => {
 };
 
 // ========== ARCHIVOS ESTÁTICOS ==========
-// IMPORTANTE: Servir archivos estáticos ANTES de las rutas API
-app.use(express.static(path.join(__dirname, 'frontend'), {
-  setHeaders: (res, path, stat) => {
-    // Configurar headers para archivos JavaScript
-    if (path.endsWith('.js')) {
-      res.setHeader('Content-Type', 'application/javascript');
-    }
-    // Configurar headers para archivos CSS
-    if (path.endsWith('.css')) {
-      res.setHeader('Content-Type', 'text/css');
-    }
-  }
-}));
+app.use(express.static(path.join(__dirname, 'frontend')));
 
 // ========== RUTAS DE API ==========
 
-// Test
+// Test endpoint
 app.get("/test", async (req, res) => {
   try {
     const products = await getProducts();
@@ -377,6 +368,7 @@ app.get("/test", async (req, res) => {
       }))
     });
   } catch (error) {
+    console.error('Error in /test endpoint:', error);
     res.status(500).json({
       message: "Error en API",
       error: error.message,
@@ -385,7 +377,7 @@ app.get("/test", async (req, res) => {
   }
 });
 
-// Status
+// Status endpoint
 app.get("/api/status", async (req, res) => {
   try {
     const products = await getProducts();
@@ -405,6 +397,7 @@ app.get("/api/status", async (req, res) => {
       }
     });
   } catch (error) {
+    console.error('Error in /api/status endpoint:', error);
     res.status(500).json({
       status: 'ERROR',
       error: error.message
@@ -412,7 +405,7 @@ app.get("/api/status", async (req, res) => {
   }
 });
 
-// Login
+// Login endpoint
 app.post("/auth/login", async (req, res) => {
   try {
     console.log("🔐 Login attempt:", req.body.employee_code);
@@ -457,12 +450,13 @@ app.post("/auth/login", async (req, res) => {
   }
 });
 
-// Productos
+// API Routes - Productos
 app.get("/api/products", auth, async (req, res) => {
   try {
     const products = await getProducts();
     res.json(products);
   } catch (error) {
+    console.error('Error in GET /api/products:', error);
     res.status(500).json({ message: 'Error obteniendo productos', error: error.message });
   }
 });
@@ -472,6 +466,7 @@ app.post("/api/products", auth, adminOnly, async (req, res) => {
     const newProduct = await createProduct(req.body);
     res.json(newProduct);
   } catch (error) {
+    console.error('Error in POST /api/products:', error);
     res.status(500).json({ message: 'Error creando producto', error: error.message });
   }
 });
@@ -482,6 +477,7 @@ app.put("/api/products/:id", auth, adminOnly, async (req, res) => {
     const updatedProduct = await updateProduct(id, req.body);
     res.json(updatedProduct);
   } catch (error) {
+    console.error('Error in PUT /api/products/:id:', error);
     res.status(500).json({ message: 'Error actualizando producto', error: error.message });
   }
 });
@@ -492,26 +488,29 @@ app.delete("/api/products/:id", auth, adminOnly, async (req, res) => {
     const result = await deleteProduct(id);
     res.json(result);
   } catch (error) {
+    console.error('Error in DELETE /api/products/:id:', error);
     res.status(500).json({ message: 'Error eliminando producto', error: error.message });
   }
 });
 
-// Empleados
+// API Routes - Empleados
 app.get("/api/employees", auth, adminOnly, async (req, res) => {
   try {
     const employees = await getEmployees();
     res.json(employees);
   } catch (error) {
+    console.error('Error in GET /api/employees:', error);
     res.status(500).json({ message: 'Error obteniendo empleados', error: error.message });
   }
 });
 
-// Pedidos
+// API Routes - Pedidos
 app.get("/api/orders", auth, async (req, res) => {
   try {
     const orders = await getOrders(req.user.id, req.user.role);
     res.json(orders);
   } catch (error) {
+    console.error('Error in GET /api/orders:', error);
     res.status(500).json({ message: 'Error obteniendo pedidos', error: error.message });
   }
 });
@@ -529,21 +528,23 @@ app.post("/api/orders", auth, async (req, res) => {
     const newOrder = await createOrder(orderData);
     res.json(newOrder);
   } catch (error) {
+    console.error('Error in POST /api/orders:', error);
     res.status(500).json({ message: 'Error creando pedido', error: error.message });
   }
 });
 
-// Ventas
+// API Routes - Ventas
 app.get("/api/sales", auth, async (req, res) => {
   try {
     const sales = await getSales(req.user.id, req.user.role);
     res.json(sales);
   } catch (error) {
+    console.error('Error in GET /api/sales:', error);
     res.status(500).json({ message: 'Error obteniendo ventas', error: error.message });
   }
 });
 
-// Reportes
+// API Routes - Reportes
 app.get("/api/reports/sales-by-employee", auth, adminOnly, async (req, res) => {
   try {
     if (supabase) {
@@ -552,7 +553,7 @@ app.get("/api/reports/sales-by-employee", auth, adminOnly, async (req, res) => {
         .select('*');
       
       if (error) throw error;
-      res.json(data);
+      res.json(data || []);
     } else {
       // Fallback para datos en memoria
       const employees = await getEmployees();
@@ -571,6 +572,7 @@ app.get("/api/reports/sales-by-employee", auth, adminOnly, async (req, res) => {
       res.json(salesByEmployee);
     }
   } catch (error) {
+    console.error('Error in GET /api/reports/sales-by-employee:', error);
     res.status(500).json({ message: 'Error obteniendo reporte', error: error.message });
   }
 });
@@ -584,56 +586,61 @@ app.get("/api/reports/inventory", auth, adminOnly, async (req, res) => {
       movements: []
     });
   } catch (error) {
+    console.error('Error in GET /api/reports/inventory:', error);
     res.status(500).json({ message: 'Error obteniendo inventario', error: error.message });
   }
 });
 
 // ========== RUTAS DEL FRONTEND ==========
 
-// Página principal redirige al login
+// Página principal
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, 'frontend', 'index.html'));
 });
 
-// Rutas del frontend
-const routes = {
-  admin: ['dashboard.html', 'products.html', 'employees.html', 'orders.html', 'reports.html'],
-  employee: ['dashboard.html', 'orders.html', 'sales.html']
-};
+// Rutas específicas del frontend
+app.get("/admin/dashboard.html", (req, res) => {
+  res.sendFile(path.join(__dirname, 'frontend', 'admin', 'dashboard.html'));
+});
 
-Object.entries(routes).forEach(([type, routeList]) => {
-  routeList.forEach(route => {
-    app.get(`/${type}/${route}`, (req, res) => {
-      const filePath = path.join(__dirname, 'frontend', type, route);
-      res.sendFile(filePath, (err) => {
-        if (err) {
-          console.error(`Error serving ${type}/${route}:`, err);
-          res.status(404).send(`
-            <div style="font-family: Arial; max-width: 600px; margin: 50px auto; text-align: center;">
-              <h1>404 - Archivo no encontrado</h1>
-              <p><strong>Ruta:</strong> /${type}/${route}</p>
-              <p><strong>Archivo:</strong> ${filePath}</p>
-              <a href="/" style="background: #2563eb; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
-                🏠 Volver al Inicio
-              </a>
-            </div>
-          `);
-        }
-      });
-    });
-  });
+app.get("/admin/products.html", (req, res) => {
+  res.sendFile(path.join(__dirname, 'frontend', 'admin', 'products.html'));
+});
+
+app.get("/admin/employees.html", (req, res) => {
+  res.sendFile(path.join(__dirname, 'frontend', 'admin', 'employees.html'));
+});
+
+app.get("/admin/orders.html", (req, res) => {
+  res.sendFile(path.join(__dirname, 'frontend', 'admin', 'orders.html'));
+});
+
+app.get("/admin/reports.html", (req, res) => {
+  res.sendFile(path.join(__dirname, 'frontend', 'admin', 'reports.html'));
+});
+
+app.get("/employee/dashboard.html", (req, res) => {
+  res.sendFile(path.join(__dirname, 'frontend', 'employee', 'dashboard.html'));
+});
+
+app.get("/employee/orders.html", (req, res) => {
+  res.sendFile(path.join(__dirname, 'frontend', 'employee', 'orders.html'));
+});
+
+app.get("/employee/sales.html", (req, res) => {
+  res.sendFile(path.join(__dirname, 'frontend', 'employee', 'sales.html'));
 });
 
 // Redirects
 app.get("/admin", (req, res) => res.redirect("/admin/dashboard.html"));
 app.get("/employee", (req, res) => res.redirect("/employee/dashboard.html"));
 
-// Diagnóstico mejorado
+// Diagnóstico
 app.get("/diagnostic", (req, res) => {
   res.sendFile(path.join(__dirname, 'diagnostic.html'));
 });
 
-// Catch-all para 404
+// Catch-all para archivos no encontrados
 app.get("*", (req, res) => {
   res.status(404).send(`
     <div style="font-family: Arial; max-width: 600px; margin: 50px auto; text-align: center;">
@@ -664,14 +671,14 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Servidor iniciado en puerto ${PORT}`);
-  console.log(`📍 URL: ${process.env.NODE_ENV === 'production' ? 'https://tu-app.onrender.com' : `http://localhost:${PORT}`}`);
+  console.log(`📍 URL: ${process.env.NODE_ENV === 'production' ? `Puerto ${PORT}` : `http://localhost:${PORT}`}`);
   console.log(`🔑 Credenciales: ADMIN001 / password`);
   console.log(`🟢 Node.js: ${process.version}`);
   console.log(`🗄️ Base de datos: ${supabase ? 'Supabase (PostgreSQL)' : 'En memoria (fallback)'}`);
   console.log(`📦 Entorno: ${process.env.NODE_ENV || 'development'}`);
   
   if (supabase) {
-    console.log(`✅ Supabase conectado: ${supabaseUrl}`);
+    console.log(`✅ Supabase conectado`);
   } else {
     console.log(`⚠️ Supabase no configurado - usando datos en memoria`);
     console.log(`💡 Para configurar Supabase, agrega las variables SUPABASE_URL y SUPABASE_SERVICE_KEY`);
