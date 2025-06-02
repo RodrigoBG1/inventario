@@ -10,11 +10,21 @@ const app = express();
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// CORS
+// CORS mejorado
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
+  const origin = req.headers.origin;
+  
+  // En desarrollo, permitir localhost
+  if (req.headers.host && req.headers.host.includes('localhost')) {
+    res.header('Access-Control-Allow-Origin', origin || '*');
+  } else {
+    // En producción, usar el mismo origen
+    res.header('Access-Control-Allow-Origin', origin || req.headers.host);
+  }
+  
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  res.header('Access-Control-Allow-Credentials', 'true');
   
   if (req.method === 'OPTIONS') {
     return res.sendStatus(200);
@@ -30,15 +40,18 @@ const JWT_SECRET = process.env.JWT_SECRET || "aceites-motor-secret-key-2025";
 
 // Configuración de Supabase
 const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY; // Para operaciones admin
-const supabaseAnonKey = process.env.SUPABASE_ANON_KEY; // Para operaciones públicas
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
 
 let supabase = null;
 
 // Inicializar Supabase si las credenciales están disponibles
 if (supabaseUrl && supabaseServiceKey) {
-  supabase = createClient(supabaseUrl, supabaseServiceKey);
-  console.log('✅ Supabase conectado correctamente');
+  try {
+    supabase = createClient(supabaseUrl, supabaseServiceKey);
+    console.log('✅ Supabase conectado correctamente');
+  } catch (error) {
+    console.error('❌ Error conectando Supabase:', error);
+  }
 } else {
   console.log('⚠️ Supabase no configurado - usando datos en memoria');
 }
@@ -89,25 +102,38 @@ const fallbackDatabase = {
 // Funciones helper para manejar Supabase o fallback
 async function getProducts() {
   if (supabase) {
-    const { data, error } = await supabase
-      .from('products')
-      .select('*')
-      .order('created_at', { ascending: false });
-    
-    if (error) throw error;
-    return data;
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error getting products from Supabase:', error);
+      return fallbackDatabase.products;
+    }
   }
   return fallbackDatabase.products;
 }
 
 async function getEmployees() {
   if (supabase) {
-    const { data, error } = await supabase
-      .from('employees')
-      .select('id, employee_code, name, role, routes, commission_rate, created_at');
-    
-    if (error) throw error;
-    return data;
+    try {
+      const { data, error } = await supabase
+        .from('employees')
+        .select('id, employee_code, name, role, routes, commission_rate, created_at');
+      
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error getting employees from Supabase:', error);
+      return fallbackDatabase.employees.map(emp => {
+        const { password, ...employeeData } = emp;
+        return employeeData;
+      });
+    }
   }
   return fallbackDatabase.employees.map(emp => {
     const { password, ...employeeData } = emp;
@@ -117,28 +143,37 @@ async function getEmployees() {
 
 async function getEmployeeByCode(employee_code) {
   if (supabase) {
-    const { data, error } = await supabase
-      .from('employees')
-      .select('*')
-      .eq('employee_code', employee_code)
-      .single();
-    
-    if (error && error.code !== 'PGRST116') throw error;
-    return data;
+    try {
+      const { data, error } = await supabase
+        .from('employees')
+        .select('*')
+        .eq('employee_code', employee_code)
+        .single();
+      
+      if (error && error.code !== 'PGRST116') throw error;
+      return data;
+    } catch (error) {
+      console.error('Error getting employee by code from Supabase:', error);
+      return fallbackDatabase.employees.find(emp => emp.employee_code === employee_code);
+    }
   }
   return fallbackDatabase.employees.find(emp => emp.employee_code === employee_code);
 }
 
 async function createProduct(productData) {
   if (supabase) {
-    const { data, error } = await supabase
-      .from('products')
-      .insert([productData])
-      .select()
-      .single();
-    
-    if (error) throw error;
-    return data;
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .insert([productData])
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error creating product in Supabase:', error);
+    }
   }
   
   const newProduct = {
@@ -152,15 +187,19 @@ async function createProduct(productData) {
 
 async function updateProduct(id, productData) {
   if (supabase) {
-    const { data, error } = await supabase
-      .from('products')
-      .update(productData)
-      .eq('id', id)
-      .select()
-      .single();
-    
-    if (error) throw error;
-    return data;
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .update(productData)
+        .eq('id', id)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error updating product in Supabase:', error);
+    }
   }
   
   const index = fallbackDatabase.products.findIndex(p => p.id === id);
@@ -172,13 +211,17 @@ async function updateProduct(id, productData) {
 
 async function deleteProduct(id) {
   if (supabase) {
-    const { error } = await supabase
-      .from('products')
-      .delete()
-      .eq('id', id);
-    
-    if (error) throw error;
-    return { message: 'Producto eliminado' };
+    try {
+      const { error } = await supabase
+        .from('products')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+      return { message: 'Producto eliminado' };
+    } catch (error) {
+      console.error('Error deleting product in Supabase:', error);
+    }
   }
   
   const index = fallbackDatabase.products.findIndex(p => p.id === id);
@@ -190,16 +233,20 @@ async function deleteProduct(id) {
 
 async function getOrders(employeeId = null, role = null) {
   if (supabase) {
-    let query = supabase.from('orders').select('*');
-    
-    if (role !== 'admin' && employeeId) {
-      query = query.eq('employee_id', employeeId);
+    try {
+      let query = supabase.from('orders').select('*');
+      
+      if (role !== 'admin' && employeeId) {
+        query = query.eq('employee_id', employeeId);
+      }
+      
+      const { data, error } = await query.order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error getting orders from Supabase:', error);
     }
-    
-    const { data, error } = await query.order('created_at', { ascending: false });
-    
-    if (error) throw error;
-    return data;
   }
   
   let orders = fallbackDatabase.orders;
@@ -211,14 +258,18 @@ async function getOrders(employeeId = null, role = null) {
 
 async function createOrder(orderData) {
   if (supabase) {
-    const { data, error } = await supabase
-      .from('orders')
-      .insert([orderData])
-      .select()
-      .single();
-    
-    if (error) throw error;
-    return data;
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .insert([orderData])
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error creating order in Supabase:', error);
+    }
   }
   
   const newOrder = {
@@ -232,16 +283,20 @@ async function createOrder(orderData) {
 
 async function getSales(employeeId = null, role = null) {
   if (supabase) {
-    let query = supabase.from('sales').select('*');
-    
-    if (role !== 'admin' && employeeId) {
-      query = query.eq('employee_id', employeeId);
+    try {
+      let query = supabase.from('sales').select('*');
+      
+      if (role !== 'admin' && employeeId) {
+        query = query.eq('employee_id', employeeId);
+      }
+      
+      const { data, error } = await query.order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error getting sales from Supabase:', error);
     }
-    
-    const { data, error } = await query.order('created_at', { ascending: false });
-    
-    if (error) throw error;
-    return data;
   }
   
   let sales = fallbackDatabase.sales;
@@ -277,7 +332,19 @@ const adminOnly = (req, res, next) => {
 };
 
 // ========== ARCHIVOS ESTÁTICOS ==========
-app.use(express.static(path.join(__dirname, 'frontend')));
+// IMPORTANTE: Servir archivos estáticos ANTES de las rutas API
+app.use(express.static(path.join(__dirname, 'frontend'), {
+  setHeaders: (res, path, stat) => {
+    // Configurar headers para archivos JavaScript
+    if (path.endsWith('.js')) {
+      res.setHeader('Content-Type', 'application/javascript');
+    }
+    // Configurar headers para archivos CSS
+    if (path.endsWith('.css')) {
+      res.setHeader('Content-Type', 'text/css');
+    }
+  }
+}));
 
 // ========== RUTAS DE API ==========
 
@@ -380,12 +447,13 @@ app.post("/auth/login", async (req, res) => {
         id: employee.id, 
         name: employee.name, 
         role: employee.role,
-        employee_code: employee.employee_code
+        employee_code: employee.employee_code,
+        commission_rate: employee.commission_rate
       } 
     });
   } catch (error) {
     console.error('❌ Login error:', error);
-    res.status(500).json({ message: 'Error interno' });
+    res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
 
@@ -522,332 +590,9 @@ app.get("/api/reports/inventory", auth, adminOnly, async (req, res) => {
 
 // ========== RUTAS DEL FRONTEND ==========
 
-// Diagnóstico mejorado
-app.get("/diagnostic", (req, res) => {
-  res.send(`<!DOCTYPE html>
-<html>
-<head>
-    <title>🔧 Diagnóstico - Sistema de Aceites</title>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>
-        body { 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-            max-width: 900px; 
-            margin: 0 auto; 
-            padding: 20px; 
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-        }
-        .container { 
-            background: white; 
-            padding: 30px; 
-            border-radius: 15px; 
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2); 
-        }
-        h1 { 
-            color: #2563eb; 
-            text-align: center; 
-            margin-bottom: 30px;
-            font-size: 2.5rem;
-        }
-        .status-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
-            margin: 30px 0;
-        }
-        .status-card {
-            background: #f8fafc;
-            padding: 20px;
-            border-radius: 10px;
-            border-left: 5px solid #2563eb;
-        }
-        .status-card h3 {
-            margin: 0 0 10px 0;
-            color: #1e40af;
-        }
-        .status-value {
-            font-size: 1.5rem;
-            font-weight: bold;
-            color: #059669;
-        }
-        .status-supabase {
-            background: linear-gradient(45deg, #10b981, #059669);
-            color: white;
-        }
-        .status-supabase .status-value {
-            color: white;
-        }
-        button { 
-            background: linear-gradient(45deg, #2563eb, #3b82f6);
-            color: white; 
-            border: none; 
-            padding: 12px 24px; 
-            border-radius: 8px; 
-            margin: 8px; 
-            cursor: pointer; 
-            font-size: 14px;
-            font-weight: 500;
-            transition: all 0.3s;
-        }
-        button:hover { 
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(37, 99, 235, 0.4);
-        }
-        .result { 
-            margin: 10px 0; 
-            padding: 15px; 
-            border-radius: 8px; 
-            font-family: 'Courier New', monospace; 
-            white-space: pre-wrap; 
-            border-left: 4px solid #3b82f6;
-        }
-        .success { 
-            background: #ecfdf5; 
-            color: #065f46; 
-            border-left-color: #10b981; 
-        }
-        .error { 
-            background: #fef2f2; 
-            color: #991b1b; 
-            border-left-color: #ef4444; 
-        }
-        .info { 
-            background: #eff6ff; 
-            color: #1e40af; 
-            border-left-color: #3b82f6; 
-        }
-        .actions {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
-            margin: 20px 0;
-        }
-        .credentials {
-            background: #fef3c7;
-            border: 1px solid #f59e0b;
-            border-radius: 8px;
-            padding: 15px;
-            margin: 20px 0;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>🔧 Diagnóstico del Sistema</h1>
-        
-        <div class="status-grid">
-            <div class="status-card">
-                <h3>🌐 Servidor</h3>
-                <div class="status-value">✅ Activo</div>
-                <small>Node.js ${process.version}</small>
-            </div>
-            <div class="status-card ${supabase ? 'status-supabase' : ''}">
-                <h3>🗄️ Base de Datos</h3>
-                <div class="status-value">${supabase ? '✅ Supabase' : '⚠️ Memoria'}</div>
-                <small>${supabase ? 'PostgreSQL conectado' : 'Datos temporales'}</small>
-            </div>
-            <div class="status-card">
-                <h3>🔑 Autenticación</h3>
-                <div class="status-value">✅ JWT</div>
-                <small>Tokens seguros</small>
-            </div>
-            <div class="status-card">
-                <h3>📡 API</h3>
-                <div class="status-value">✅ REST</div>
-                <small>Express 4.x</small>
-            </div>
-        </div>
-        
-        <div class="credentials">
-            <h3>🔑 Credenciales de Prueba:</h3>
-            <p><strong>👨‍💼 Administrador:</strong> ADMIN001 / password</p>
-            <p><strong>👷‍♂️ Empleado:</strong> EMP001 / password</p>
-        </div>
-        
-        <div class="actions">
-            <button onclick="testAPI()">🔍 Probar API</button>
-            <button onclick="testSupabase()">🗄️ Test Supabase</button>
-            <button onclick="testLogin()">🔑 Probar Login</button>
-            <button onclick="testProducts()">📦 Probar Productos</button>
-            <button onclick="testCreateProduct()">➕ Crear Producto</button>
-        </div>
-        
-        <div id="results"></div>
-    </div>
-    <script>
-        const BASE_URL = window.location.origin;
-        
-        function addResult(msg, type) {
-            const div = document.createElement('div');
-            div.className = 'result ' + type;
-            div.textContent = '[' + new Date().toLocaleTimeString() + '] ' + msg;
-            document.getElementById('results').appendChild(div);
-            document.getElementById('results').scrollTop = document.getElementById('results').scrollHeight;
-        }
-        
-        async function testAPI() {
-            addResult('🔍 Probando conexión API...', 'info');
-            try {
-                const res = await fetch(BASE_URL + '/test');
-                const data = await res.json();
-                addResult('✅ ' + data.message, 'success');
-                addResult('📊 Base de datos: ' + data.database.type + ' (' + data.database.products + ' productos)', 'info');
-                addResult('🔗 Supabase: ' + data.supabase.status, data.database.connected ? 'success' : 'error');
-            } catch (e) {
-                addResult('❌ Error API: ' + e.message, 'error');
-            }
-        }
-        
-        async function testSupabase() {
-            addResult('🗄️ Probando conexión Supabase...', 'info');
-            try {
-                const res = await fetch(BASE_URL + '/api/status');
-                const data = await res.json();
-                if (data.database.type === 'Supabase') {
-                    addResult('✅ Supabase conectado correctamente', 'success');
-                    addResult('📊 Datos: ' + data.database.products + ' productos, ' + data.database.employees + ' empleados', 'info');
-                } else {
-                    addResult('⚠️ Supabase no configurado, usando datos en memoria', 'error');
-                }
-            } catch (e) {
-                addResult('❌ Error Supabase: ' + e.message, 'error');
-            }
-        }
-        
-        async function testLogin() {
-            addResult('🔑 Probando login ADMIN001...', 'info');
-            try {
-                const res = await fetch(BASE_URL + '/auth/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ employee_code: 'ADMIN001', password: 'password' })
-                });
-                const data = await res.json();
-                if (res.ok) {
-                    addResult('✅ Login exitoso: ' + data.user.name + ' (' + data.user.role + ')', 'success');
-                    window.testToken = data.token;
-                } else {
-                    addResult('❌ Login falló: ' + data.message, 'error');
-                }
-            } catch (e) {
-                addResult('❌ Error login: ' + e.message, 'error');
-            }
-        }
-        
-        async function testProducts() {
-            if (!window.testToken) {
-                addResult('⚠️ Primero ejecuta "Probar Login"', 'error');
-                return;
-            }
-            addResult('📦 Cargando productos...', 'info');
-            try {
-                const res = await fetch(BASE_URL + '/api/products', {
-                    headers: { 'Authorization': 'Bearer ' + window.testToken }
-                });
-                const data = await res.json();
-                if (res.ok) {
-                    addResult('✅ Productos cargados: ' + data.length + ' productos encontrados', 'success');
-                    if (data.length > 0) {
-                        addResult('📦 Productos: ' + data.map(p => p.name).join(', '), 'info');
-                    }
-                } else {
-                    addResult('❌ Error productos: ' + data.message, 'error');
-                }
-            } catch (e) {
-                addResult('❌ Error productos: ' + e.message, 'error');
-            }
-        }
-        
-        async function testCreateProduct() {
-            if (!window.testToken) {
-                addResult('⚠️ Primero ejecuta "Probar Login"', 'error');
-                return;
-            }
-            
-            const testProduct = {
-                code: 'TEST' + Date.now(),
-                name: 'Aceite de Prueba',
-                brand: 'Test Brand',
-                viscosity: '10W-30',
-                capacity: '1L',
-                stock: 10,
-                price: 30.00,
-                cost: 22.00
-            };
-            
-            addResult('➕ Creando producto de prueba...', 'info');
-            try {
-                const res = await fetch(BASE_URL + '/api/products', {
-                    method: 'POST',
-                    headers: { 
-                        'Authorization': 'Bearer ' + window.testToken,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(testProduct)
-                });
-                const data = await res.json();
-                if (res.ok) {
-                    addResult('✅ Producto creado: ' + data.name + ' (ID: ' + data.id + ')', 'success');
-                } else {
-                    addResult('❌ Error creando producto: ' + data.message, 'error');
-                }
-            } catch (e) {
-                addResult('❌ Error crear producto: ' + e.message, 'error');
-            }
-        }
-        
-        // Auto-test al cargar
-        setTimeout(testAPI, 500);
-    </script>
-</body>
-</html>`);
-});
-
-// Página principal
+// Página principal redirige al login
 app.get("/", (req, res) => {
-  res.send(`
-    <div style="font-family: Arial; max-width: 700px; margin: 50px auto; text-align: center; padding: 20px;">
-      <h1 style="color: #2563eb;">🛢️ Sistema de Aceites v2.0</h1>
-      <div style="background: ${supabase ? '#f0fdf4' : '#fef3c7'}; padding: 20px; border-radius: 10px; margin: 20px 0; border-left: 4px solid ${supabase ? '#10b981' : '#f59e0b'};">
-        <h2 style="color: ${supabase ? '#065f46' : '#92400e'}; margin-top: 0;">${supabase ? '✅ Supabase Conectado' : '⚠️ Modo Desarrollo'}</h2>
-        <p><strong>Node.js:</strong> ${process.version}</p>
-        <p><strong>Base de datos:</strong> ${supabase ? 'Supabase (PostgreSQL)' : 'En memoria'}</p>
-        <p><strong>Estado:</strong> ${supabase ? 'Producción lista' : 'Datos temporales'}</p>
-      </div>
-      
-      <div style="margin: 30px 0;">
-        <a href="/diagnostic" style="background: #2563eb; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; margin: 10px; display: inline-block; font-weight: bold;">
-          🔧 Diagnóstico Completo
-        </a>
-        <a href="/admin/dashboard.html" style="background: #059669; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; margin: 10px; display: inline-block; font-weight: bold;">
-          👨‍💼 Panel Admin
-        </a>
-        <a href="/employee/dashboard.html" style="background: #7c3aed; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; margin: 10px; display: inline-block; font-weight: bold;">
-          👷‍♂️ Panel Empleado
-        </a>
-      </div>
-      
-      <div style="background: #fef3c7; padding: 20px; border-radius: 8px; margin-top: 30px; border-left: 4px solid #f59e0b;">
-        <h3 style="color: #92400e; margin-top: 0;">🔑 Credenciales de Prueba:</h3>
-        <p><strong>👨‍💼 Administrador:</strong> <code>ADMIN001</code> / <code>password</code></p>
-        <p><strong>👷‍♂️ Empleado:</strong> <code>EMP001</code> / <code>password</code></p>
-      </div>
-      
-      ${supabase ? `
-      <div style="background: #ecfdf5; padding: 15px; border-radius: 8px; margin-top: 20px; font-size: 14px;">
-        <p><strong>🎉 ¡Supabase configurado!</strong> Los datos se guardan permanentemente en PostgreSQL.</p>
-        <p>Puedes crear productos, empleados y pedidos sin perder información.</p>
-      </div>
-      ` : `
-      <div style="background: #e0f2fe; padding: 15px; border-radius: 8px; margin-top: 20px; font-size: 14px;">
-        <p><strong>💡 Nota:</strong> Datos en memoria. Para persistencia permanente, configura Supabase.</p>
-        <p>Los datos se reiniciarán cuando el servidor se reinicie.</p>
-      </div>
-      `}
-    </div>
-  `);
+  res.sendFile(path.join(__dirname, 'frontend', 'index.html'));
 });
 
 // Rutas del frontend
@@ -862,6 +607,7 @@ Object.entries(routes).forEach(([type, routeList]) => {
       const filePath = path.join(__dirname, 'frontend', type, route);
       res.sendFile(filePath, (err) => {
         if (err) {
+          console.error(`Error serving ${type}/${route}:`, err);
           res.status(404).send(`
             <div style="font-family: Arial; max-width: 600px; margin: 50px auto; text-align: center;">
               <h1>404 - Archivo no encontrado</h1>
@@ -881,6 +627,11 @@ Object.entries(routes).forEach(([type, routeList]) => {
 // Redirects
 app.get("/admin", (req, res) => res.redirect("/admin/dashboard.html"));
 app.get("/employee", (req, res) => res.redirect("/employee/dashboard.html"));
+
+// Diagnóstico mejorado
+app.get("/diagnostic", (req, res) => {
+  res.sendFile(path.join(__dirname, 'diagnostic.html'));
+});
 
 // Catch-all para 404
 app.get("*", (req, res) => {
@@ -913,7 +664,7 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Servidor iniciado en puerto ${PORT}`);
-  console.log(`📍 Diagnóstico: http://localhost:${PORT}/diagnostic`);
+  console.log(`📍 URL: ${process.env.NODE_ENV === 'production' ? 'https://tu-app.onrender.com' : `http://localhost:${PORT}`}`);
   console.log(`🔑 Credenciales: ADMIN001 / password`);
   console.log(`🟢 Node.js: ${process.version}`);
   console.log(`🗄️ Base de datos: ${supabase ? 'Supabase (PostgreSQL)' : 'En memoria (fallback)'}`);

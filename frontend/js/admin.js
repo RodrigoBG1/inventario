@@ -43,7 +43,9 @@ async function loadDashboardData() {
         // Verificar que las funciones estén disponibles
         if (typeof window.getProducts !== 'function') {
             console.error('❌ getProducts no está disponible');
-            showNotification('Error: Funciones de API no disponibles', 'error');
+            if (window.showNotification) {
+                window.showNotification('Error: Funciones de API no disponibles', 'error');
+            }
             return;
         }
         
@@ -76,11 +78,15 @@ async function loadDashboardData() {
         updateLowStock();
         
         console.log('✅ Dashboard cargado exitosamente');
-        showNotification('Dashboard cargado correctamente', 'success');
+        if (window.showNotification) {
+            window.showNotification('Dashboard cargado correctamente', 'success');
+        }
         
     } catch (error) {
         console.error('❌ Error loading dashboard:', error);
-        showNotification('Error al cargar el dashboard: ' + error.message, 'error');
+        if (window.showNotification) {
+            window.showNotification('Error al cargar el dashboard: ' + error.message, 'error');
+        }
     }
 }
 
@@ -194,7 +200,9 @@ async function loadProductsPage() {
         console.log('✅ Página de productos cargada');
     } catch (error) {
         console.error('❌ Error loading products page:', error);
-        showNotification('Error al cargar productos: ' + error.message, 'error');
+        if (window.showNotification) {
+            window.showNotification('Error al cargar productos: ' + error.message, 'error');
+        }
     }
 }
 
@@ -326,11 +334,15 @@ async function deleteProductConfirm(productId) {
     if (confirm(`¿Estás seguro de eliminar el producto "${product.name}"?`)) {
         try {
             await window.deleteProduct(productId);
-            showNotification('Producto eliminado exitosamente', 'success');
+            if (window.showNotification) {
+                window.showNotification('Producto eliminado exitosamente', 'success');
+            }
             loadProductsPage();
         } catch (error) {
             console.error('Error deleting product:', error);
-            showNotification('Error al eliminar producto: ' + error.message, 'error');
+            if (window.showNotification) {
+                window.showNotification('Error al eliminar producto: ' + error.message, 'error');
+            }
         }
     }
 }
@@ -356,17 +368,23 @@ document.addEventListener('DOMContentLoaded', function() {
             try {
                 if (currentEditingProduct) {
                     await window.updateProduct(currentEditingProduct, formData);
-                    showNotification('Producto actualizado exitosamente', 'success');
+                    if (window.showNotification) {
+                        window.showNotification('Producto actualizado exitosamente', 'success');
+                    }
                 } else {
                     await window.createProduct(formData);
-                    showNotification('Producto creado exitosamente', 'success');
+                    if (window.showNotification) {
+                        window.showNotification('Producto creado exitosamente', 'success');
+                    }
                 }
                 
                 closeProductModal();
                 loadProductsPage();
             } catch (error) {
                 console.error('Error saving product:', error);
-                showNotification('Error al guardar producto: ' + error.message, 'error');
+                if (window.showNotification) {
+                    window.showNotification('Error al guardar producto: ' + error.message, 'error');
+                }
             }
         });
     }
@@ -379,7 +397,9 @@ async function loadEmployeesPage() {
         displayEmployees();
     } catch (error) {
         console.error('Error loading employees:', error);
-        showNotification('Error al cargar empleados: ' + error.message, 'error');
+        if (window.showNotification) {
+            window.showNotification('Error al cargar empleados: ' + error.message, 'error');
+        }
     }
 }
 
@@ -413,7 +433,9 @@ async function loadOrdersPage() {
         displayOrders();
     } catch (error) {
         console.error('Error loading orders:', error);
-        showNotification('Error al cargar pedidos: ' + error.message, 'error');
+        if (window.showNotification) {
+            window.showNotification('Error al cargar pedidos: ' + error.message, 'error');
+        }
     }
 }
 
@@ -426,7 +448,7 @@ function displayOrders() {
             <td>${order.order_number}</td>
             <td>${order.employee_code}</td>
             <td>${order.client_info?.name || 'Sin cliente'}</td>
-            <td>${window.formatCurrency ? window.formatCurrency(order.total) : `$${order.total}`}</td>
+            <td>${window.formatCurrency ? window.formatCurrency(order.total) : `${order.total}`}</td>
             <td><span class="status-badge status-${order.status}">${order.status}</span></td>
             <td>${window.formatDate ? window.formatDate(order.created_at) : order.created_at}</td>
             <td>
@@ -457,11 +479,15 @@ async function confirmOrderModal(orderId) {
             };
             
             await window.confirmOrder(orderId, paymentInfo);
-            showNotification('Pedido confirmado exitosamente', 'success');
+            if (window.showNotification) {
+                window.showNotification('Pedido confirmado exitosamente', 'success');
+            }
             loadOrdersPage();
         } catch (error) {
             console.error('Error confirming order:', error);
-            showNotification('Error al confirmar pedido: ' + error.message, 'error');
+            if (window.showNotification) {
+                window.showNotification('Error al confirmar pedido: ' + error.message, 'error');
+            }
         }
     }
 }
@@ -494,7 +520,9 @@ async function loadReportsPage() {
         displayInventoryReport(inventoryData);
     } catch (error) {
         console.error('Error loading reports:', error);
-        showNotification('Error al cargar reportes: ' + error.message, 'error');
+        if (window.showNotification) {
+            window.showNotification('Error al cargar reportes: ' + error.message, 'error');
+        }
     }
 }
 

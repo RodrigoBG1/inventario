@@ -1,18 +1,18 @@
 // Funciones para interactuar con la API
 
-// Detectar si estamos en desarrollo o producción
+// CORREGIDO: Detectar API Base URL correctamente
 const API_BASE_URL = (() => {
     // En desarrollo local
     if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
         return 'http://localhost:3000';
     }
-    // Para Render y otros deployments - siempre usar el mismo origen
+    // Para Render y otros deployments - usar el mismo origen
     return window.location.origin;
 })();
 
-console.log('🔗 API Base URL (api.js):', API_BASE_URL);
+console.log('🔗 API Base URL detectada:', API_BASE_URL);
 
-// Función para obtener el token (definida aquí para evitar dependencias)
+// Función para obtener el token
 function getToken() {
     return localStorage.getItem('token');
 }
@@ -245,7 +245,7 @@ function handlePhotoUpload(file) {
     });
 }
 
-// Función para mostrar notificaciones mejorada
+// Función para mostrar notificaciones
 function showNotification(message, type = 'success') {
     console.log(`📢 Notification [${type}]:`, message);
     
@@ -290,7 +290,7 @@ function showNotification(message, type = 'success') {
     
     document.body.appendChild(notification);
     
-    // Remover después de 5 segundos (más tiempo para errores)
+    // Remover después de 5 segundos
     const timeout = type === 'error' ? 8000 : 4000;
     setTimeout(() => {
         if (notification.parentNode) {
