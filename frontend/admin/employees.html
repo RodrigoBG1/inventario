@@ -100,8 +100,106 @@
         </div>
     </div>
 
-    <script src="../js/api.js"></script>
+    <!-- Scripts en orden correcto -->
     <script src="../js/auth.js"></script>
+    <script src="../js/api.js"></script>
+    <script src="../js/admin.js"></script>
+</body>
+</html>
+
+<!-- ===================================== -->
+
+<!-- admin/orders.html -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pedidos - Sistema de Aceites</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="../css/admin.css">
+</head>
+<body>
+    <div class="admin-container">
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <h2>Admin Panel</h2>
+                <span id="user-name"></span>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="dashboard.html">Dashboard</a></li>
+                <li><a href="products.html">Productos</a></li>
+                <li><a href="employees.html">Empleados</a></li>
+                <li><a href="orders.html" class="active">Pedidos</a></li>
+                <li><a href="reports.html">Reportes</a></li>
+                <li><a href="#" onclick="logout()">Cerrar Sesión</a></li>
+            </ul>
+        </nav>
+
+        <main class="main-content">
+            <header class="content-header">
+                <h1>Gestión de Pedidos</h1>
+                <div class="filter-controls">
+                    <select id="status-filter" onchange="filterOrders()">
+                        <option value="">Todos los estados</option>
+                        <option value="hold">En espera</option>
+                        <option value="confirmed">Confirmados</option>
+                        <option value="cancelled">Cancelados</option>
+                    </select>
+                </div>
+            </header>
+
+            <div class="orders-container">
+                <table id="orders-table">
+                    <thead>
+                        <tr>
+                            <th>Número</th>
+                            <th>Empleado</th>
+                            <th>Cliente</th>
+                            <th>Total</th>
+                            <th>Estado</th>
+                            <th>Fecha</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal para confirmar pedido -->
+    <div id="confirm-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Confirmar Pedido</h3>
+                <span class="close" onclick="closeConfirmModal()">&times;</span>
+            </div>
+            <div id="order-details"></div>
+            <form id="confirm-form">
+                <div class="form-group">
+                    <label for="payment-method">Método de Pago:</label>
+                    <select id="payment-method" required>
+                        <option value="efectivo">Efectivo</option>
+                        <option value="tarjeta">Tarjeta</option>
+                        <option value="transferencia">Transferencia</option>
+                    </select>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeConfirmModal()">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-success">
+                        Confirmar Venta
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Scripts en orden correcto -->
+    <script src="../js/auth.js"></script>
+    <script src="../js/api.js"></script>
     <script src="../js/admin.js"></script>
 </body>
 </html>

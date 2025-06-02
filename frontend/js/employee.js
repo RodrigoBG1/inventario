@@ -52,7 +52,10 @@ function updateEmployeeStats() {
         new Date(order.created_at).toDateString() === today
     ).length;
     
-    document.getElementById('today-orders').textContent = todayOrders;
+    const todayOrdersElement = document.getElementById('today-orders');
+    if (todayOrdersElement) {
+        todayOrdersElement.textContent = todayOrders;
+    }
     
     // Ventas del mes
     const currentMonth = new Date().getMonth();
@@ -64,14 +67,20 @@ function updateEmployeeStats() {
         })
         .reduce((total, sale) => total + sale.total, 0);
     
-    document.getElementById('monthly-sales').textContent = formatCurrency(monthlySales);
+    const monthlySalesElement = document.getElementById('monthly-sales');
+    if (monthlySalesElement) {
+        monthlySalesElement.textContent = formatCurrency(monthlySales);
+    }
     
     // Calcular comisiones (ejemplo: 5% de las ventas)
     const user = getUser();
-    const commissionRate = 0.05; // Este debería venir de los datos del empleado
+    const commissionRate = user?.commission_rate || 0.05;
     const commissions = monthlySales * commissionRate;
     
-    document.getElementById('commissions').textContent = formatCurrency(commissions);
+    const commissionsElement = document.getElementById('commissions');
+    if (commissionsElement) {
+        commissionsElement.textContent = formatCurrency(commissions);
+    }
 }
 
 function updateRecentActivity() {
@@ -111,9 +120,13 @@ function updateRecentActivity() {
 }
 
 // ===== GEOLOCALIZACIÓN =====
-async function getCurrentLocationForOrder() {
+async function getCurrentLocationForEmployee() {
     const btn = document.getElementById('location-btn');
-    const status = document.getElementById('location-status');
+    
+    if (!btn) {
+        console.error('Botón de ubicación no encontrado');
+        return;
+    }
     
     try {
         btn.disabled = true;
@@ -124,7 +137,6 @@ async function getCurrentLocationForOrder() {
         
         btn.textContent = '📍 Ubicación Obtenida';
         btn.style.backgroundColor = '#059669';
-        status.textContent = `Lat: ${location.latitude.toFixed(6)}, Lng: ${location.longitude.toFixed(6)}`;
         
         showNotification('Ubicación obtenida exitosamente', 'success');
         
@@ -132,10 +144,53 @@ async function getCurrentLocationForOrder() {
         console.error('Error getting location:', error);
         btn.textContent = '📍 Error en Ubicación';
         btn.style.backgroundColor = '#dc2626';
-        status.textContent = 'Error al obtener ubicación';
-        showNotification('Error al obtener ubicación', 'error');
+        showNotification('Error al obtener ubicación: ' + error.message, 'error');
     } finally {
         btn.disabled = false;
+    }
+}
+
+async function getCurrentLocationForOrder() {
+    const btn = document.getElementById('location-btn');
+    const status = document.getElementById('location-status');
+    
+    try {
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = '📍 Obteniendo...';
+        }
+        
+        const location = await getCurrentLocation();
+        currentLocation = location;
+        
+        if (btn) {
+            btn.textContent = '📍 Ubicación Obtenida';
+            btn.style.backgroundColor = '#059669';
+        }
+        
+        if (status) {
+            status.textContent = `Lat: ${location.latitude.toFixed(6)}, Lng: ${location.longitude.toFixed(6)}`;
+        }
+        
+        showNotification('Ubicación obtenida exitosamente', 'success');
+        
+    } catch (error) {
+        console.error('Error getting location:', error);
+        
+        if (btn) {
+            btn.textContent = '📍 Error en Ubicación';
+            btn.style.backgroundColor = '#dc2626';
+        }
+        
+        if (status) {
+            status.textContent = 'Error al obtener ubicación';
+        }
+        
+        showNotification('Error al obtener ubicación: ' + error.message, 'error');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+        }
     }
 }
 
@@ -167,6 +222,11 @@ function addProductToOrder() {
     const select = document.getElementById('product-select');
     const quantityInput = document.getElementById('product-quantity');
     
+    if (!select || !quantityInput) {
+        showNotification('Elementos del formulario no encontrados', 'error');
+        return;
+    }
+    
     const productId = parseInt(select.value);
     const quantity = parseInt(quantityInput.value);
     
@@ -176,6 +236,11 @@ function addProductToOrder() {
     }
     
     const product = products.find(p => p.id === productId);
+    
+    if (!product) {
+        showNotification('Producto no encontrado', 'error');
+        return;
+    }
     
     if (quantity > product.stock) {
         showNotification(`Stock insuficiente. Disponible: ${product.stock}`, 'warning');
@@ -235,22 +300,35 @@ function updateOrderTotal() {
         sum + (product.price * product.quantity), 0
     );
     
-    document.getElementById('order-total').textContent = formatCurrency(total);
+    const totalElement = document.getElementById('order-total');
+    if (totalElement) {
+        totalElement.textContent = formatCurrency(total);
+    }
 }
 
 function clearOrder() {
     if (confirm('¿Estás seguro de limpiar el pedido?')) {
         orderProducts = [];
         updateOrderTable();
-        document.getElementById('order-form').reset();
+        
+        const form = document.getElementById('order-form');
+        if (form) {
+            form.reset();
+        }
+        
         currentLocation = null;
         
         const btn = document.getElementById('location-btn');
         const status = document.getElementById('location-status');
         
-        btn.textContent = '📍 Obtener Ubicación';
-        btn.style.backgroundColor = '#d97706';
-        status.textContent = '';
+        if (btn) {
+            btn.textContent = '📍 Obtener Ubicación';
+            btn.style.backgroundColor = '#d97706';
+        }
+        
+        if (status) {
+            status.textContent = '';
+        }
         
         showNotification('Pedido limpiado', 'success');
     }
@@ -270,21 +348,21 @@ function setupOrderForm() {
         
         const formData = {
             client_info: {
-                name: document.getElementById('client-name').value,
-                phone: document.getElementById('client-phone').value,
-                address: document.getElementById('client-address').value,
-                email: document.getElementById('client-email').value
+                name: document.getElementById('client-name')?.value || '',
+                phone: document.getElementById('client-phone')?.value || '',
+                address: document.getElementById('client-address')?.value || '',
+                email: document.getElementById('client-email')?.value || ''
             },
             products: orderProducts,
             location: currentLocation,
-            notes: document.getElementById('order-notes').value,
+            notes: document.getElementById('order-notes')?.value || '',
             total: orderProducts.reduce((sum, product) => 
                 sum + (product.price * product.quantity), 0
             )
         };
         
         // Manejar foto si existe
-        const photoFile = document.getElementById('order-photo').files[0];
+        const photoFile = document.getElementById('order-photo')?.files[0];
         if (photoFile) {
             try {
                 const photoBase64 = await handlePhotoUpload(photoFile);
@@ -312,7 +390,7 @@ function setupOrderForm() {
             
         } catch (error) {
             console.error('Error creating order:', error);
-            showNotification('Error al crear pedido', 'error');
+            showNotification('Error al crear pedido: ' + error.message, 'error');
         }
     });
     
@@ -325,7 +403,9 @@ function setupOrderForm() {
                 const reader = new FileReader();
                 reader.onload = function(e) {
                     const preview = document.getElementById('photo-preview');
-                    preview.innerHTML = `<img src="${e.target.result}" alt="Preview">`;
+                    if (preview) {
+                        preview.innerHTML = `<img src="${e.target.result}" alt="Preview" style="max-width: 200px; max-height: 200px; border-radius: 8px;">`;
+                    }
                 };
                 reader.readAsDataURL(file);
             }
@@ -351,11 +431,12 @@ function displayMySales() {
     
     tbody.innerHTML = mySales.map(sale => `
         <tr>
-            <td>${sale.sale_number}</td>
+            <td>${sale.sale_number || sale.id}</td>
             <td>${sale.client_info?.name || 'Sin cliente'}</td>
             <td>${formatCurrency(sale.total)}</td>
             <td>${sale.payment_info?.method || 'N/A'}</td>
             <td>${formatDate(sale.created_at)}</td>
+            <td>${formatCurrency((sale.total * (getUser()?.commission_rate || 0.05)))}</td>
             <td>
                 <button class="btn btn-sm btn-primary" onclick="viewSaleDetails(${sale.id})">
                     👁️ Ver
@@ -379,16 +460,35 @@ function updateSalesSummary() {
         })
         .reduce((sum, sale) => sum + sale.total, 0);
     
-    document.getElementById('total-sales-count').textContent = totalSales;
-    document.getElementById('total-sales-amount').textContent = formatCurrency(totalAmount);
-    document.getElementById('monthly-sales-amount').textContent = formatCurrency(monthlyAmount);
+    // Calcular comisiones
+    const commissionRate = getUser()?.commission_rate || 0.05;
+    const commissionAmount = totalAmount * commissionRate;
+    
+    const elements = {
+        'total-sales-count': totalSales,
+        'total-sales-amount': formatCurrency(totalAmount),
+        'monthly-sales-amount': formatCurrency(monthlyAmount),
+        'commission-amount': formatCurrency(commissionAmount)
+    };
+    
+    Object.entries(elements).forEach(([id, value]) => {
+        const element = document.getElementById(id);
+        if (element) {
+            element.textContent = value;
+        }
+    });
 }
 
 function viewSaleDetails(saleId) {
     const sale = mySales.find(s => s.id === saleId);
     
+    if (!sale) {
+        showNotification('Venta no encontrada', 'error');
+        return;
+    }
+    
     const details = `
-        Venta: ${sale.sale_number}
+        Venta: ${sale.sale_number || sale.id}
         Cliente: ${sale.client_info?.name || 'Sin cliente'}
         Total: ${formatCurrency(sale.total)}
         Método de Pago: ${sale.payment_info?.method || 'N/A'}
@@ -399,6 +499,18 @@ function viewSaleDetails(saleId) {
     `;
     
     alert(details);
+}
+
+function filterSales() {
+    // Esta función se puede implementar para filtrar las ventas
+    loadSalesPage();
+}
+
+function closeSaleDetailsModal() {
+    const modal = document.getElementById('sale-details-modal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
 }
 
 // ===== UTILIDADES =====

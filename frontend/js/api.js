@@ -12,6 +12,17 @@ const API_BASE_URL = (() => {
 
 console.log('🔗 API Base URL (api.js):', API_BASE_URL);
 
+// Función para obtener el token (definida aquí para evitar dependencias)
+function getToken() {
+    return localStorage.getItem('token');
+}
+
+// Función para obtener datos del usuario
+function getUser() {
+    const user = localStorage.getItem('user');
+    return user ? JSON.parse(user) : null;
+}
+
 // Función genérica para hacer peticiones a la API
 async function apiRequest(endpoint, options = {}) {
     const token = getToken();
