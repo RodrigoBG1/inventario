@@ -106,6 +106,8 @@ app.get("/test", (req, res) => {
   res.json({
     message: "API funcionando correctamente",
     timestamp: new Date().toISOString(),
+    nodeVersion: process.version,
+    environment: process.env.NODE_ENV || 'development',
     empleados: database.employees.map(emp => ({
       id: emp.id,
       employee_code: emp.employee_code,
@@ -120,6 +122,8 @@ app.get("/api/status", (req, res) => {
   res.json({
     status: 'OK',
     version: '1.0',
+    nodeVersion: process.version,
+    environment: process.env.NODE_ENV || 'development',
     timestamp: new Date().toISOString()
   });
 });
@@ -249,6 +253,40 @@ app.post("/api/orders", auth, (req, res) => {
   res.json(newOrder);
 });
 
+// Confirmar pedido
+app.put("/api/orders/:id/confirm", auth, adminOnly, (req, res) => {
+  const id = parseInt(req.params.id);
+  const orderIndex = database.orders.findIndex(o => o.id === id);
+  
+  if (orderIndex === -1) {
+    return res.status(404).json({ message: 'Pedido no encontrado' });
+  }
+  
+  const order = database.orders[orderIndex];
+  
+  // Crear venta
+  const sale = {
+    id: database.sales.length + 1,
+    sale_number: `SAL-${Date.now()}`,
+    order_id: order.id,
+    employee_id: order.employee_id,
+    employee_code: order.employee_code,
+    client_info: order.client_info,
+    products: order.products,
+    total: order.total,
+    payment_info: req.body.payment_info,
+    created_at: new Date().toISOString()
+  };
+  
+  database.sales.push(sale);
+  
+  // Actualizar estado del pedido
+  database.orders[orderIndex].status = 'confirmed';
+  database.orders[orderIndex].confirmed_at = new Date().toISOString();
+  
+  res.json({ order: database.orders[orderIndex], sale });
+});
+
 // Ventas
 app.get("/api/sales", auth, (req, res) => {
   let sales = database.sales;
@@ -260,14 +298,24 @@ app.get("/api/sales", auth, (req, res) => {
 
 // Reportes
 app.get("/api/reports/sales-by-employee", auth, adminOnly, (req, res) => {
-  res.json([]);
+  const salesByEmployee = database.employees.map(emp => {
+    const employeeSales = database.sales.filter(sale => sale.employee_id === emp.id);
+    return {
+      employee_id: emp.id,
+      employee_code: emp.employee_code,
+      name: emp.name,
+      total_sales: employeeSales.length,
+      total_amount: employeeSales.reduce((sum, sale) => sum + sale.total, 0)
+    };
+  });
+  res.json(salesByEmployee);
 });
 
 app.get("/api/reports/inventory", auth, adminOnly, (req, res) => {
   res.json({
     products: database.products,
     low_stock: database.products.filter(p => p.stock < 10),
-    movements: []
+    movements: database.inventory_movements || []
   });
 });
 
@@ -278,37 +326,52 @@ app.get("/diagnostic", (req, res) => {
   res.send(`<!DOCTYPE html>
 <html>
 <head>
-    <title>Diagnóstico</title>
+    <title>Diagnóstico - Sistema de Aceites</title>
     <style>
-        body { font-family: Arial; max-width: 800px; margin: 0 auto; padding: 20px; }
+        body { font-family: Arial; max-width: 800px; margin: 0 auto; padding: 20px; background: #f5f5f5; }
         .container { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
         button { background: #2563eb; color: white; border: none; padding: 12px 24px; border-radius: 6px; margin: 5px; cursor: pointer; }
-        .result { margin: 10px 0; padding: 15px; border-radius: 6px; font-family: monospace; }
-        .success { background: #d1fae5; color: #065f46; }
-        .error { background: #fee2e2; color: #991b1b; }
-        .info { background: #dbeafe; color: #1e40af; }
+        button:hover { background: #1d4ed8; }
+        .result { margin: 10px 0; padding: 15px; border-radius: 6px; font-family: monospace; white-space: pre-wrap; }
+        .success { background: #d1fae5; color: #065f46; border: 1px solid #10b981; }
+        .error { background: #fee2e2; color: #991b1b; border: 1px solid #ef4444; }
+        .info { background: #dbeafe; color: #1e40af; border: 1px solid #3b82f6; }
+        .status { margin: 20px 0; padding: 15px; background: #f8fafc; border-radius: 8px; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🔧 Diagnóstico</h1>
-        <button onclick="testAPI()">Test API</button>
-        <button onclick="testLogin()">Test Login</button>
+        <h1>🔧 Diagnóstico del Sistema</h1>
+        <div class="status">
+            <strong>URL:</strong> ${req.get('host')}<br>
+            <strong>Node:</strong> ${process.version}<br>
+            <strong>Entorno:</strong> ${process.env.NODE_ENV || 'development'}<br>
+            <strong>Timestamp:</strong> ${new Date().toISOString()}
+        </div>
+        
+        <button onclick="testAPI()">🔍 Test API</button>
+        <button onclick="testLogin()">🔑 Test Login</button>
+        <button onclick="testProducts()">📦 Test Productos</button>
+        <button onclick="showInfo()">ℹ️ Info Sistema</button>
+        
         <div id="results"></div>
     </div>
     <script>
+        const BASE_URL = window.location.origin;
+        
         function addResult(msg, type) {
             const div = document.createElement('div');
             div.className = 'result ' + type;
-            div.textContent = msg;
+            div.textContent = '[' + new Date().toLocaleTimeString() + '] ' + msg;
             document.getElementById('results').appendChild(div);
         }
         
         async function testAPI() {
             try {
-                const res = await fetch('/test');
+                const res = await fetch(BASE_URL + '/test');
                 const data = await res.json();
-                addResult('✅ API: ' + data.message, 'success');
+                addResult('✅ API funcionando: ' + data.message, 'success');
+                addResult('Empleados: ' + data.empleados.length, 'info');
             } catch (e) {
                 addResult('❌ API Error: ' + e.message, 'error');
             }
@@ -316,22 +379,48 @@ app.get("/diagnostic", (req, res) => {
         
         async function testLogin() {
             try {
-                const res = await fetch('/auth/login', {
+                const res = await fetch(BASE_URL + '/auth/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ employee_code: 'ADMIN001', password: 'password' })
                 });
                 const data = await res.json();
                 if (res.ok) {
-                    addResult('✅ Login: ' + data.user.name, 'success');
+                    addResult('✅ Login exitoso: ' + data.user.name + ' (' + data.user.role + ')', 'success');
+                    window.testToken = data.token;
                 } else {
-                    addResult('❌ Login: ' + data.message, 'error');
+                    addResult('❌ Login falló: ' + data.message, 'error');
                 }
             } catch (e) {
                 addResult('❌ Login Error: ' + e.message, 'error');
             }
         }
         
+        async function testProducts() {
+            if (!window.testToken) {
+                addResult('⚠️ Primero ejecuta "Test Login"', 'error');
+                return;
+            }
+            try {
+                const res = await fetch(BASE_URL + '/api/products', {
+                    headers: { 'Authorization': 'Bearer ' + window.testToken }
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    addResult('✅ Productos cargados: ' + data.length + ' productos', 'success');
+                } else {
+                    addResult('❌ Error productos: ' + data.message, 'error');
+                }
+            } catch (e) {
+                addResult('❌ Productos Error: ' + e.message, 'error');
+            }
+        }
+        
+        function showInfo() {
+            addResult('Sistema de Aceites v1.0\\nCredenciales:\\n- Admin: ADMIN001 / password\\n- Empleado: EMP001 / password', 'info');
+        }
+        
+        // Auto-test al cargar
         testAPI();
     </script>
 </body>
@@ -345,10 +434,21 @@ app.get("/", (req, res) => {
     res.sendFile(indexPath);
   } else {
     res.send(`
-      <h1>Sistema de Aceites</h1>
-      <p>Servidor funcionando correctamente</p>
-      <p><a href="/diagnostic">Ir a diagnóstico</a></p>
-      <p>Credenciales: ADMIN001 / password</p>
+      <div style="font-family: Arial; max-width: 600px; margin: 50px auto; text-align: center;">
+        <h1>🛢️ Sistema de Aceites</h1>
+        <p>Servidor funcionando correctamente</p>
+        <p><strong>Node.js:</strong> ${process.version}</p>
+        <div style="margin: 20px 0;">
+          <a href="/diagnostic" style="background: #2563eb; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
+            🔧 Diagnóstico
+          </a>
+        </div>
+        <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin-top: 20px;">
+          <h3>Credenciales de prueba:</h3>
+          <p><strong>Admin:</strong> ADMIN001 / password</p>
+          <p><strong>Empleado:</strong> EMP001 / password</p>
+        </div>
+      </div>
     `);
   }
 });
@@ -368,7 +468,11 @@ adminRoutes.forEach(route => {
     if (fs.existsSync(filePath)) {
       res.sendFile(filePath);
     } else {
-      res.status(404).send(`Archivo ${route} no encontrado`);
+      res.status(404).send(`
+        <h1>404 - Archivo no encontrado</h1>
+        <p>No se pudo encontrar: ${route}</p>
+        <a href="/">← Volver al inicio</a>
+      `);
     }
   });
 });
@@ -386,7 +490,11 @@ employeeRoutes.forEach(route => {
     if (fs.existsSync(filePath)) {
       res.sendFile(filePath);
     } else {
-      res.status(404).send(`Archivo ${route} no encontrado`);
+      res.status(404).send(`
+        <h1>404 - Archivo no encontrado</h1>
+        <p>No se pudo encontrar: ${route}</p>
+        <a href="/">← Volver al inicio</a>
+      `);
     }
   });
 });
@@ -398,16 +506,28 @@ app.get("/employee", (req, res) => res.redirect("/employee/dashboard.html"));
 // Catch-all para 404
 app.get("*", (req, res) => {
   res.status(404).send(`
-    <h1>404 - No encontrado</h1>
-    <p>Ruta: ${req.path}</p>
-    <a href="/">Inicio</a> | <a href="/diagnostic">Diagnóstico</a>
+    <div style="font-family: Arial; max-width: 600px; margin: 50px auto; text-align: center;">
+      <h1>404 - Página no encontrada</h1>
+      <p><strong>Ruta solicitada:</strong> ${req.path}</p>
+      <div style="margin: 20px 0;">
+        <a href="/" style="background: #2563eb; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin: 5px;">
+          🏠 Inicio
+        </a>
+        <a href="/diagnostic" style="background: #059669; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin: 5px;">
+          🔧 Diagnóstico
+        </a>
+      </div>
+    </div>
   `);
 });
 
 // Manejo de errores
 app.use((err, req, res, next) => {
   console.error('Server error:', err);
-  res.status(500).json({ message: 'Error del servidor' });
+  res.status(500).json({ 
+    message: 'Error del servidor', 
+    error: process.env.NODE_ENV === 'development' ? err.message : 'Error interno'
+  });
 });
 
 // Iniciar servidor
@@ -416,4 +536,6 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Servidor iniciado en puerto ${PORT}`);
   console.log(`📍 Diagnóstico: http://localhost:${PORT}/diagnostic`);
   console.log(`🔑 Credenciales: ADMIN001 / password`);
+  console.log(`🟢 Node.js: ${process.version}`);
+  console.log(`📦 Entorno: ${process.env.NODE_ENV || 'development'}`);
 });
