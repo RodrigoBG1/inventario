@@ -1,5 +1,5 @@
 import express from "express";
-import fs from "fs";
+import fs from "fs/promises";
 import jwt from "jsonwebtoken";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -27,9 +27,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const JWT_SECRET = process.env.JWT_SECRET || "aceites-motor-secret-key-2025";
+const DB_FILE = path.join(__dirname, 'database.json');
 
-// Base de datos en memoria
-const database = {
+// Base de datos inicial
+const initialDatabase = {
   products: [
     {
       id: 1,
@@ -71,6 +72,31 @@ const database = {
   inventory_movements: []
 };
 
+// Cargar base de datos desde archivo
+async function loadDatabase() {
+  try {
+    const data = await fs.readFile(DB_FILE, 'utf8');
+    return JSON.parse(data);
+  } catch (error) {
+    console.log('📁 Creando nueva base de datos...');
+    await saveDatabase(initialDatabase);
+    return initialDatabase;
+  }
+}
+
+// Guardar base de datos en archivo
+async function saveDatabase(data) {
+  try {
+    await fs.writeFile(DB_FILE, JSON.stringify(data, null, 2));
+    console.log('💾 Base de datos guardada');
+  } catch (error) {
+    console.error('❌ Error guardando base de datos:', error);
+  }
+}
+
+// Variable global para la base de datos
+let database = await loadDatabase();
+
 // Middleware de autenticación
 const auth = (req, res, next) => {
   const authHeader = req.headers['authorization'];
@@ -108,12 +134,12 @@ app.get("/test", (req, res) => {
     timestamp: new Date().toISOString(),
     nodeVersion: process.version,
     environment: process.env.NODE_ENV || 'development',
-    empleados: database.employees.map(emp => ({
-      id: emp.id,
-      employee_code: emp.employee_code,
-      name: emp.name,
-      role: emp.role
-    }))
+    database: {
+      products: database.products.length,
+      employees: database.employees.length,
+      orders: database.orders.length,
+      sales: database.sales.length
+    }
   });
 });
 
@@ -124,12 +150,17 @@ app.get("/api/status", (req, res) => {
     version: '1.0',
     nodeVersion: process.version,
     environment: process.env.NODE_ENV || 'development',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    database: {
+      file: DB_FILE,
+      products: database.products.length,
+      employees: database.employees.length
+    }
   });
 });
 
 // Login
-app.post("/auth/login", (req, res) => {
+app.post("/auth/login", async (req, res) => {
   try {
     console.log("Login attempt:", req.body.employee_code);
     
@@ -138,6 +169,9 @@ app.post("/auth/login", (req, res) => {
     if (!employee_code || !password) {
       return res.status(400).json({ message: 'Faltan datos' });
     }
+    
+    // Recargar base de datos para obtener datos más recientes
+    database = await loadDatabase();
     
     const employee = database.employees.find(emp => emp.employee_code === employee_code);
     
@@ -171,21 +205,29 @@ app.post("/auth/login", (req, res) => {
 });
 
 // Productos
-app.get("/api/products", auth, (req, res) => {
+app.get("/api/products", auth, async (req, res) => {
+  database = await loadDatabase();
   res.json(database.products);
 });
 
-app.post("/api/products", auth, adminOnly, (req, res) => {
+app.post("/api/products", auth, adminOnly, async (req, res) => {
+  database = await loadDatabase();
+  
   const newProduct = {
-    id: database.products.length + 1,
+    id: database.products.length > 0 ? Math.max(...database.products.map(p => p.id)) + 1 : 1,
     ...req.body,
     created_at: new Date().toISOString()
   };
+  
   database.products.push(newProduct);
+  await saveDatabase(database);
+  
   res.json(newProduct);
 });
 
-app.put("/api/products/:id", auth, adminOnly, (req, res) => {
+app.put("/api/products/:id", auth, adminOnly, async (req, res) => {
+  database = await loadDatabase();
+  
   const id = parseInt(req.params.id);
   const index = database.products.findIndex(p => p.id === id);
   
@@ -194,10 +236,14 @@ app.put("/api/products/:id", auth, adminOnly, (req, res) => {
   }
   
   database.products[index] = { ...database.products[index], ...req.body };
+  await saveDatabase(database);
+  
   res.json(database.products[index]);
 });
 
-app.delete("/api/products/:id", auth, adminOnly, (req, res) => {
+app.delete("/api/products/:id", auth, adminOnly, async (req, res) => {
+  database = await loadDatabase();
+  
   const id = parseInt(req.params.id);
   const index = database.products.findIndex(p => p.id === id);
   
@@ -206,11 +252,15 @@ app.delete("/api/products/:id", auth, adminOnly, (req, res) => {
   }
   
   database.products.splice(index, 1);
+  await saveDatabase(database);
+  
   res.json({ message: 'Producto eliminado' });
 });
 
 // Empleados
-app.get("/api/employees", auth, adminOnly, (req, res) => {
+app.get("/api/employees", auth, adminOnly, async (req, res) => {
+  database = await loadDatabase();
+  
   const employees = database.employees.map(emp => {
     const { password, ...employeeData } = emp;
     return employeeData;
@@ -218,20 +268,26 @@ app.get("/api/employees", auth, adminOnly, (req, res) => {
   res.json(employees);
 });
 
-app.post("/api/employees", auth, adminOnly, (req, res) => {
+app.post("/api/employees", auth, adminOnly, async (req, res) => {
+  database = await loadDatabase();
+  
   const newEmployee = {
-    id: database.employees.length + 1,
+    id: database.employees.length > 0 ? Math.max(...database.employees.map(e => e.id)) + 1 : 1,
     ...req.body,
     created_at: new Date().toISOString()
   };
+  
   database.employees.push(newEmployee);
+  await saveDatabase(database);
   
   const { password, ...employeeResponse } = newEmployee;
   res.json(employeeResponse);
 });
 
 // Pedidos
-app.get("/api/orders", auth, (req, res) => {
+app.get("/api/orders", auth, async (req, res) => {
+  database = await loadDatabase();
+  
   let orders = database.orders;
   if (req.user.role !== 'admin') {
     orders = orders.filter(order => order.employee_id === req.user.id);
@@ -239,9 +295,11 @@ app.get("/api/orders", auth, (req, res) => {
   res.json(orders);
 });
 
-app.post("/api/orders", auth, (req, res) => {
+app.post("/api/orders", auth, async (req, res) => {
+  database = await loadDatabase();
+  
   const newOrder = {
-    id: database.orders.length + 1,
+    id: database.orders.length > 0 ? Math.max(...database.orders.map(o => o.id)) + 1 : 1,
     order_number: `ORD-${Date.now()}`,
     employee_id: req.user.id,
     employee_code: req.user.employee_code,
@@ -249,12 +307,17 @@ app.post("/api/orders", auth, (req, res) => {
     ...req.body,
     created_at: new Date().toISOString()
   };
+  
   database.orders.push(newOrder);
+  await saveDatabase(database);
+  
   res.json(newOrder);
 });
 
 // Confirmar pedido
-app.put("/api/orders/:id/confirm", auth, adminOnly, (req, res) => {
+app.put("/api/orders/:id/confirm", auth, adminOnly, async (req, res) => {
+  database = await loadDatabase();
+  
   const id = parseInt(req.params.id);
   const orderIndex = database.orders.findIndex(o => o.id === id);
   
@@ -266,7 +329,7 @@ app.put("/api/orders/:id/confirm", auth, adminOnly, (req, res) => {
   
   // Crear venta
   const sale = {
-    id: database.sales.length + 1,
+    id: database.sales.length > 0 ? Math.max(...database.sales.map(s => s.id)) + 1 : 1,
     sale_number: `SAL-${Date.now()}`,
     order_id: order.id,
     employee_id: order.employee_id,
@@ -284,11 +347,15 @@ app.put("/api/orders/:id/confirm", auth, adminOnly, (req, res) => {
   database.orders[orderIndex].status = 'confirmed';
   database.orders[orderIndex].confirmed_at = new Date().toISOString();
   
+  await saveDatabase(database);
+  
   res.json({ order: database.orders[orderIndex], sale });
 });
 
 // Ventas
-app.get("/api/sales", auth, (req, res) => {
+app.get("/api/sales", auth, async (req, res) => {
+  database = await loadDatabase();
+  
   let sales = database.sales;
   if (req.user.role !== 'admin') {
     sales = sales.filter(sale => sale.employee_id === req.user.id);
@@ -297,7 +364,9 @@ app.get("/api/sales", auth, (req, res) => {
 });
 
 // Reportes
-app.get("/api/reports/sales-by-employee", auth, adminOnly, (req, res) => {
+app.get("/api/reports/sales-by-employee", auth, adminOnly, async (req, res) => {
+  database = await loadDatabase();
+  
   const salesByEmployee = database.employees.map(emp => {
     const employeeSales = database.sales.filter(sale => sale.employee_id === emp.id);
     return {
@@ -311,7 +380,9 @@ app.get("/api/reports/sales-by-employee", auth, adminOnly, (req, res) => {
   res.json(salesByEmployee);
 });
 
-app.get("/api/reports/inventory", auth, adminOnly, (req, res) => {
+app.get("/api/reports/inventory", auth, adminOnly, async (req, res) => {
+  database = await loadDatabase();
+  
   res.json({
     products: database.products,
     low_stock: database.products.filter(p => p.stock < 10),
@@ -346,6 +417,7 @@ app.get("/diagnostic", (req, res) => {
             <strong>URL:</strong> ${req.get('host')}<br>
             <strong>Node:</strong> ${process.version}<br>
             <strong>Entorno:</strong> ${process.env.NODE_ENV || 'development'}<br>
+            <strong>Base de Datos:</strong> JSON persistente<br>
             <strong>Timestamp:</strong> ${new Date().toISOString()}
         </div>
         
@@ -371,7 +443,7 @@ app.get("/diagnostic", (req, res) => {
                 const res = await fetch(BASE_URL + '/test');
                 const data = await res.json();
                 addResult('✅ API funcionando: ' + data.message, 'success');
-                addResult('Empleados: ' + data.empleados.length, 'info');
+                addResult('Base de datos: ' + JSON.stringify(data.database), 'info');
             } catch (e) {
                 addResult('❌ API Error: ' + e.message, 'error');
             }
@@ -417,7 +489,7 @@ app.get("/diagnostic", (req, res) => {
         }
         
         function showInfo() {
-            addResult('Sistema de Aceites v1.0\\nCredenciales:\\n- Admin: ADMIN001 / password\\n- Empleado: EMP001 / password', 'info');
+            addResult('🛢️ Sistema de Aceites v1.0\\n📁 Base de datos: JSON persistente\\n🔑 Credenciales:\\n- Admin: ADMIN001 / password\\n- Empleado: EMP001 / password', 'info');
         }
         
         // Auto-test al cargar
@@ -430,13 +502,11 @@ app.get("/diagnostic", (req, res) => {
 // Página principal
 app.get("/", (req, res) => {
   const indexPath = path.join(__dirname, 'frontend', 'index.html');
-  if (fs.existsSync(indexPath)) {
-    res.sendFile(indexPath);
-  } else {
+  res.sendFile(indexPath).catch(() => {
     res.send(`
       <div style="font-family: Arial; max-width: 600px; margin: 50px auto; text-align: center;">
         <h1>🛢️ Sistema de Aceites</h1>
-        <p>Servidor funcionando correctamente</p>
+        <p>Servidor funcionando con base de datos JSON persistente</p>
         <p><strong>Node.js:</strong> ${process.version}</p>
         <div style="margin: 20px 0;">
           <a href="/diagnostic" style="background: #2563eb; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
@@ -450,7 +520,7 @@ app.get("/", (req, res) => {
         </div>
       </div>
     `);
-  }
+  });
 });
 
 // Rutas específicas del admin
@@ -465,15 +535,13 @@ const adminRoutes = [
 adminRoutes.forEach(route => {
   app.get(`/admin/${route}`, (req, res) => {
     const filePath = path.join(__dirname, 'frontend', 'admin', route);
-    if (fs.existsSync(filePath)) {
-      res.sendFile(filePath);
-    } else {
+    res.sendFile(filePath).catch(() => {
       res.status(404).send(`
         <h1>404 - Archivo no encontrado</h1>
         <p>No se pudo encontrar: ${route}</p>
         <a href="/">← Volver al inicio</a>
       `);
-    }
+    });
   });
 });
 
@@ -487,21 +555,27 @@ const employeeRoutes = [
 employeeRoutes.forEach(route => {
   app.get(`/employee/${route}`, (req, res) => {
     const filePath = path.join(__dirname, 'frontend', 'employee', route);
-    if (fs.existsSync(filePath)) {
-      res.sendFile(filePath);
-    } else {
+    res.sendFile(filePath).catch(() => {
       res.status(404).send(`
         <h1>404 - Archivo no encontrado</h1>
         <p>No se pudo encontrar: ${route}</p>
         <a href="/">← Volver al inicio</a>
       `);
-    }
+    });
   });
 });
 
 // Redirects
 app.get("/admin", (req, res) => res.redirect("/admin/dashboard.html"));
 app.get("/employee", (req, res) => res.redirect("/employee/dashboard.html"));
+
+// Endpoint para respaldar base de datos
+app.get("/backup", auth, adminOnly, async (req, res) => {
+  database = await loadDatabase();
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Content-Disposition', 'attachment; filename="database-backup.json"');
+  res.send(JSON.stringify(database, null, 2));
+});
 
 // Catch-all para 404
 app.get("*", (req, res) => {
@@ -537,5 +611,6 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`📍 Diagnóstico: http://localhost:${PORT}/diagnostic`);
   console.log(`🔑 Credenciales: ADMIN001 / password`);
   console.log(`🟢 Node.js: ${process.version}`);
+  console.log(`📁 Base de datos: ${DB_FILE}`);
   console.log(`📦 Entorno: ${process.env.NODE_ENV || 'development'}`);
 });
