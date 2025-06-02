@@ -1,7 +1,7 @@
 // Funciones para interactuar con la API
 
-// CORREGIDO: Detectar API Base URL correctamente
-const API_BASE_URL = (() => {
+// Usar la configuración global si existe, sino definir localmente
+const API_BASE_URL = window.API_BASE_URL || (() => {
     // En desarrollo local
     if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
         return 'http://localhost:3000';
@@ -10,7 +10,7 @@ const API_BASE_URL = (() => {
     return window.location.origin;
 })();
 
-console.log('🔗 API Base URL detectada:', API_BASE_URL);
+console.log('🔗 API Base URL (api.js):', API_BASE_URL);
 
 // Función para obtener el token
 function getToken() {

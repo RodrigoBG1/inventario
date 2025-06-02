@@ -1,14 +1,9 @@
-// Configuración de la API para Render - CORREGIDA
-const API_BASE_URL = (() => {
-    // En desarrollo local
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-        return 'http://localhost:3000';
-    }
-    // Para Render y otros deployments - siempre usar el mismo origen
-    return window.location.origin;
-})();
+// Autenticación - SIN redeclarar API_BASE_URL
 
-console.log('🔗 API Base URL detectada:', API_BASE_URL);
+// Usar la configuración global
+const API_BASE_URL = window.API_BASE_URL || window.location.origin;
+
+console.log('🔗 API Base URL (auth.js):', API_BASE_URL);
 console.log('🌐 Hostname:', window.location.hostname);
 console.log('🔗 Origin:', window.location.origin);
 
