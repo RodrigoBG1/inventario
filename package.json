@@ -1,7 +1,7 @@
 {
   "name": "inventario",
-  "version": "1.0.0",
-  "description": "Sistema de inventario de aceites",
+  "version": "2.0.0",
+  "description": "Sistema de inventario de aceites con Supabase",
   "main": "index.js",
   "type": "module",
   "scripts": {
@@ -9,12 +9,12 @@
     "dev": "nodemon index.js"
   },
   "engines": {
-    "node": ">=18.0.0",
-    "npm": ">=8.0.0"
+    "node": ">=18.0.0"
   },
   "dependencies": {
     "express": "^4.18.2",
-    "jsonwebtoken": "^9.0.2"
+    "jsonwebtoken": "^9.0.2",
+    "@supabase/supabase-js": "^2.39.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"
