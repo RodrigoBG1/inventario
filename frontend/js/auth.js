@@ -1,7 +1,14 @@
-// Configuración de la API para Render
-const API_BASE_URL = window.location.hostname === 'localhost' 
-  ? 'http://localhost:3000' 
-  : window.location.origin; // Para Render usa el mismo origen
+// Configuración de la API para Render - CORREGIDA
+const API_BASE_URL = (() => {
+    // En Render, siempre usa el mismo origen (protocolo + dominio)
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        return 'http://localhost:3000';
+    }
+    // Para Render y otros deployments
+    return window.location.origin;
+})();
+
+console.log('🔗 API Base URL detectada:', API_BASE_URL);
 
 // Función para hacer login
 async function login(employeeCode, password) {
@@ -21,28 +28,46 @@ async function login(employeeCode, password) {
         });
 
         console.log('📡 Respuesta del servidor:', response.status);
+        
+        if (!response.ok) {
+            // Si la respuesta no es ok, intenta leer el error
+            let errorData;
+            try {
+                errorData = await response.json();
+            } catch (e) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            throw new Error(errorData.message || `Error ${response.status}`);
+        }
+
         const data = await response.json();
         console.log('📄 Datos recibidos:', data);
 
-        if (response.ok) {
-            // Guardar token y datos del usuario
-            localStorage.setItem('token', data.token);
-            localStorage.setItem('user', JSON.stringify(data.user));
-            
-            console.log('✅ Login exitoso, redirigiendo...');
-            
-            // Redirigir según el rol
-            if (data.user.role === 'admin') {
-                window.location.href = '/admin/dashboard.html';
-            } else {
-                window.location.href = '/employee/dashboard.html';
-            }
+        // Guardar token y datos del usuario
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        
+        console.log('✅ Login exitoso, redirigiendo...');
+        
+        // Redirigir según el rol
+        if (data.user.role === 'admin') {
+            window.location.href = '/admin/dashboard.html';
         } else {
-            showError(data.message || 'Error de autenticación');
-            console.error('❌ Error de login:', data.message);
+            window.location.href = '/employee/dashboard.html';
         }
+
     } catch (error) {
-        const errorMsg = 'Error de conexión. Verifica que el servidor esté funcionando.';
+        let errorMsg = 'Error de conexión. Verifica que el servidor esté funcionando.';
+        
+        // Mensajes de error más específicos
+        if (error.message.includes('Failed to fetch')) {
+            errorMsg = 'No se puede conectar al servidor. Verifica tu conexión a internet.';
+        } else if (error.message.includes('NetworkError')) {
+            errorMsg = 'Error de red. El servidor podría estar inactivo.';
+        } else if (error.message) {
+            errorMsg = error.message;
+        }
+        
         showError(errorMsg);
         console.error('💥 Error de conexión:', error);
         
@@ -51,6 +76,8 @@ async function login(employeeCode, password) {
         console.log('- URL actual:', window.location.href);
         console.log('- API URL:', API_BASE_URL);
         console.log('- Hostname:', window.location.hostname);
+        console.log('- Protocol:', window.location.protocol);
+        console.log('- Port:', window.location.port);
     }
 }
 
@@ -121,24 +148,36 @@ function getUser() {
     return user ? JSON.parse(user) : null;
 }
 
+// Test de conectividad
+async function testConnection() {
+    try {
+        console.log('🔍 Testeando conexión...');
+        const response = await fetch(`${API_BASE_URL}/test`);
+        const data = await response.json();
+        console.log('✅ Conexión exitosa:', data);
+        return true;
+    } catch (error) {
+        console.error('❌ Error de conexión:', error);
+        return false;
+    }
+}
+
 // Event listener para el formulario de login
 document.addEventListener('DOMContentLoaded', function() {
+    // Test de conectividad al cargar
+    testConnection();
+    
     const loginForm = document.getElementById('loginForm');
     
     if (loginForm) {
-        // Agregar valores por defecto para testing en Render
-        if (window.location.hostname !== 'localhost') {
-            const employeeCodeInput = document.getElementById('employee_code');
-            const passwordInput = document.getElementById('password');
-            
-            // Pre-llenar con credenciales de admin para facilitar testing
-            if (employeeCodeInput && !employeeCodeInput.value) {
-                employeeCodeInput.placeholder = 'ADMIN001 o EMP001';
-            }
-            if (passwordInput && !passwordInput.value) {
-                passwordInput.placeholder = 'admin123 o emp123';
-            }
-        }
+        // Mostrar información de debugging en Render
+        console.log('🔍 Información de la aplicación:');
+        console.log('- Entorno:', window.location.hostname === 'localhost' ? 'Desarrollo' : 'Producción');
+        console.log('- API Base URL:', API_BASE_URL);
+        console.log('- URL completa:', window.location.href);
+        console.log('- Credenciales disponibles:');
+        console.log('  👨‍💼 Admin: ADMIN001 / password');
+        console.log('  👷‍♂️ Empleado: EMP001 / password');
         
         loginForm.addEventListener('submit', async function(e) {
             e.preventDefault();
@@ -179,15 +218,5 @@ document.addEventListener('DOMContentLoaded', function() {
             
             console.log('✅ Usuario autenticado:', user.name, '- Rol:', user.role);
         }
-    }
-    
-    // Agregar información de debugging en desarrollo
-    if (window.location.hostname !== 'localhost') {
-        console.log('🔍 Información de la aplicación:');
-        console.log('- Entorno: Render (Producción)');
-        console.log('- API Base URL:', API_BASE_URL);
-        console.log('- Credenciales disponibles:');
-        console.log('  👨‍💼 Admin: ADMIN001 / admin123');
-        console.log('  👷‍♂️ Empleado: EMP001 / emp123');
     }
 });
