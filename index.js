@@ -656,7 +656,7 @@ app.get("/diagnostic", (req, res) => {
             <div class="status-card">
                 <h3>📡 API</h3>
                 <div class="status-value">✅ REST</div>
-                <small>Endpoints activos</small>
+                <small>Express 4.x</small>
             </div>
         </div>
         
