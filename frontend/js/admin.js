@@ -1,5 +1,7 @@
 // Funciones específicas para el panel de administrador
 
+console.log('🔧 admin.js cargado correctamente');
+
 // Variables globales
 let products = [];
 let employees = [];
@@ -9,59 +11,100 @@ let currentEditingProduct = null;
 
 // Inicialización
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('📋 DOM cargado, iniciando admin panel...');
+    
     // Verificar que sea admin
     if (!requireAdmin()) return;
     
     // Cargar datos iniciales según la página
     const currentPage = window.location.pathname;
+    console.log('📄 Página actual:', currentPage);
     
     if (currentPage.includes('dashboard.html')) {
-        loadDashboardData();
+        console.log('📊 Cargando dashboard...');
+        // Esperar un poco para que las funciones de API estén disponibles
+        setTimeout(loadDashboardData, 1000);
     } else if (currentPage.includes('products.html')) {
-        loadProductsPage();
+        setTimeout(loadProductsPage, 1000);
     } else if (currentPage.includes('employees.html')) {
-        loadEmployeesPage();
+        setTimeout(loadEmployeesPage, 1000);
     } else if (currentPage.includes('orders.html')) {
-        loadOrdersPage();
+        setTimeout(loadOrdersPage, 1000);
     } else if (currentPage.includes('reports.html')) {
-        loadReportsPage();
+        setTimeout(loadReportsPage, 1000);
     }
 });
 
 // ===== DASHBOARD =====
 async function loadDashboardData() {
+    console.log('📊 loadDashboardData() iniciando...');
+    
     try {
-        // Cargar todos los datos necesarios
-        const [productsData, ordersData, salesData, employeesData] = await Promise.all([
-            getProducts(),
-            getOrders(),
-            getSales(),
-            getEmployees()
-        ]);
+        // Verificar que las funciones estén disponibles
+        if (typeof window.getProducts !== 'function') {
+            console.error('❌ getProducts no está disponible');
+            showNotification('Error: Funciones de API no disponibles', 'error');
+            return;
+        }
         
-        products = productsData;
-        orders = ordersData;
-        sales = salesData;
-        employees = employeesData;
+        console.log('📦 Obteniendo productos...');
+        const productsData = await window.getProducts();
+        console.log('📦 Productos obtenidos:', productsData?.length || 0);
+        
+        console.log('👥 Obteniendo empleados...');
+        const employeesData = await window.getEmployees();
+        console.log('👥 Empleados obtenidos:', employeesData?.length || 0);
+        
+        console.log('📋 Obteniendo pedidos...');
+        const ordersData = await window.getOrders();
+        console.log('📋 Pedidos obtenidos:', ordersData?.length || 0);
+        
+        console.log('💰 Obteniendo ventas...');
+        const salesData = await window.getSales();
+        console.log('💰 Ventas obtenidas:', salesData?.length || 0);
+        
+        // Guardar datos globalmente
+        products = productsData || [];
+        employees = employeesData || [];
+        orders = ordersData || [];
+        sales = salesData || [];
         
         // Actualizar estadísticas
+        console.log('📊 Actualizando estadísticas...');
         updateDashboardStats();
         updateRecentOrders();
         updateLowStock();
         
+        console.log('✅ Dashboard cargado exitosamente');
+        showNotification('Dashboard cargado correctamente', 'success');
+        
     } catch (error) {
-        console.error('Error loading dashboard:', error);
-        showNotification('Error al cargar el dashboard', 'error');
+        console.error('❌ Error loading dashboard:', error);
+        showNotification('Error al cargar el dashboard: ' + error.message, 'error');
     }
 }
 
 function updateDashboardStats() {
+    console.log('📊 Actualizando estadísticas del dashboard...');
+    
     // Total de productos
-    document.getElementById('total-products').textContent = products.length;
+    const totalProductsElement = document.getElementById('total-products');
+    if (totalProductsElement) {
+        totalProductsElement.textContent = products.length;
+        console.log('📦 Total productos:', products.length);
+    } else {
+        console.warn('⚠️ Elemento total-products no encontrado');
+    }
     
     // Pedidos pendientes
     const pendingOrders = orders.filter(order => order.status === 'hold').length;
-    document.getElementById('pending-orders').textContent = pendingOrders;
+    const pendingOrdersElement = document.getElementById('pending-orders');
+    if (pendingOrdersElement) {
+        pendingOrdersElement.textContent = pendingOrders;
+        console.log('📋 Pedidos pendientes:', pendingOrders);
+    } else {
+        console.warn('⚠️ Elemento pending-orders no encontrado');
+    }
     
     // Ventas del mes
     const currentMonth = new Date().getMonth();
@@ -73,16 +116,33 @@ function updateDashboardStats() {
         })
         .reduce((total, sale) => total + sale.total, 0);
     
-    document.getElementById('monthly-sales').textContent = formatCurrency(monthlySales);
+    const monthlySalesElement = document.getElementById('monthly-sales');
+    if (monthlySalesElement) {
+        monthlySalesElement.textContent = window.formatCurrency ? window.formatCurrency(monthlySales) : `$${monthlySales}`;
+        console.log('💰 Ventas del mes:', monthlySales);
+    } else {
+        console.warn('⚠️ Elemento monthly-sales no encontrado');
+    }
     
     // Empleados activos
     const activeEmployees = employees.filter(emp => emp.role === 'employee').length;
-    document.getElementById('active-employees').textContent = activeEmployees;
+    const activeEmployeesElement = document.getElementById('active-employees');
+    if (activeEmployeesElement) {
+        activeEmployeesElement.textContent = activeEmployees;
+        console.log('👥 Empleados activos:', activeEmployees);
+    } else {
+        console.warn('⚠️ Elemento active-employees no encontrado');
+    }
 }
 
 function updateRecentOrders() {
     const tbody = document.querySelector('#recent-orders-table tbody');
-    if (!tbody) return;
+    if (!tbody) {
+        console.warn('⚠️ Tabla recent-orders-table no encontrada');
+        return;
+    }
+    
+    console.log('📋 Actualizando pedidos recientes...');
     
     // Ordenar por fecha más reciente
     const recentOrders = orders
@@ -93,16 +153,23 @@ function updateRecentOrders() {
         <tr>
             <td>${order.order_number}</td>
             <td>${order.employee_code}</td>
-            <td>${formatCurrency(order.total)}</td>
+            <td>${window.formatCurrency ? window.formatCurrency(order.total) : `$${order.total}`}</td>
             <td><span class="status-badge status-${order.status}">${order.status}</span></td>
-            <td>${formatDate(order.created_at)}</td>
+            <td>${window.formatDate ? window.formatDate(order.created_at) : order.created_at}</td>
         </tr>
     `).join('');
+    
+    console.log('📋 Pedidos recientes actualizados:', recentOrders.length);
 }
 
 function updateLowStock() {
     const tbody = document.querySelector('#low-stock-table tbody');
-    if (!tbody) return;
+    if (!tbody) {
+        console.warn('⚠️ Tabla low-stock-table no encontrada');
+        return;
+    }
+    
+    console.log('📦 Actualizando productos con stock bajo...');
     
     const lowStockProducts = products.filter(product => product.stock < 10);
     
@@ -113,17 +180,21 @@ function updateLowStock() {
             <td><span class="stock-warning">${product.stock}</span></td>
         </tr>
     `).join('');
+    
+    console.log('📦 Productos con stock bajo:', lowStockProducts.length);
 }
 
 // ===== PRODUCTOS =====
 async function loadProductsPage() {
+    console.log('📦 Cargando página de productos...');
     try {
-        products = await getProducts();
+        products = await window.getProducts();
         displayProducts();
         loadBrandFilter();
+        console.log('✅ Página de productos cargada');
     } catch (error) {
-        console.error('Error loading products:', error);
-        showNotification('Error al cargar productos', 'error');
+        console.error('❌ Error loading products page:', error);
+        showNotification('Error al cargar productos: ' + error.message, 'error');
     }
 }
 
@@ -139,7 +210,7 @@ function displayProducts() {
             <td>${product.viscosity}</td>
             <td>${product.capacity}</td>
             <td>${product.stock}</td>
-            <td>${formatCurrency(product.price)}</td>
+            <td>${window.formatCurrency ? window.formatCurrency(product.price) : `$${product.price}`}</td>
             <td>
                 <div class="action-buttons">
                     <button class="btn btn-sm btn-edit" onclick="editProduct(${product.id})">
@@ -191,7 +262,7 @@ function displayFilteredProducts(filteredProducts) {
             <td>${product.viscosity}</td>
             <td>${product.capacity}</td>
             <td>${product.stock}</td>
-            <td>${formatCurrency(product.price)}</td>
+            <td>${window.formatCurrency ? window.formatCurrency(product.price) : `$${product.price}`}</td>
             <td>
                 <div class="action-buttons">
                     <button class="btn btn-sm btn-edit" onclick="editProduct(${product.id})">
@@ -254,12 +325,12 @@ async function deleteProductConfirm(productId) {
     
     if (confirm(`¿Estás seguro de eliminar el producto "${product.name}"?`)) {
         try {
-            await deleteProduct(productId);
+            await window.deleteProduct(productId);
             showNotification('Producto eliminado exitosamente', 'success');
             loadProductsPage();
         } catch (error) {
             console.error('Error deleting product:', error);
-            showNotification('Error al eliminar producto', 'error');
+            showNotification('Error al eliminar producto: ' + error.message, 'error');
         }
     }
 }
@@ -284,10 +355,10 @@ document.addEventListener('DOMContentLoaded', function() {
             
             try {
                 if (currentEditingProduct) {
-                    await updateProduct(currentEditingProduct, formData);
+                    await window.updateProduct(currentEditingProduct, formData);
                     showNotification('Producto actualizado exitosamente', 'success');
                 } else {
-                    await createProduct(formData);
+                    await window.createProduct(formData);
                     showNotification('Producto creado exitosamente', 'success');
                 }
                 
@@ -295,7 +366,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 loadProductsPage();
             } catch (error) {
                 console.error('Error saving product:', error);
-                showNotification('Error al guardar producto', 'error');
+                showNotification('Error al guardar producto: ' + error.message, 'error');
             }
         });
     }
@@ -304,11 +375,11 @@ document.addEventListener('DOMContentLoaded', function() {
 // ===== EMPLEADOS =====
 async function loadEmployeesPage() {
     try {
-        employees = await getEmployees();
+        employees = await window.getEmployees();
         displayEmployees();
     } catch (error) {
         console.error('Error loading employees:', error);
-        showNotification('Error al cargar empleados', 'error');
+        showNotification('Error al cargar empleados: ' + error.message, 'error');
     }
 }
 
@@ -323,7 +394,7 @@ function displayEmployees() {
             <td>${employee.role}</td>
             <td>${employee.routes?.join(', ') || 'Sin rutas'}</td>
             <td>${(employee.commission_rate * 100).toFixed(1)}%</td>
-            <td>${formatDate(employee.created_at)}</td>
+            <td>${window.formatDate ? window.formatDate(employee.created_at) : employee.created_at}</td>
             <td>
                 <div class="action-buttons">
                     <button class="btn btn-sm btn-edit" onclick="editEmployee(${employee.id})">
@@ -338,11 +409,11 @@ function displayEmployees() {
 // ===== PEDIDOS =====
 async function loadOrdersPage() {
     try {
-        orders = await getOrders();
+        orders = await window.getOrders();
         displayOrders();
     } catch (error) {
         console.error('Error loading orders:', error);
-        showNotification('Error al cargar pedidos', 'error');
+        showNotification('Error al cargar pedidos: ' + error.message, 'error');
     }
 }
 
@@ -355,9 +426,9 @@ function displayOrders() {
             <td>${order.order_number}</td>
             <td>${order.employee_code}</td>
             <td>${order.client_info?.name || 'Sin cliente'}</td>
-            <td>${formatCurrency(order.total)}</td>
+            <td>${window.formatCurrency ? window.formatCurrency(order.total) : `$${order.total}`}</td>
             <td><span class="status-badge status-${order.status}">${order.status}</span></td>
-            <td>${formatDate(order.created_at)}</td>
+            <td>${window.formatDate ? window.formatDate(order.created_at) : order.created_at}</td>
             <td>
                 <div class="action-buttons">
                     ${order.status === 'hold' ? `
@@ -385,12 +456,12 @@ async function confirmOrderModal(orderId) {
                 confirmed_at: new Date().toISOString()
             };
             
-            await confirmOrder(orderId, paymentInfo);
+            await window.confirmOrder(orderId, paymentInfo);
             showNotification('Pedido confirmado exitosamente', 'success');
             loadOrdersPage();
         } catch (error) {
             console.error('Error confirming order:', error);
-            showNotification('Error al confirmar pedido', 'error');
+            showNotification('Error al confirmar pedido: ' + error.message, 'error');
         }
     }
 }
@@ -398,15 +469,14 @@ async function confirmOrderModal(orderId) {
 function viewOrderDetails(orderId) {
     const order = orders.find(o => o.id === orderId);
     
-    // Crear modal simple para mostrar detalles
     const details = `
-        <strong>Pedido:</strong> ${order.order_number}<br>
-        <strong>Cliente:</strong> ${order.client_info?.name || 'Sin cliente'}<br>
-        <strong>Teléfono:</strong> ${order.client_info?.phone || 'N/A'}<br>
-        <strong>Total:</strong> ${formatCurrency(order.total)}<br>
-        <strong>Notas:</strong> ${order.notes || 'Sin notas'}<br>
-        <strong>Productos:</strong><br>
-        ${order.products?.map(p => `- ${p.name} (${p.quantity})`).join('<br>') || 'Sin productos'}
+        Pedido: ${order.order_number}
+        Cliente: ${order.client_info?.name || 'Sin cliente'}
+        Teléfono: ${order.client_info?.phone || 'N/A'}
+        Total: ${window.formatCurrency ? window.formatCurrency(order.total) : `${order.total}`}
+        Notas: ${order.notes || 'Sin notas'}
+        Productos:
+        ${order.products?.map(p => `- ${p.name} (${p.quantity})`).join('\n') || 'Sin productos'}
     `;
     
     alert(details.replace(/<br>/g, '\n').replace(/<strong>|<\/strong>/g, ''));
@@ -416,15 +486,15 @@ function viewOrderDetails(orderId) {
 async function loadReportsPage() {
     try {
         const [salesByEmp, inventoryData] = await Promise.all([
-            getSalesByEmployee(),
-            getInventoryReport()
+            window.getSalesByEmployee(),
+            window.getInventoryReport()
         ]);
         
         displaySalesByEmployee(salesByEmp);
         displayInventoryReport(inventoryData);
     } catch (error) {
         console.error('Error loading reports:', error);
-        showNotification('Error al cargar reportes', 'error');
+        showNotification('Error al cargar reportes: ' + error.message, 'error');
     }
 }
 
@@ -442,7 +512,7 @@ function displaySalesByEmployee(salesData) {
                 </div>
                 <div class="employee-stat">
                     <span>Monto Total:</span>
-                    <span>${formatCurrency(empData.total_amount)}</span>
+                    <span>${window.formatCurrency ? window.formatCurrency(empData.total_amount) : `${empData.total_amount}`}</span>
                 </div>
             </div>
         </div>
@@ -466,10 +536,51 @@ function displayInventoryReport(inventoryData) {
     `;
 }
 
+// Funciones que pueden ser llamadas desde los modales
+function openEmployeeModal() {
+    console.log('Abrir modal de empleado');
+}
+
+function closeEmployeeModal() {
+    const modal = document.getElementById('employee-modal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+function editEmployee(employeeId) {
+    console.log('Editar empleado:', employeeId);
+}
+
+function filterOrders() {
+    console.log('Filtrar pedidos');
+}
+
+function updateReports() {
+    console.log('Actualizar reportes');
+    loadReportsPage();
+}
+
+function closeConfirmModal() {
+    const modal = document.getElementById('confirm-modal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
 // Cerrar modal al hacer click fuera
 window.onclick = function(event) {
-    const modal = document.getElementById('product-modal');
-    if (event.target === modal) {
+    const productModal = document.getElementById('product-modal');
+    const employeeModal = document.getElementById('employee-modal');
+    const confirmModal = document.getElementById('confirm-modal');
+    
+    if (event.target === productModal) {
         closeProductModal();
+    }
+    if (event.target === employeeModal) {
+        closeEmployeeModal();
+    }
+    if (event.target === confirmModal) {
+        closeConfirmModal();
     }
 }

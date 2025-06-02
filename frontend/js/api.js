@@ -349,3 +349,18 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     }
 });
+
+// Hacer las funciones globales para que estén disponibles en admin.js
+window.getProducts = getProducts;
+window.getEmployees = getEmployees;
+window.getOrders = getOrders;
+window.getSales = getSales;
+window.createProduct = createProduct;
+window.updateProduct = updateProduct;
+window.deleteProduct = deleteProduct;
+window.confirmOrder = confirmOrder;
+window.getSalesByEmployee = getSalesByEmployee;
+window.getInventoryReport = getInventoryReport;
+window.formatCurrency = formatCurrency;
+window.formatDate = formatDate;
+window.showNotification = showNotification;
