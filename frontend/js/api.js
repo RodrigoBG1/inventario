@@ -1,9 +1,16 @@
 // Funciones para interactuar con la API
 
 // Detectar si estamos en desarrollo o producción
-const API_BASE_URL = window.location.hostname === 'localhost' 
-  ? 'http://localhost:3000' 
-  : '';
+const API_BASE_URL = (() => {
+    // En desarrollo local
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        return 'http://localhost:3000';
+    }
+    // Para Render y otros deployments - siempre usar el mismo origen
+    return window.location.origin;
+})();
+
+console.log('🔗 API Base URL (api.js):', API_BASE_URL);
 
 // Función genérica para hacer peticiones a la API
 async function apiRequest(endpoint, options = {}) {
@@ -12,9 +19,14 @@ async function apiRequest(endpoint, options = {}) {
     const defaultOptions = {
         headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
+            'Accept': 'application/json'
         }
     };
+    
+    // Solo agregar Authorization si hay token
+    if (token) {
+        defaultOptions.headers['Authorization'] = `Bearer ${token}`;
+    }
     
     const config = {
         ...defaultOptions,
@@ -26,16 +38,50 @@ async function apiRequest(endpoint, options = {}) {
     };
     
     try {
-        const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
-        const data = await response.json();
+        console.log('🔄 API Request:', endpoint, config.method || 'GET');
+        
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 segundos timeout
+        
+        const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+            ...config,
+            signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
+        console.log('📡 API Response:', response.status, response.statusText);
         
         if (!response.ok) {
-            throw new Error(data.message || 'Error en la petición');
+            let errorData;
+            try {
+                errorData = await response.json();
+            } catch (e) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            throw new Error(errorData.message || `Error ${response.status}`);
         }
         
+        const data = await response.json();
+        console.log('📄 API Data received:', endpoint, 'items:', Array.isArray(data) ? data.length : 'object');
         return data;
+        
     } catch (error) {
-        console.error('API Error:', error);
+        console.error('💥 API Error:', endpoint, error);
+        
+        if (error.name === 'AbortError') {
+            throw new Error('Timeout: El servidor no responde');
+        }
+        
+        // Si es error 401, redirigir al login
+        if (error.message.includes('401')) {
+            console.log('🔑 Token expirado, redirigiendo al login');
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = '/';
+            return;
+        }
+        
         throw error;
     }
 }
@@ -188,8 +234,14 @@ function handlePhotoUpload(file) {
     });
 }
 
-// Función para mostrar notificaciones
+// Función para mostrar notificaciones mejorada
 function showNotification(message, type = 'success') {
+    console.log(`📢 Notification [${type}]:`, message);
+    
+    // Remover notificaciones existentes
+    const existingNotifications = document.querySelectorAll('.notification');
+    existingNotifications.forEach(n => n.remove());
+    
     const notification = document.createElement('div');
     notification.className = `notification notification-${type}`;
     notification.textContent = message;
@@ -205,6 +257,9 @@ function showNotification(message, type = 'success') {
         font-weight: 500;
         z-index: 1000;
         animation: slideIn 0.3s ease;
+        max-width: 400px;
+        word-wrap: break-word;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     `;
     
     // Color según el tipo
@@ -224,15 +279,21 @@ function showNotification(message, type = 'success') {
     
     document.body.appendChild(notification);
     
-    // Remover después de 3 segundos
+    // Remover después de 5 segundos (más tiempo para errores)
+    const timeout = type === 'error' ? 8000 : 4000;
     setTimeout(() => {
         if (notification.parentNode) {
-            notification.parentNode.removeChild(notification);
+            notification.style.animation = 'slideOut 0.3s ease';
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+            }, 300);
         }
-    }, 3000);
+    }, timeout);
 }
 
-// CSS para animación de notificación
+// CSS para animaciones de notificación
 const notificationStyles = document.createElement('style');
 notificationStyles.textContent = `
     @keyframes slideIn {
@@ -245,16 +306,35 @@ notificationStyles.textContent = `
             opacity: 1;
         }
     }
+    
+    @keyframes slideOut {
+        from {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        to {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+    }
 `;
 document.head.appendChild(notificationStyles);
 
 // Verificar estado de la API al cargar
 document.addEventListener('DOMContentLoaded', async function() {
-    try {
-        await checkApiStatus();
-        console.log('API conectada correctamente');
-    } catch (error) {
-        console.error('Error conectando con la API:', error);
-        showNotification('Error de conexión con el servidor', 'error');
+    // Solo verificar la API si estamos en páginas que la necesitan
+    if (window.location.pathname.includes('admin/') || 
+        window.location.pathname.includes('employee/') ||
+        window.location.pathname === '/') {
+        
+        try {
+            console.log('🔍 Verificando estado de la API...');
+            await checkApiStatus();
+            console.log('✅ API conectada correctamente');
+            showNotification('Conexión establecida con el servidor', 'success');
+        } catch (error) {
+            console.error('❌ Error conectando con la API:', error);
+            showNotification(`Error de conexión: ${error.message}`, 'error');
+        }
     }
 });

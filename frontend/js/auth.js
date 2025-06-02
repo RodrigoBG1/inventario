@@ -1,14 +1,16 @@
 // Configuración de la API para Render - CORREGIDA
 const API_BASE_URL = (() => {
-    // En Render, siempre usa el mismo origen (protocolo + dominio)
+    // En desarrollo local
     if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
         return 'http://localhost:3000';
     }
-    // Para Render y otros deployments
+    // Para Render y otros deployments - siempre usar el mismo origen
     return window.location.origin;
 })();
 
 console.log('🔗 API Base URL detectada:', API_BASE_URL);
+console.log('🌐 Hostname:', window.location.hostname);
+console.log('🔗 Origin:', window.location.origin);
 
 // Función para hacer login
 async function login(employeeCode, password) {
@@ -27,10 +29,9 @@ async function login(employeeCode, password) {
             })
         });
 
-        console.log('📡 Respuesta del servidor:', response.status);
+        console.log('📡 Respuesta del servidor:', response.status, response.statusText);
         
         if (!response.ok) {
-            // Si la respuesta no es ok, intenta leer el error
             let errorData;
             try {
                 errorData = await response.json();
@@ -64,6 +65,8 @@ async function login(employeeCode, password) {
             errorMsg = 'No se puede conectar al servidor. Verifica tu conexión a internet.';
         } else if (error.message.includes('NetworkError')) {
             errorMsg = 'Error de red. El servidor podría estar inactivo.';
+        } else if (error.message.includes('CORS')) {
+            errorMsg = 'Error de CORS. Configuración del servidor incorrecta.';
         } else if (error.message) {
             errorMsg = error.message;
         }
@@ -128,10 +131,10 @@ function showError(message) {
         errorDiv.textContent = message;
         errorDiv.style.display = 'block';
         
-        // Ocultar después de 5 segundos
+        // Ocultar después de 10 segundos para dar tiempo a leer
         setTimeout(() => {
             errorDiv.style.display = 'none';
-        }, 5000);
+        }, 10000);
     } else {
         alert(message);
     }
@@ -148,16 +151,37 @@ function getUser() {
     return user ? JSON.parse(user) : null;
 }
 
-// Test de conectividad
+// Test de conectividad mejorado
 async function testConnection() {
     try {
-        console.log('🔍 Testeando conexión...');
-        const response = await fetch(`${API_BASE_URL}/test`);
+        console.log('🔍 Testeando conexión a:', `${API_BASE_URL}/test`);
+        
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 segundos timeout
+        
+        const response = await fetch(`${API_BASE_URL}/test`, {
+            signal: controller.signal,
+            headers: {
+                'Accept': 'application/json'
+            }
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
         const data = await response.json();
         console.log('✅ Conexión exitosa:', data);
         return true;
     } catch (error) {
         console.error('❌ Error de conexión:', error);
+        
+        if (error.name === 'AbortError') {
+            console.error('🕐 Timeout: El servidor no responde en 10 segundos');
+        }
+        
         return false;
     }
 }
@@ -170,7 +194,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const loginForm = document.getElementById('loginForm');
     
     if (loginForm) {
-        // Mostrar información de debugging en Render
+        // Mostrar información de debugging
         console.log('🔍 Información de la aplicación:');
         console.log('- Entorno:', window.location.hostname === 'localhost' ? 'Desarrollo' : 'Producción');
         console.log('- API Base URL:', API_BASE_URL);
