@@ -1,6 +1,6 @@
-// Autenticación - SIN redeclarar API_BASE_URL
+// Autenticación - Usar la configuración global
 
-// Usar la configuración global
+// Obtener la URL de API de la configuración global
 const API_BASE_URL = window.API_BASE_URL || window.location.origin;
 
 console.log('🔗 API Base URL (auth.js):', API_BASE_URL);

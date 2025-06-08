@@ -1,14 +1,7 @@
 // Funciones para interactuar con la API
 
-// Usar la configuración global si existe, sino definir localmente
-const API_BASE_URL = window.API_BASE_URL || (() => {
-    // En desarrollo local
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-        return 'http://localhost:3000';
-    }
-    // Para Render y otros deployments - usar el mismo origen
-    return window.location.origin;
-})();
+// Usar la configuración global
+const API_BASE_URL = window.API_BASE_URL || window.location.origin;
 
 console.log('🔗 API Base URL (api.js):', API_BASE_URL);
 

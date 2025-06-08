@@ -3,6 +3,7 @@ import jwt from "jsonwebtoken";
 import path from "path";
 import { fileURLToPath } from "url";
 import { createClient } from '@supabase/supabase-js';
+import cors from 'cors';
 
 const app = express();
 
@@ -10,28 +11,34 @@ const app = express();
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// CORS simplificado para Express 4.x
-app.use((req, res, next) => {
-  const origin = req.get('origin');
-  
-  // Permitir el origen de la request o usar wildcard en desarrollo
-  if (process.env.NODE_ENV === 'production') {
-    res.header('Access-Control-Allow-Origin', origin || req.get('host'));
-  } else {
-    res.header('Access-Control-Allow-Origin', '*');
-  }
-  
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  
-  if (req.method === 'OPTIONS') {
-    return res.sendStatus(200);
-  }
-  next();
-});
+// CORS configuration for Express 4.x
+app.use(cors({
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps, curl, etc.)
+    if (!origin) return callback(null, true);
+    
+    // In production, you might want to restrict origins
+    if (process.env.NODE_ENV === 'production') {
+      // Add your Render domain here
+      const allowedOrigins = [
+        origin,
+        'https://your-app-name.onrender.com'
+      ];
+      const isAllowed = allowedOrigins.some(allowedOrigin => 
+        origin.includes(allowedOrigin) || allowedOrigin === origin
+      );
+      return callback(null, isAllowed);
+    } else {
+      // Allow all origins in development
+      return callback(null, true);
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization']
+}));
 
-// __dirname para ES modules
+// __dirname for ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -53,6 +60,8 @@ if (supabaseUrl && supabaseServiceKey) {
   }
 } else {
   console.log('⚠️ Supabase no configurado - usando datos en memoria');
+  console.log('SUPABASE_URL:', supabaseUrl ? 'Configurada' : 'No configurada');
+  console.log('SUPABASE_SERVICE_KEY:', supabaseServiceKey ? 'Configurada' : 'No configurada');
 }
 
 // Base de datos de respaldo
