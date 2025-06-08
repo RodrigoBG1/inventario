@@ -1,9 +1,6 @@
-// Autenticación - Usar la configuración global
+// Autenticación - USAR la configuración global SIN redeclarar
 
-// Obtener la URL de API de la configuración global
-const API_BASE_URL = window.API_BASE_URL || window.location.origin;
-
-console.log('🔗 API Base URL (auth.js):', API_BASE_URL);
+console.log('🔗 API Base URL (auth.js):', window.API_BASE_URL);
 console.log('🌐 Hostname:', window.location.hostname);
 console.log('🔗 Origin:', window.location.origin);
 
@@ -11,9 +8,9 @@ console.log('🔗 Origin:', window.location.origin);
 async function login(employeeCode, password) {
     try {
         console.log('🔄 Intentando login con:', employeeCode);
-        console.log('🔗 URL de API:', `${API_BASE_URL}/auth/login`);
+        console.log('🔗 URL de API:', `${window.API_BASE_URL}/auth/login`);
         
-        const response = await fetch(`${API_BASE_URL}/auth/login`, {
+        const response = await fetch(`${window.API_BASE_URL}/auth/login`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -72,7 +69,7 @@ async function login(employeeCode, password) {
         // Mostrar información adicional para debugging
         console.log('🔍 Información de debugging:');
         console.log('- URL actual:', window.location.href);
-        console.log('- API URL:', API_BASE_URL);
+        console.log('- API URL:', window.API_BASE_URL);
         console.log('- Hostname:', window.location.hostname);
         console.log('- Protocol:', window.location.protocol);
         console.log('- Port:', window.location.port);
@@ -149,12 +146,12 @@ function getUser() {
 // Test de conectividad mejorado
 async function testConnection() {
     try {
-        console.log('🔍 Testeando conexión a:', `${API_BASE_URL}/test`);
+        console.log('🔍 Testeando conexión a:', `${window.API_BASE_URL}/test`);
         
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 segundos timeout
         
-        const response = await fetch(`${API_BASE_URL}/test`, {
+        const response = await fetch(`${window.API_BASE_URL}/test`, {
             signal: controller.signal,
             headers: {
                 'Accept': 'application/json'
@@ -192,7 +189,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Mostrar información de debugging
         console.log('🔍 Información de la aplicación:');
         console.log('- Entorno:', window.location.hostname === 'localhost' ? 'Desarrollo' : 'Producción');
-        console.log('- API Base URL:', API_BASE_URL);
+        console.log('- API Base URL:', window.API_BASE_URL);
         console.log('- URL completa:', window.location.href);
         console.log('- Credenciales disponibles:');
         console.log('  👨‍💼 Admin: ADMIN001 / password');

@@ -1,9 +1,6 @@
 // Funciones para interactuar con la API
 
-// Usar la configuración global
-const API_BASE_URL = window.API_BASE_URL || window.location.origin;
-
-console.log('🔗 API Base URL (api.js):', API_BASE_URL);
+console.log('🔗 API Base URL (api.js):', window.API_BASE_URL);
 
 // Función para obtener el token
 function getToken() {
@@ -47,7 +44,7 @@ async function apiRequest(endpoint, options = {}) {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 segundos timeout
         
-        const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+        const response = await fetch(`${window.API_BASE_URL}${endpoint}`, {
             ...config,
             signal: controller.signal
         });
