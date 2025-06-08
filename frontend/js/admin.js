@@ -9,38 +9,102 @@ let orders = [];
 let sales = [];
 let currentEditingProduct = null;
 
+// Función para verificar autenticación (para cualquier usuario)
+function checkAuth() {
+    const token = localStorage.getItem('token');
+    const user = localStorage.getItem('user');
+    
+    if (!token || !user) {
+        console.log('❌ No hay token o usuario, redirigiendo al login');
+        window.location.href = '/';
+        return null;
+    }
+    
+    try {
+        return JSON.parse(user);
+    } catch (error) {
+        console.error('Error parsing user data:', error);
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/';
+        return null;
+    }
+}
+
+// Función para verificar si el usuario es admin (SOLO para páginas de admin)
+function requireAdmin() {
+    const user = checkAuth();
+    if (!user) return false;
+    
+    if (user.role !== 'admin') {
+        alert('Acceso denegado. Se requieren permisos de administrador.');
+        window.location.href = '/';
+        return false;
+    }
+    return true;
+}
+
+// Función para verificar si el usuario puede acceder (admin O empleado)
+function requireAuth() {
+    const user = checkAuth();
+    if (!user) return false;
+    
+    // Permitir acceso a tanto admin como empleado
+    if (user.role !== 'admin' && user.role !== 'employee') {
+        alert('Acceso denegado. Sesión inválida.');
+        window.location.href = '/';
+        return false;
+    }
+    return true;
+}
+
 // Inicialización
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('📋 DOM cargado, iniciando admin panel...');
+    console.log('📋 DOM cargado, iniciando panel...');
     
-    // Verificar que sea admin
-    if (!requireAdmin()) return;
-    
-    // Cargar datos iniciales según la página
     const currentPage = window.location.pathname;
     console.log('📄 Página actual:', currentPage);
     
+    // Verificar autenticación según la página
+    if (currentPage.includes('/admin/')) {
+        // Páginas de admin requieren rol de administrador
+        if (!requireAdmin()) return;
+    } else if (currentPage.includes('/employee/')) {
+        // Páginas de empleado solo requieren estar autenticado
+        if (!requireAuth()) return;
+    }
+    
+    // Cargar datos según la página
     if (currentPage.includes('dashboard.html')) {
-        console.log('📊 Cargando dashboard...');
-        // Esperar un poco para que las funciones de API estén disponibles
-        setTimeout(loadDashboardData, 1000);
+        if (currentPage.includes('/admin/')) {
+            console.log('📊 Cargando dashboard admin...');
+            setTimeout(loadDashboardData, 1000);
+        } else {
+            console.log('📊 Cargando dashboard empleado...');
+            setTimeout(loadEmployeeDashboard, 1000);
+        }
     } else if (currentPage.includes('products.html')) {
         setTimeout(loadProductsPage, 1000);
     } else if (currentPage.includes('employees.html')) {
         setTimeout(loadEmployeesPage, 1000);
     } else if (currentPage.includes('orders.html')) {
-        setTimeout(loadOrdersPage, 1000);
+        if (currentPage.includes('/admin/')) {
+            setTimeout(loadOrdersPage, 1000);
+        } else {
+            setTimeout(loadEmployeeOrdersPage, 1000);
+        }
     } else if (currentPage.includes('reports.html')) {
         setTimeout(loadReportsPage, 1000);
+    } else if (currentPage.includes('sales.html')) {
+        setTimeout(loadSalesPage, 1000);
     }
 });
 
-// ===== DASHBOARD =====
+// ===== DASHBOARD ADMIN =====
 async function loadDashboardData() {
     console.log('📊 loadDashboardData() iniciando...');
     
     try {
-        // Verificar que las funciones estén disponibles
         if (typeof window.getProducts !== 'function') {
             console.error('❌ getProducts no está disponible');
             if (window.showNotification) {
@@ -90,26 +154,52 @@ async function loadDashboardData() {
     }
 }
 
-function updateDashboardStats() {
-    console.log('📊 Actualizando estadísticas del dashboard...');
+// ===== DASHBOARD EMPLEADO =====
+async function loadEmployeeDashboard() {
+    console.log('📊 loadEmployeeDashboard() iniciando...');
     
-    // Total de productos
-    const totalProductsElement = document.getElementById('total-products');
-    if (totalProductsElement) {
-        totalProductsElement.textContent = products.length;
-        console.log('📦 Total productos:', products.length);
-    } else {
-        console.warn('⚠️ Elemento total-products no encontrado');
+    try {
+        console.log('📋 Obteniendo mis pedidos...');
+        const ordersData = await window.getOrders();
+        console.log('📋 Mis pedidos obtenidos:', ordersData?.length || 0);
+        
+        console.log('💰 Obteniendo mis ventas...');
+        const salesData = await window.getSales();
+        console.log('💰 Mis ventas obtenidas:', salesData?.length || 0);
+        
+        // Guardar datos globalmente
+        orders = ordersData || [];
+        sales = salesData || [];
+        
+        // Actualizar estadísticas del empleado
+        console.log('📊 Actualizando estadísticas del empleado...');
+        updateEmployeeStats();
+        updateRecentActivity();
+        
+        console.log('✅ Dashboard del empleado cargado exitosamente');
+        if (window.showNotification) {
+            window.showNotification('Dashboard cargado correctamente', 'success');
+        }
+        
+    } catch (error) {
+        console.error('❌ Error loading employee dashboard:', error);
+        if (window.showNotification) {
+            window.showNotification('Error al cargar el dashboard: ' + error.message, 'error');
+        }
     }
+}
+
+// ===== FUNCIONES DE EMPLEADO =====
+function updateEmployeeStats() {
+    // Pedidos de hoy
+    const today = new Date().toDateString();
+    const todayOrders = orders.filter(order => 
+        new Date(order.created_at).toDateString() === today
+    ).length;
     
-    // Pedidos pendientes
-    const pendingOrders = orders.filter(order => order.status === 'hold').length;
-    const pendingOrdersElement = document.getElementById('pending-orders');
-    if (pendingOrdersElement) {
-        pendingOrdersElement.textContent = pendingOrders;
-        console.log('📋 Pedidos pendientes:', pendingOrders);
-    } else {
-        console.warn('⚠️ Elemento pending-orders no encontrado');
+    const todayOrdersElement = document.getElementById('today-orders');
+    if (todayOrdersElement) {
+        todayOrdersElement.textContent = todayOrders;
     }
     
     // Ventas del mes
@@ -125,32 +215,116 @@ function updateDashboardStats() {
     const monthlySalesElement = document.getElementById('monthly-sales');
     if (monthlySalesElement) {
         monthlySalesElement.textContent = window.formatCurrency ? window.formatCurrency(monthlySales) : `$${monthlySales}`;
-        console.log('💰 Ventas del mes:', monthlySales);
-    } else {
-        console.warn('⚠️ Elemento monthly-sales no encontrado');
     }
     
-    // Empleados activos
+    // Calcular comisiones
+    const user = getUser();
+    const commissionRate = user?.commission_rate || 0.05;
+    const commissions = monthlySales * commissionRate;
+    
+    const commissionsElement = document.getElementById('commissions');
+    if (commissionsElement) {
+        commissionsElement.textContent = window.formatCurrency ? window.formatCurrency(commissions) : `$${commissions}`;
+    }
+}
+
+function updateRecentActivity() {
+    const container = document.getElementById('recent-activity-list');
+    if (!container) return;
+    
+    // Combinar órdenes y ventas para mostrar actividad reciente
+    const recentActivity = [
+        ...orders.map(order => ({
+            type: 'order',
+            title: `Pedido ${order.order_number}`,
+            subtitle: `${window.formatCurrency ? window.formatCurrency(order.total) : `$${order.total}`} - ${order.status}`,
+            date: order.created_at,
+            icon: '📝'
+        })),
+        ...sales.map(sale => ({
+            type: 'sale',
+            title: `Venta ${sale.sale_number || sale.id}`,
+            subtitle: `${window.formatCurrency ? window.formatCurrency(sale.total) : `$${sale.total}`} - Confirmada`,
+            date: sale.created_at,
+            icon: '💰'
+        }))
+    ]
+    .sort((a, b) => new Date(b.date) - new Date(a.date))
+    .slice(0, 5);
+    
+    container.innerHTML = recentActivity.map(activity => `
+        <div class="activity-item">
+            <div class="activity-icon">${activity.icon}</div>
+            <div class="activity-content">
+                <div class="activity-title">${activity.title}</div>
+                <div class="activity-subtitle">${activity.subtitle}</div>
+                <div class="activity-time">${window.formatDate ? window.formatDate(activity.date) : activity.date}</div>
+            </div>
+        </div>
+    `).join('');
+}
+
+function loadEmployeeOrdersPage() {
+    console.log('📋 Cargando página de pedidos del empleado...');
+    // Aquí iría la lógica específica para la página de pedidos del empleado
+}
+
+function loadSalesPage() {
+    console.log('💰 Cargando página de ventas del empleado...');
+    // Aquí iría la lógica específica para la página de ventas del empleado
+}
+
+function getUser() {
+    const user = localStorage.getItem('user');
+    return user ? JSON.parse(user) : null;
+}
+
+// ===== RESTO DE FUNCIONES ADMIN (sin cambios) =====
+function updateDashboardStats() {
+    console.log('📊 Actualizando estadísticas del dashboard...');
+    
+    const totalProductsElement = document.getElementById('total-products');
+    if (totalProductsElement) {
+        totalProductsElement.textContent = products.length;
+        console.log('📦 Total productos:', products.length);
+    }
+    
+    const pendingOrders = orders.filter(order => order.status === 'hold').length;
+    const pendingOrdersElement = document.getElementById('pending-orders');
+    if (pendingOrdersElement) {
+        pendingOrdersElement.textContent = pendingOrders;
+        console.log('📋 Pedidos pendientes:', pendingOrders);
+    }
+    
+    const currentMonth = new Date().getMonth();
+    const currentYear = new Date().getFullYear();
+    const monthlySales = sales
+        .filter(sale => {
+            const saleDate = new Date(sale.created_at);
+            return saleDate.getMonth() === currentMonth && saleDate.getFullYear() === currentYear;
+        })
+        .reduce((total, sale) => total + sale.total, 0);
+    
+    const monthlySalesElement = document.getElementById('monthly-sales');
+    if (monthlySalesElement) {
+        monthlySalesElement.textContent = window.formatCurrency ? window.formatCurrency(monthlySales) : `$${monthlySales}`;
+        console.log('💰 Ventas del mes:', monthlySales);
+    }
+    
     const activeEmployees = employees.filter(emp => emp.role === 'employee').length;
     const activeEmployeesElement = document.getElementById('active-employees');
     if (activeEmployeesElement) {
         activeEmployeesElement.textContent = activeEmployees;
         console.log('👥 Empleados activos:', activeEmployees);
-    } else {
-        console.warn('⚠️ Elemento active-employees no encontrado');
     }
 }
 
 function updateRecentOrders() {
     const tbody = document.querySelector('#recent-orders-table tbody');
-    if (!tbody) {
-        console.warn('⚠️ Tabla recent-orders-table no encontrada');
-        return;
-    }
+    if (!tbody) return;
     
     console.log('📋 Actualizando pedidos recientes...');
     
-    // Ordenar por fecha más reciente
     const recentOrders = orders
         .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
         .slice(0, 5);
@@ -170,10 +344,7 @@ function updateRecentOrders() {
 
 function updateLowStock() {
     const tbody = document.querySelector('#low-stock-table tbody');
-    if (!tbody) {
-        console.warn('⚠️ Tabla low-stock-table no encontrada');
-        return;
-    }
+    if (!tbody) return;
     
     console.log('📦 Actualizando productos con stock bajo...');
     
@@ -292,13 +463,11 @@ function openProductModal(productId = null) {
     const form = document.getElementById('product-form');
     
     if (productId) {
-        // Editar producto
         const product = products.find(p => p.id === productId);
         title.textContent = 'Editar Producto';
         fillProductForm(product);
         currentEditingProduct = productId;
     } else {
-        // Nuevo producto
         title.textContent = 'Nuevo Producto';
         form.reset();
         currentEditingProduct = null;
