@@ -140,6 +140,7 @@ async function createOrder(orderData) {
     });
 }
 
+// Confirm Order
 async function confirmOrder(orderId, paymentInfo) {
     return await apiRequest(`/api/orders/${orderId}/confirm`, {
         method: 'PUT',
@@ -147,6 +148,18 @@ async function confirmOrder(orderId, paymentInfo) {
     });
 }
 
+// Cancel Order
+async function cancelOrder(orderId, reason) {
+    return await apiRequest(`/api/orders/${orderId}/cancel`, {
+        method: 'PUT',
+        body: JSON.stringify({ reason: reason })
+    });
+}
+
+// Get Order Details
+async function getOrderDetails(orderId) {
+    return await apiRequest(`/api/orders/${orderId}`);
+}
 // ===== VENTAS =====
 async function getSales() {
     return await apiRequest('/api/sales');
@@ -344,11 +357,14 @@ document.addEventListener('DOMContentLoaded', async function() {
 window.getProducts = getProducts;
 window.getEmployees = getEmployees;
 window.getOrders = getOrders;
+
 window.getSales = getSales;
 window.createProduct = createProduct;
 window.updateProduct = updateProduct;
 window.deleteProduct = deleteProduct;
 window.confirmOrder = confirmOrder;
+window.cancelOrder = cancelOrder;
+window.getOrderDetails = getOrderDetails;
 window.getSalesByEmployee = getSalesByEmployee;
 window.getInventoryReport = getInventoryReport;
 window.formatCurrency = formatCurrency;

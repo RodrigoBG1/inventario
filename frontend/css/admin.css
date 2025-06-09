@@ -49,45 +49,93 @@
 .search-filter input {
     flex: 1;
 }
+.filter-controls {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding: 1rem;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.filter-controls select {
+    min-width: 200px;
+}
+
 
 /* Modal styles */
 .modal {
-    display: none;
-    position: fixed;
-    z-index: 1000;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.5);
-    animation: fadeIn 0.3s;
+    z-index: 1001;
 }
 
 .modal-content {
-    background-color: white;
-    margin: 5% auto;
-    padding: 0;
-    border-radius: 8px;
-    width: 90%;
     max-width: 600px;
-    box-shadow: var(--shadow);
-    animation: slideDown 0.3s;
+    max-height: 90vh;
+    overflow-y: auto;
 }
 
 .modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 1.5rem;
-    border-bottom: 1px solid var(--border-color);
-    background: #f8fafc;
-    border-radius: 8px 8px 0 0;
+    position: sticky;
+    top: 0;
+    background: white;
+    z-index: 1;
+    border-bottom: 1px solid #e2e8f0;
 }
 
-.modal-header h3 {
-    margin: 0;
-    color: var(--text-color);
+
+.form-group select {
+    background: white;
+    border: 2px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 0.75rem;
+    width: 100%;
+    font-size: 1rem;
+    transition: border-color 0.2s;
 }
+
+.form-group select:focus {
+    border-color: #2563eb;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.form-group textarea {
+    background: white;
+    border: 2px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 0.75rem;
+    width: 100%;
+    font-size: 1rem;
+    font-family: inherit;
+    resize: vertical;
+    min-height: 80px;
+    transition: border-color 0.2s;
+}
+
+.form-group textarea:focus {
+    border-color: #2563eb;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+/* Filter controls improvements */
+.filter-controls {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding: 1rem;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.filter-controls select {
+    min-width: 200px;
+}
+
 
 .close {
     color: var(--secondary-color);
@@ -131,14 +179,27 @@
     color: white;
 }
 
-.btn-delete {
-    background: var(--danger-color);
-    color: white;
-}
 
 .btn-confirm {
-    background: var(--success-color);
+    background: #059669;
     color: white;
+    border: 1px solid #047857;
+}
+
+.btn-confirm:hover {
+    background: #047857;
+    transform: translateY(-1px);
+}
+
+.btn-delete {
+    background: #dc2626;
+    color: white;
+    border: 1px solid #b91c1c;
+}
+
+.btn-delete:hover {
+    background: #b91c1c;
+    transform: translateY(-1px);
 }
 
 /* Estados de pedidos */
@@ -148,22 +209,27 @@
     font-size: 0.75rem;
     font-weight: 500;
     text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 .status-hold {
     background: #fef3c7;
     color: #92400e;
+    border: 1px solid #f59e0b;
 }
 
 .status-confirmed {
     background: #d1fae5;
     color: #065f46;
+    border: 1px solid #10b981;
 }
 
 .status-cancelled {
     background: #fee2e2;
     color: #991b1b;
+    border: 1px solid #ef4444;
 }
+
 
 /* Reportes */
 .reports-grid {
@@ -254,19 +320,29 @@
 }
 
 @media (max-width: 768px) {
-    .form-grid {
-        grid-template-columns: 1fr;
-    }
-    
     .action-buttons {
         flex-direction: column;
+        gap: 0.25rem;
     }
     
-    .modal-actions {
+    .btn-sm {
+        width: 100%;
+        text-align: center;
+    }
+    
+    .filter-controls {
         flex-direction: column;
+        align-items: stretch;
     }
     
-    .reports-grid {
-        grid-template-columns: 1fr;
+    .filter-controls select,
+    .filter-controls button {
+        width: 100%;
+    }
+    
+    .modal-content {
+        margin: 1rem;
+        width: calc(100% - 2rem);
+        max-height: calc(100vh - 2rem);
     }
 }

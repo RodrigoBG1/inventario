@@ -542,6 +542,269 @@ app.post("/api/orders", auth, async (req, res) => {
   }
 });
 
+
+app.put("/api/orders/:id/confirm", auth, adminOnly, async (req, res) => {
+  try {
+    const orderId = parseInt(req.params.id);
+    const { payment_info } = req.body;
+    
+    console.log(`🔄 Confirmando pedido ${orderId}...`);
+    
+    if (supabase) {
+      try {
+        // Get the order first
+        const { data: order, error: getError } = await supabase
+          .from('orders')
+          .select('*')
+          .eq('id', orderId)
+          .single();
+        
+        if (getError) throw getError;
+        if (!order) {
+          return res.status(404).json({ message: 'Pedido no encontrado' });
+        }
+        
+        // Update order status to confirmed
+        const { data: updatedOrder, error: updateError } = await supabase
+          .from('orders')
+          .update({ 
+            status: 'confirmed',
+            confirmed_at: new Date().toISOString(),
+            payment_info: payment_info
+          })
+          .eq('id', orderId)
+          .select()
+          .single();
+        
+        if (updateError) throw updateError;
+        
+        // Create a sale record
+        const saleData = {
+          order_id: orderId,
+          sale_number: `SALE-${Date.now()}`,
+          employee_id: order.employee_id,
+          employee_code: order.employee_code,
+          client_info: order.client_info,
+          products: order.products,
+          total: order.total,
+          payment_info: payment_info,
+          location: order.location,
+          notes: order.notes,
+          created_at: new Date().toISOString()
+        };
+        
+        const { data: newSale, error: saleError } = await supabase
+          .from('sales')
+          .insert([saleData])
+          .select()
+          .single();
+        
+        if (saleError) {
+          console.warn('Error creating sale record:', saleError);
+          // Continue anyway, order is confirmed
+        }
+        
+        console.log(`✅ Pedido ${orderId} confirmado exitosamente`);
+        res.json({ 
+          message: 'Pedido confirmado exitosamente',
+          order: updatedOrder,
+          sale: newSale || null
+        });
+        
+      } catch (error) {
+        console.error('Error en Supabase, usando fallback:', error);
+        // Fallback to memory database
+      }
+    }
+    
+    // Fallback for memory database
+    const orderIndex = fallbackDatabase.orders.findIndex(o => o.id === orderId);
+    if (orderIndex === -1) {
+      return res.status(404).json({ message: 'Pedido no encontrado' });
+    }
+    
+    const order = fallbackDatabase.orders[orderIndex];
+    
+    // Update order
+    fallbackDatabase.orders[orderIndex] = {
+      ...order,
+      status: 'confirmed',
+      confirmed_at: new Date().toISOString(),
+      payment_info: payment_info
+    };
+    
+    // Create sale record
+    const newSale = {
+      id: fallbackDatabase.sales.length + 1,
+      order_id: orderId,
+      sale_number: `SALE-${Date.now()}`,
+      employee_id: order.employee_id,
+      employee_code: order.employee_code,
+      client_info: order.client_info,
+      products: order.products,
+      total: order.total,
+      payment_info: payment_info,
+      location: order.location,
+      notes: order.notes,
+      created_at: new Date().toISOString()
+    };
+    
+    fallbackDatabase.sales.push(newSale);
+    
+    console.log(`✅ Pedido ${orderId} confirmado exitosamente (fallback)`);
+    res.json({ 
+      message: 'Pedido confirmado exitosamente',
+      order: fallbackDatabase.orders[orderIndex],
+      sale: newSale
+    });
+    
+  } catch (error) {
+    console.error('❌ Error confirming order:', error);
+    res.status(500).json({ 
+      message: 'Error al confirmar pedido', 
+      error: error.message 
+    });
+  }
+});
+
+// Cancel Order endpoint (NEW)
+app.put("/api/orders/:id/cancel", auth, adminOnly, async (req, res) => {
+  try {
+    const orderId = parseInt(req.params.id);
+    const { reason } = req.body;
+    
+    console.log(`🚫 Cancelando pedido ${orderId}...`);
+    
+    if (supabase) {
+      try {
+        // Check if order exists and is not already confirmed
+        const { data: order, error: getError } = await supabase
+          .from('orders')
+          .select('*')
+          .eq('id', orderId)
+          .single();
+        
+        if (getError) throw getError;
+        if (!order) {
+          return res.status(404).json({ message: 'Pedido no encontrado' });
+        }
+        
+        if (order.status === 'confirmed') {
+          return res.status(400).json({ message: 'No se puede cancelar un pedido ya confirmado' });
+        }
+        
+        // Update order status to cancelled
+        const { data: updatedOrder, error: updateError } = await supabase
+          .from('orders')
+          .update({ 
+            status: 'cancelled',
+            cancelled_at: new Date().toISOString(),
+            cancellation_reason: reason || 'Cancelado por administrador'
+          })
+          .eq('id', orderId)
+          .select()
+          .single();
+        
+        if (updateError) throw updateError;
+        
+        console.log(`✅ Pedido ${orderId} cancelado exitosamente`);
+        res.json({ 
+          message: 'Pedido cancelado exitosamente',
+          order: updatedOrder
+        });
+        
+      } catch (error) {
+        console.error('Error en Supabase, usando fallback:', error);
+        // Fallback to memory database
+      }
+    }
+    
+    // Fallback for memory database
+    const orderIndex = fallbackDatabase.orders.findIndex(o => o.id === orderId);
+    if (orderIndex === -1) {
+      return res.status(404).json({ message: 'Pedido no encontrado' });
+    }
+    
+    const order = fallbackDatabase.orders[orderIndex];
+    
+    if (order.status === 'confirmed') {
+      return res.status(400).json({ message: 'No se puede cancelar un pedido ya confirmado' });
+    }
+    
+    // Update order
+    fallbackDatabase.orders[orderIndex] = {
+      ...order,
+      status: 'cancelled',
+      cancelled_at: new Date().toISOString(),
+      cancellation_reason: reason || 'Cancelado por administrador'
+    };
+    
+    console.log(`✅ Pedido ${orderId} cancelado exitosamente (fallback)`);
+    res.json({ 
+      message: 'Pedido cancelado exitosamente',
+      order: fallbackDatabase.orders[orderIndex]
+    });
+    
+  } catch (error) {
+    console.error('❌ Error cancelling order:', error);
+    res.status(500).json({ 
+      message: 'Error al cancelar pedido', 
+      error: error.message 
+    });
+  }
+});
+
+// Get Order Details endpoint (HELPFUL FOR ADMIN)
+app.get("/api/orders/:id", auth, async (req, res) => {
+  try {
+    const orderId = parseInt(req.params.id);
+    
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('orders')
+          .select('*')
+          .eq('id', orderId)
+          .single();
+        
+        if (error && error.code !== 'PGRST116') throw error;
+        
+        if (data) {
+          // Check if user has permission to view this order
+          if (req.user.role !== 'admin' && data.employee_id !== req.user.id) {
+            return res.status(403).json({ message: 'No tienes permisos para ver este pedido' });
+          }
+          
+          return res.json(data);
+        }
+      } catch (error) {
+        console.error('Error getting order from Supabase:', error);
+        // Fallback to memory database
+      }
+    }
+    
+    // Fallback for memory database
+    const order = fallbackDatabase.orders.find(o => o.id === orderId);
+    if (!order) {
+      return res.status(404).json({ message: 'Pedido no encontrado' });
+    }
+    
+    // Check permissions
+    if (req.user.role !== 'admin' && order.employee_id !== req.user.id) {
+      return res.status(403).json({ message: 'No tienes permisos para ver este pedido' });
+    }
+    
+    res.json(order);
+    
+  } catch (error) {
+    console.error('Error getting order details:', error);
+    res.status(500).json({ 
+      message: 'Error al obtener detalles del pedido', 
+      error: error.message 
+    });
+  }
+});
+
 // API Routes - Ventas
 app.get("/api/sales", auth, async (req, res) => {
   try {
