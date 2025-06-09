@@ -191,9 +191,6 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('- Entorno:', window.location.hostname === 'localhost' ? 'Desarrollo' : 'Producción');
         console.log('- API Base URL:', window.API_BASE_URL);
         console.log('- URL completa:', window.location.href);
-        console.log('- Credenciales disponibles:');
-        console.log('  👨‍💼 Admin: ADMIN001 / password');
-        console.log('  👷‍♂️ Empleado: EMP001 / password');
         
         loginForm.addEventListener('submit', async function(e) {
             e.preventDefault();

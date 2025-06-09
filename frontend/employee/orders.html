@@ -7,14 +7,24 @@
     <link rel="stylesheet" href="../css/style.css">
     <link rel="stylesheet" href="../css/employee.css">
     <style>
-        /* Estilos específicos para esta página */
+        /* Reseteo completo para tema claro como admin */
+        * {
+            color-scheme: light !important;
+        }
+
+        body {
+            background-color: #f8fafc !important;
+            color: #334155 !important;
+        }
+
+        /* Botón de menú móvil */
         .mobile-menu-btn {
             display: none;
             position: fixed;
             top: 1rem;
             left: 1rem;
             z-index: 1001;
-            background: var(--primary-color);
+            background: #2563eb;
             color: white;
             border: none;
             padding: 0.75rem;
@@ -49,20 +59,20 @@
             background: rgba(255, 255, 255, 0.1);
         }
 
-        /* Cards de productos para móvil */
+        /* Cards de productos - estilo admin */
         .product-card {
-            border: 1px solid var(--border-color);
+            border: 1px solid #e2e8f0;
             border-radius: 8px;
             padding: 1rem;
             margin-bottom: 1rem;
             background: white;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
             transition: all 0.2s ease;
         }
 
         .product-card:hover {
-            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-            transform: translateY(-1px);
+            box-shadow: 0 6px 12px -1px rgba(0, 0, 0, 0.15);
+            transform: translateY(-2px);
         }
 
         .product-header {
@@ -73,7 +83,7 @@
         }
 
         .product-code {
-            background: var(--primary-color);
+            background: #2563eb;
             color: white;
             padding: 0.25rem 0.5rem;
             border-radius: 4px;
@@ -84,7 +94,7 @@
 
         .product-name {
             font-weight: 600;
-            color: var(--text-color);
+            color: #334155;
             margin-bottom: 0.5rem;
             font-size: 0.95rem;
             line-height: 1.3;
@@ -92,7 +102,7 @@
 
         .product-details {
             font-size: 0.85rem;
-            color: var(--secondary-color);
+            color: #64748b;
             margin-bottom: 0.75rem;
             line-height: 1.4;
         }
@@ -100,7 +110,7 @@
         .product-price {
             font-size: 1.25rem;
             font-weight: 700;
-            color: var(--primary-color);
+            color: #2563eb;
         }
 
         .stock-info {
@@ -109,17 +119,9 @@
             font-weight: 500;
         }
 
-        .stock-high { color: var(--success-color); }
-        .stock-medium { color: var(--warning-color); }
-        .stock-low { 
-            color: var(--danger-color);
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.7; }
-        }
+        .stock-high { color: #059669; }
+        .stock-medium { color: #d97706; }
+        .stock-low { color: #dc2626; }
 
         .product-actions {
             display: flex;
@@ -129,90 +131,130 @@
 
         .quantity-input {
             width: 70px;
-            padding: 0.75rem 0.5rem;
-            border: 2px solid var(--border-color);
+            padding: 0.5rem;
+            border: 2px solid #e2e8f0;
             border-radius: 6px;
             text-align: center;
             font-size: 1rem;
             font-weight: 600;
+            background: white;
+            color: #334155;
         }
 
         .quantity-input:focus {
-            border-color: var(--primary-color);
+            border-color: #2563eb;
             outline: none;
             box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
         }
 
         .add-product-btn {
-            background: var(--success-color);
+            background: #059669;
             color: white;
             border: none;
-            padding: 0.75rem 1rem;
+            padding: 0.5rem 1rem;
             border-radius: 6px;
             cursor: pointer;
-            font-weight: 600;
+            font-weight: 500;
             flex: 1;
-            font-size: 0.9rem;
+            font-size: 0.875rem;
             transition: all 0.2s ease;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
         }
 
         .add-product-btn:hover:not(:disabled) {
             background: #047857;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 8px rgba(5, 150, 105, 0.3);
         }
 
         .add-product-btn:disabled {
             background: #9ca3af;
             cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
         }
 
         /* Búsqueda de productos */
         .product-search {
             margin-bottom: 1rem;
-            position: sticky;
-            top: 0;
             background: white;
-            z-index: 100;
             padding: 1rem;
-            border-bottom: 1px solid var(--border-color);
+            border-bottom: 1px solid #e2e8f0;
+            border-radius: 8px 8px 0 0;
         }
 
         .search-input {
             width: 100%;
             padding: 0.75rem;
-            border: 2px solid var(--border-color);
+            border: 2px solid #e2e8f0;
             border-radius: 8px;
             font-size: 1rem;
-            background: #f8fafc;
+            background: white;
+            color: #334155;
         }
 
         .search-input:focus {
-            border-color: var(--primary-color);
-            background: white;
+            border-color: #2563eb;
             outline: none;
             box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
         }
 
+        /* Tabla de pedidos */
+        #order-products-table {
+            background: white;
+            color: #334155;
+            width: 100%;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        #order-products-table th {
+            background: #2563eb;
+            color: white;
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        #order-products-table td {
+            background: white;
+            color: #334155;
+            padding: 1rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        #order-products-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        #order-products-table tr:hover td {
+            background: #f8fafc;
+        }
+
+        .remove-product {
+            background: #dc2626;
+            color: white;
+            border: none;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            transition: all 0.2s ease;
+        }
+
+        .remove-product:hover {
+            background: #b91c1c;
+        }
+
         /* Resumen del carrito */
         .cart-summary {
-            position: sticky;
-            bottom: 0;
             background: white;
-            border-top: 3px solid var(--primary-color);
+            border-top: 2px solid #2563eb;
             padding: 1rem;
             margin: 1rem -1rem -1rem -1rem;
-            border-radius: 8px 8px 0 0;
-            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+            border-radius: 0 0 8px 8px;
+            color: #334155;
         }
 
         .cart-items-count {
             font-size: 0.875rem;
-            color: var(--secondary-color);
+            color: #64748b;
             margin-bottom: 0.5rem;
             text-align: center;
         }
@@ -220,16 +262,153 @@
         .cart-total {
             font-size: 1.5rem;
             font-weight: 700;
-            color: var(--primary-color);
+            color: #2563eb;
             text-align: center;
+        }
+
+        /* Secciones del formulario */
+        .form-section {
+            background: white;
+            margin-bottom: 2rem;
+            border-radius: 8px;
+            padding: 0;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .section-title {
+            background: #2563eb;
+            color: white;
+            padding: 1rem 1.5rem;
+            margin: 0;
+            font-weight: 600;
+            font-size: 1rem;
+            border-bottom: none;
+        }
+
+        .form-section > div:not(.section-title) {
+            padding: 1.5rem;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #334155;
+        }
+
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 6px;
+            font-size: 1rem;
+            background: white;
+            color: #334155;
+            transition: border-color 0.2s;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus {
+            border-color: #2563eb;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        /* Header del contenido */
+        .content-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #e2e8f0;
+            background: transparent;
+        }
+
+        .content-header h1 {
+            font-size: 2rem;
+            color: #334155;
+            margin: 0;
+        }
+
+        /* Botones de acción */
+        .form-actions {
+            padding: 1.5rem;
+            background: #f8fafc;
+            display: flex;
+            justify-content: flex-end;
+            gap: 1rem;
+            border-radius: 8px;
+            margin-top: 2rem;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: #2563eb;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #1d4ed8;
+        }
+
+        .btn-secondary {
+            background: #64748b;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #475569;
+        }
+
+        .btn-location {
+            background: #d97706;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            transition: all 0.2s;
+        }
+
+        .btn-location:hover {
+            background: #b45309;
         }
 
         /* Loading state */
         .loading {
             text-align: center;
             padding: 2rem;
-            color: var(--secondary-color);
+            color: #64748b;
             font-size: 0.9rem;
+            background: white;
+            border-radius: 8px;
         }
 
         .loading::after {
@@ -237,7 +416,7 @@
             display: inline-block;
             width: 20px;
             height: 20px;
-            border: 2px solid var(--primary-color);
+            border: 2px solid #2563eb;
             border-radius: 50%;
             border-top-color: transparent;
             animation: spin 1s linear infinite;
@@ -248,7 +427,7 @@
             to { transform: rotate(360deg); }
         }
 
-        /* Responsive específico */
+        /* Responsive */
         @media (max-width: 768px) {
             .mobile-menu-btn {
                 display: block !important;
@@ -275,10 +454,11 @@
                 flex-direction: column;
                 align-items: stretch;
                 gap: 1rem;
-                background: white;
                 padding: 1rem;
+                background: white;
                 border-radius: 8px;
-                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+                border-bottom: none;
             }
 
             .header-actions {
@@ -286,27 +466,13 @@
                 gap: 0.5rem;
             }
 
-            .form-section {
-                background: white;
-                margin-bottom: 1rem;
-                border-radius: 8px;
-                padding: 1rem;
-                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            }
-
             .section-title {
-                background: var(--primary-color);
-                color: white;
-                padding: 0.75rem 1rem;
-                margin: -1rem -1rem 1rem -1rem;
-                font-weight: 600;
-                border-radius: 8px 8px 0 0;
                 font-size: 0.9rem;
+                padding: 0.75rem 1rem;
             }
 
             .form-grid {
                 grid-template-columns: 1fr;
-                gap: 1rem;
             }
 
             .product-actions {
@@ -316,6 +482,10 @@
 
             .quantity-input {
                 width: 100%;
+            }
+
+            .form-actions {
+                flex-direction: column;
             }
         }
 
@@ -403,7 +573,7 @@
                         
                         <!-- Productos seleccionados -->
                         <div class="selected-products" style="margin-top: 2rem;">
-                            <h4>Productos en el Pedido</h4>
+                            <h4>Productos en el Pedido (<span id="products-count">0</span>)</h4>
                             <div style="overflow-x: auto;">
                                 <table id="order-products-table">
                                     <thead>
@@ -460,7 +630,7 @@
                         <button type="button" class="btn btn-secondary" onclick="clearEmployeeOrder()">
                             🧹 Limpiar Pedido
                         </button>
-                        <button type="submit" class="btn btn-primary">
+                        <button type="submit" class="btn btn-primary" id="submit-order-btn">
                             ✅ Crear Pedido
                         </button>
                     </div>
@@ -469,7 +639,7 @@
         </main>
     </div>
 
-    <!-- Scripts en orden correcto: config PRIMERO -->
+    <!-- Scripts en orden correcto -->
     <script src="../js/config.js"></script>
     <script src="../js/auth.js"></script>
     <script src="../js/api.js"></script>
@@ -483,14 +653,15 @@
             
             console.log('🔄 Inicializando página de pedidos integrada...');
             
-            // Variables globales para esta página
-            window.employeeOrderProducts = [];
-            window.employeeCurrentLocation = null;
-            window.employeeProducts = [];
-            
-            let isLoading = false;
-            let retryCount = 0;
-            const maxRetries = 5;
+            // Variables globales para esta página - CRÍTICO: usar un objeto para evitar conflictos
+            window.OrderManager = {
+                products: [],
+                orderProducts: [],
+                currentLocation: null,
+                isLoading: false,
+                retryCount: 0,
+                maxRetries: 5
+            };
             
             // Función principal de inicialización
             function initPage() {
@@ -566,13 +737,13 @@
             
             // Cargar productos
             async function loadProducts() {
-                if (isLoading) return;
+                if (window.OrderManager.isLoading) return;
                 
                 const container = document.getElementById('products-list');
                 if (!container) return;
                 
                 try {
-                    isLoading = true;
+                    window.OrderManager.isLoading = true;
                     container.innerHTML = '<div class="loading">🔄 Cargando productos...</div>';
                     
                     if (typeof window.getProducts !== 'function') {
@@ -584,7 +755,7 @@
                         throw new Error('No se encontraron productos');
                     }
                     
-                    window.employeeProducts = products;
+                    window.OrderManager.products = products;
                     displayProducts(products);
                     
                     if (window.showNotification) {
@@ -596,11 +767,11 @@
                 } catch (error) {
                     console.error('❌ Error cargando productos:', error);
                     
-                    retryCount++;
-                    if (retryCount < maxRetries) {
+                    window.OrderManager.retryCount++;
+                    if (window.OrderManager.retryCount < window.OrderManager.maxRetries) {
                         container.innerHTML = `
                             <div style="text-align: center; padding: 2rem; color: var(--warning-color);">
-                                <p>⏳ Reintentando... (${retryCount}/${maxRetries})</p>
+                                <p>⏳ Reintentando... (${window.OrderManager.retryCount}/${window.OrderManager.maxRetries})</p>
                             </div>
                         `;
                         setTimeout(loadProducts, 2000);
@@ -616,7 +787,7 @@
                         `;
                     }
                 } finally {
-                    isLoading = false;
+                    window.OrderManager.isLoading = false;
                 }
             }
             
@@ -646,7 +817,7 @@
                                 <div>
                                     <div class="product-code">${product.code}</div>
                                 </div>
-                                <div class="product-price">${product.price.toFixed(2)}</div>
+                                <div class="product-price">$${product.price.toFixed(2)}</div>
                             </div>
                             
                             <div class="product-name">${product.name}</div>
@@ -679,11 +850,16 @@
             
             // Agregar al carrito
             window.addToCart = function(productId) {
-                const product = window.employeeProducts.find(p => p.id === productId);
-                if (!product) return;
+                const product = window.OrderManager.products.find(p => p.id === productId);
+                if (!product) {
+                    console.error('❌ Producto no encontrado:', productId);
+                    return;
+                }
                 
                 const quantityInput = document.getElementById(`qty-${productId}`);
                 const quantity = parseInt(quantityInput?.value) || 1;
+                
+                console.log('➕ Agregando al carrito:', product.name, 'cantidad:', quantity);
                 
                 if (quantity <= 0 || quantity > product.stock) {
                     if (window.showNotification) {
@@ -692,19 +868,19 @@
                     return;
                 }
                 
-                const existingIndex = window.employeeOrderProducts.findIndex(p => p.product_id === productId);
+                const existingIndex = window.OrderManager.orderProducts.findIndex(p => p.product_id === productId);
                 
                 if (existingIndex >= 0) {
-                    const newQuantity = window.employeeOrderProducts[existingIndex].quantity + quantity;
+                    const newQuantity = window.OrderManager.orderProducts[existingIndex].quantity + quantity;
                     if (newQuantity > product.stock) {
                         if (window.showNotification) {
                             window.showNotification(`No puedes agregar más. Stock disponible: ${product.stock}`, 'warning');
                         }
                         return;
                     }
-                    window.employeeOrderProducts[existingIndex].quantity = newQuantity;
+                    window.OrderManager.orderProducts[existingIndex].quantity = newQuantity;
                 } else {
-                    window.employeeOrderProducts.push({
+                    window.OrderManager.orderProducts.push({
                         product_id: productId,
                         name: product.name,
                         code: product.code,
@@ -719,14 +895,20 @@
                 if (window.showNotification) {
                     window.showNotification(`${product.name} agregado al pedido`, 'success');
                 }
+                
+                console.log('✅ Productos en el carrito:', window.OrderManager.orderProducts.length);
             };
             
             // Actualizar tabla
             function updateOrderTable() {
                 const tbody = document.querySelector('#order-products-table tbody');
+                const productsCount = document.getElementById('products-count');
+                
                 if (!tbody) return;
                 
-                if (window.employeeOrderProducts.length === 0) {
+                console.log('📊 Actualizando tabla, productos en carrito:', window.OrderManager.orderProducts.length);
+                
+                if (window.OrderManager.orderProducts.length === 0) {
                     tbody.innerHTML = `
                         <tr>
                             <td colspan="5" style="text-align: center; padding: 2rem; color: var(--secondary-color);">
@@ -735,17 +917,22 @@
                         </tr>
                     `;
                 } else {
-                    tbody.innerHTML = window.employeeOrderProducts.map((product, index) => `
+                    tbody.innerHTML = window.OrderManager.orderProducts.map((product, index) => `
                         <tr>
                             <td>${product.code} - ${product.name}</td>
                             <td>${product.price.toFixed(2)}</td>
                             <td>${product.quantity}</td>
                             <td>${(product.price * product.quantity).toFixed(2)}</td>
                             <td>
-                                <button class="remove-product" onclick="removeFromCart(${index})">🗑️</button>
+                                <button class="remove-product" onclick="removeFromCart(${index})" title="Remover producto">🗑️</button>
                             </td>
                         </tr>
                     `).join('');
+                }
+                
+                // Actualizar contador de productos
+                if (productsCount) {
+                    productsCount.textContent = window.OrderManager.orderProducts.length;
                 }
                 
                 updateSummary();
@@ -753,8 +940,8 @@
             
             // Actualizar resumen
             function updateSummary() {
-                const total = window.employeeOrderProducts.reduce((sum, p) => sum + (p.price * p.quantity), 0);
-                const totalItems = window.employeeOrderProducts.reduce((sum, p) => sum + p.quantity, 0);
+                const total = window.OrderManager.orderProducts.reduce((sum, p) => sum + (p.price * p.quantity), 0);
+                const totalItems = window.OrderManager.orderProducts.reduce((sum, p) => sum + p.quantity, 0);
                 
                 const totalElement = document.getElementById('order-total');
                 const countElement = document.getElementById('cart-items-count');
@@ -766,13 +953,18 @@
                 if (countElement) {
                     countElement.textContent = `${totalItems} productos seleccionados`;
                 }
+                
+                console.log('💰 Resumen actualizado - Total:', total, 'Items:', totalItems);
             }
             
             // Remover del carrito
             window.removeFromCart = function(index) {
-                const product = window.employeeOrderProducts[index];
+                const product = window.OrderManager.orderProducts[index];
+                if (!product) return;
+                
                 if (confirm(`¿Remover ${product.name} del pedido?`)) {
-                    window.employeeOrderProducts.splice(index, 1);
+                    console.log('🗑️ Removiendo del carrito:', product.name);
+                    window.OrderManager.orderProducts.splice(index, 1);
                     updateOrderTable();
                     if (window.showNotification) {
                         window.showNotification('Producto removido', 'info');
@@ -782,10 +974,16 @@
             
             // Limpiar pedido
             window.clearEmployeeOrder = function() {
-                if (window.employeeOrderProducts.length === 0) return;
+                if (window.OrderManager.orderProducts.length === 0) {
+                    if (window.showNotification) {
+                        window.showNotification('El pedido ya está vacío', 'info');
+                    }
+                    return;
+                }
                 
                 if (confirm('¿Limpiar el pedido completo?')) {
-                    window.employeeOrderProducts = [];
+                    console.log('🧹 Limpiando pedido...');
+                    window.OrderManager.orderProducts = [];
                     updateOrderTable();
                     
                     // Limpiar formulario
@@ -803,55 +1001,183 @@
                     if (photoInput) photoInput.value = '';
                     if (photoPreview) photoPreview.innerHTML = '';
                     
+                    // Reset ubicación
+                    window.OrderManager.currentLocation = null;
+                    const btn = document.getElementById('location-btn');
+                    const status = document.getElementById('location-status');
+                    
+                    if (btn) {
+                        btn.textContent = '📍 Obtener Ubicación';
+                        btn.style.backgroundColor = '#d97706';
+                    }
+                    
+                    if (status) {
+                        status.textContent = '';
+                    }
+                    
                     if (window.showNotification) {
                         window.showNotification('Pedido limpiado', 'success');
                     }
                 }
             };
             
-            // Otras funciones auxiliares
-            function handleFormSubmit(e) {
+            // Manejar envío del formulario - CRÍTICO: Esta es la función que corrige el problema
+            async function handleFormSubmit(e) {
                 e.preventDefault();
                 
-                if (window.employeeOrderProducts.length === 0) {
+                console.log('📤 Procesando envío del formulario...');
+                console.log('📦 Productos en el carrito:', window.OrderManager.orderProducts.length);
+                console.log('📋 Productos actuales:', window.OrderManager.orderProducts);
+                
+                // VERIFICACIÓN CRÍTICA: Usar la variable correcta
+                if (!window.OrderManager.orderProducts || window.OrderManager.orderProducts.length === 0) {
+                    console.error('❌ No hay productos en el pedido');
                     if (window.showNotification) {
-                        window.showNotification('Agrega al menos un producto', 'warning');
+                        window.showNotification('Agrega al menos un producto al pedido', 'warning');
+                    }
+                    // Scroll al área de productos
+                    const productsSection = document.querySelector('.selected-products');
+                    if (productsSection) {
+                        productsSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     }
                     return;
                 }
                 
+                // Validar información del cliente
                 const clientName = document.getElementById('client-name')?.value?.trim();
                 if (!clientName) {
+                    console.error('❌ Nombre del cliente requerido');
                     if (window.showNotification) {
-                        window.showNotification('Nombre del cliente requerido', 'warning');
+                        window.showNotification('El nombre del cliente es requerido', 'warning');
                     }
+                    document.getElementById('client-name')?.focus();
                     return;
                 }
                 
-                // Aquí iría la lógica de envío del pedido
-                if (window.showNotification) {
-                    window.showNotification('Funcionalidad de envío en desarrollo', 'info');
+                console.log('✅ Validaciones pasadas, creando pedido...');
+                
+                const formData = {
+                    client_info: {
+                        name: clientName,
+                        phone: document.getElementById('client-phone')?.value?.trim() || '',
+                        address: document.getElementById('client-address')?.value?.trim() || '',
+                        email: document.getElementById('client-email')?.value?.trim() || ''
+                    },
+                    products: window.OrderManager.orderProducts, // Usar la variable correcta
+                    location: window.OrderManager.currentLocation,
+                    notes: document.getElementById('order-notes')?.value?.trim() || '',
+                    total: window.OrderManager.orderProducts.reduce((sum, product) => 
+                        sum + (product.price * product.quantity), 0
+                    )
+                };
+                
+                console.log('📤 Datos del pedido a enviar:', formData);
+                
+                // Manejar foto si existe
+                const photoFile = document.getElementById('order-photo')?.files[0];
+                if (photoFile) {
+                    try {
+                        console.log('📷 Procesando foto...');
+                        const photoBase64 = await handlePhotoUpload(photoFile);
+                        formData.photo_url = photoBase64;
+                    } catch (error) {
+                        console.error('❌ Error uploading photo:', error);
+                        if (window.showNotification) {
+                            window.showNotification('Error al procesar la foto', 'warning');
+                        }
+                    }
+                }
+                
+                try {
+                    // Deshabilitar botón de envío
+                    const submitBtn = document.getElementById('submit-order-btn');
+                    if (submitBtn) {
+                        submitBtn.disabled = true;
+                        submitBtn.textContent = '📤 Creando pedido...';
+                    }
+                    
+                    console.log('🚀 Enviando pedido al servidor...');
+                    
+                    // Verificar que la función createOrder esté disponible
+                    if (typeof window.createOrder !== 'function') {
+                        throw new Error('Función createOrder no está disponible. Verifica que los scripts estén cargados correctamente.');
+                    }
+                    
+                    const newOrder = await window.createOrder(formData);
+                    console.log('✅ Pedido creado exitosamente:', newOrder);
+                    
+                    if (window.showNotification) {
+                        window.showNotification('¡Pedido creado exitosamente!', 'success');
+                    }
+                    
+                    // Mostrar resumen del pedido creado
+                    const orderSummary = `
+✅ PEDIDO CREADO EXITOSAMENTE
+
+📋 Número: ${newOrder.order_number || 'Generándose...'}
+👤 Cliente: ${formData.client_info.name}
+📦 Productos: ${window.OrderManager.orderProducts.length}
+💰 Total: ${window.formatCurrency ? window.formatCurrency(formData.total) : `${formData.total.toFixed(2)}`}
+
+El pedido ha sido enviado para procesamiento.
+                    `;
+                    
+                    alert(orderSummary);
+                    
+                    // Limpiar formulario después de crear
+                    setTimeout(() => {
+                        window.OrderManager.orderProducts = [];
+                        updateOrderTable();
+                        
+                        const form = document.getElementById('order-form');
+                        if (form) form.reset();
+                        
+                        // Redirigir al dashboard
+                        window.location.href = 'dashboard.html';
+                    }, 3000);
+                    
+                } catch (error) {
+                    console.error('❌ Error creating order:', error);
+                    if (window.showNotification) {
+                        window.showNotification('Error al crear pedido: ' + error.message, 'error');
+                    }
+                    
+                    // Mostrar detalles del error
+                    alert(`❌ Error al crear el pedido:\n\n${error.message}\n\nPor favor, verifica tu conexión e intenta nuevamente.`);
+                    
+                } finally {
+                    // Re-habilitar botón
+                    const submitBtn = document.getElementById('submit-order-btn');
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = '✅ Crear Pedido';
+                    }
                 }
             }
             
+            // Otras funciones auxiliares
             function handleSearch(e) {
                 const term = e.target.value.toLowerCase().trim();
-                let filtered = window.employeeProducts;
+                let filtered = window.OrderManager.products;
                 
                 if (term) {
-                    filtered = window.employeeProducts.filter(p => 
+                    filtered = window.OrderManager.products.filter(p => 
                         p.name.toLowerCase().includes(term) ||
                         p.code.toLowerCase().includes(term) ||
-                        p.brand.toLowerCase().includes(term)
+                        p.brand.toLowerCase().includes(term) ||
+                        p.viscosity.toLowerCase().includes(term)
                     );
                 }
                 
+                console.log('🔍 Búsqueda:', term, 'Resultados:', filtered.length);
                 displayProducts(filtered);
             }
             
             function handlePhotoChange(e) {
                 const file = e.target.files[0];
                 if (!file) return;
+                
+                console.log('📷 Archivo de foto seleccionado:', file.name, 'Tamaño:', file.size);
                 
                 if (file.size > 5 * 1024 * 1024) {
                     if (window.showNotification) {
@@ -861,13 +1187,58 @@
                     return;
                 }
                 
+                if (!file.type.startsWith('image/')) {
+                    if (window.showNotification) {
+                        window.showNotification('Solo se permiten archivos de imagen', 'warning');
+                    }
+                    e.target.value = '';
+                    return;
+                }
+                
                 const reader = new FileReader();
                 reader.onload = function(e) {
                     document.getElementById('photo-preview').innerHTML = `
-                        <img src="${e.target.result}" style="max-width: 200px; border-radius: 8px;">
+                        <div style="position: relative; display: inline-block; margin-top: 1rem;">
+                            <img src="${e.target.result}" 
+                                 style="max-width: 200px; max-height: 200px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                            <button onclick="removePhoto()" 
+                                    style="position: absolute; top: -8px; right: -8px; background: var(--danger-color); color: white; border: none; border-radius: 50%; width: 24px; height: 24px; cursor: pointer; font-size: 14px;">
+                                ×
+                            </button>
+                        </div>
                     `;
                 };
                 reader.readAsDataURL(file);
+            }
+            
+            window.removePhoto = function() {
+                const photoInput = document.getElementById('order-photo');
+                const photoPreview = document.getElementById('photo-preview');
+                
+                if (photoInput) photoInput.value = '';
+                if (photoPreview) photoPreview.innerHTML = '';
+                
+                if (window.showNotification) {
+                    window.showNotification('Foto removida', 'info');
+                }
+            };
+            
+            function handlePhotoUpload(file) {
+                return new Promise((resolve, reject) => {
+                    if (!file) {
+                        resolve(null);
+                        return;
+                    }
+                    
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        resolve(e.target.result);
+                    };
+                    reader.onerror = function() {
+                        reject(new Error('Error al leer el archivo'));
+                    };
+                    reader.readAsDataURL(file);
+                });
             }
             
             function toggleMobileMenu() {
@@ -920,16 +1291,23 @@
                         btn.textContent = '📍 Obteniendo...';
                     }
                     
+                    if (!navigator.geolocation) {
+                        throw new Error('Geolocalización no soportada en este dispositivo');
+                    }
+                    
                     const position = await new Promise((resolve, reject) => {
                         navigator.geolocation.getCurrentPosition(resolve, reject, {
                             enableHighAccuracy: true,
-                            timeout: 10000
+                            timeout: 15000,
+                            maximumAge: 60000
                         });
                     });
                     
-                    window.employeeCurrentLocation = {
+                    window.OrderManager.currentLocation = {
                         latitude: position.coords.latitude,
-                        longitude: position.coords.longitude
+                        longitude: position.coords.longitude,
+                        accuracy: position.coords.accuracy,
+                        timestamp: new Date().toISOString()
                     };
                     
                     if (btn) {
@@ -938,22 +1316,40 @@
                     }
                     
                     if (status) {
-                        status.textContent = `📍 Lat: ${position.coords.latitude.toFixed(6)}`;
+                        status.textContent = `📍 Lat: ${position.coords.latitude.toFixed(6)}, Lng: ${position.coords.longitude.toFixed(6)}`;
                         status.style.color = '#059669';
                     }
                     
                     if (window.showNotification) {
-                        window.showNotification('Ubicación obtenida', 'success');
+                        window.showNotification('Ubicación obtenida exitosamente', 'success');
                     }
                     
+                    console.log('📍 Ubicación obtenida:', window.OrderManager.currentLocation);
+                    
                 } catch (error) {
+                    console.error('❌ Error getting location:', error);
+                    
+                    let errorMessage = 'Error al obtener ubicación';
+                    if (error.code === 1) {
+                        errorMessage = 'Permisos de ubicación denegados';
+                    } else if (error.code === 2) {
+                        errorMessage = 'Ubicación no disponible';
+                    } else if (error.code === 3) {
+                        errorMessage = 'Tiempo de espera agotado';
+                    }
+                    
                     if (btn) {
                         btn.textContent = '📍 Error';
                         btn.style.backgroundColor = '#dc2626';
                     }
                     
+                    if (status) {
+                        status.textContent = '❌ ' + errorMessage;
+                        status.style.color = '#dc2626';
+                    }
+                    
                     if (window.showNotification) {
-                        window.showNotification('Error obteniendo ubicación', 'error');
+                        window.showNotification(errorMessage, 'error');
                     }
                 } finally {
                     if (btn) btn.disabled = false;
@@ -975,7 +1371,8 @@
                 initPage();
             }
             
-            console.log('✅ Script de integración configurado');
+            console.log('✅ Script de integración configurado correctamente');
+            
         })();
     </script>
 </body>

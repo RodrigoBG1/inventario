@@ -657,10 +657,10 @@ app.get("*", (req, res) => {
       <p><strong>Ruta solicitada:</strong> ${req.path}</p>
       <div style="margin: 20px 0;">
         <a href="/" style="background: #2563eb; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin: 5px;">
-          🏠 Inicio
+          Inicio
         </a>
         <a href="/diagnostic" style="background: #059669; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin: 5px;">
-          🔧 Diagnóstico
+          Diagnóstico
         </a>
       </div>
     </div>
@@ -679,12 +679,12 @@ app.use((err, req, res, next) => {
 // Iniciar servidor
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Servidor iniciado en puerto ${PORT}`);
-  console.log(`📍 URL: ${process.env.NODE_ENV === 'production' ? `Puerto ${PORT}` : `http://localhost:${PORT}`}`);
-  console.log(`🔑 Credenciales: ADMIN001 / password`);
-  console.log(`🟢 Node.js: ${process.version}`);
-  console.log(`🗄️ Base de datos: ${supabase ? 'Supabase (PostgreSQL)' : 'En memoria (fallback)'}`);
-  console.log(`📦 Entorno: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`Servidor iniciado en puerto ${PORT}`);
+  console.log(`URL: ${process.env.NODE_ENV === 'production' ? `Puerto ${PORT}` : `http://localhost:${PORT}`}`);
+  console.log(`Credenciales: ADMIN001 / password`);
+  console.log(`Node.js: ${process.version}`);
+  console.log(`Base de datos: ${supabase ? 'Supabase (PostgreSQL)' : 'En memoria (fallback)'}`);
+  console.log(`Entorno: ${process.env.NODE_ENV || 'development'}`);
   
   if (supabase) {
     console.log(`✅ Supabase conectado`);
