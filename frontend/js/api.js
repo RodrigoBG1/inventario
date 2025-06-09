@@ -1,4 +1,4 @@
-// Funciones para interactuar con la API
+// Funciones para interactuar con la API - CORREGIDO PARA CONFIRMACIÓN DE PEDIDOS
 
 console.log('🔗 API Base URL (api.js):', window.API_BASE_URL);
 
@@ -140,26 +140,100 @@ async function createOrder(orderData) {
     });
 }
 
-// Confirm Order
+// ===== FUNCIONES DE CONFIRMACIÓN CORREGIDAS =====
+
+// Confirm Order - CORREGIDO
 async function confirmOrder(orderId, paymentInfo) {
-    return await apiRequest(`/api/orders/${orderId}/confirm`, {
-        method: 'PUT',
-        body: JSON.stringify({ payment_info: paymentInfo })
-    });
+    console.log('🔄 confirmOrder() llamado con:', { orderId, paymentInfo });
+    
+    // Validar parámetros
+    if (!orderId) {
+        throw new Error('ID de pedido requerido');
+    }
+    
+    if (!paymentInfo || !paymentInfo.method) {
+        throw new Error('Información de pago requerida');
+    }
+    
+    // Construir la URL del endpoint
+    const endpoint = `/api/orders/${orderId}/confirm`;
+    console.log('📤 Enviando confirmación a:', endpoint);
+    
+    try {
+        const result = await apiRequest(endpoint, {
+            method: 'PUT',
+            body: JSON.stringify({ payment_info: paymentInfo })
+        });
+        
+        console.log('✅ Pedido confirmado exitosamente:', result);
+        return result;
+        
+    } catch (error) {
+        console.error('❌ Error en confirmOrder:', error);
+        
+        // Agregar información de debugging específica
+        if (error.message.includes('404')) {
+            console.error('🔍 Debugging info:');
+            console.error('- Endpoint intentado:', `${window.API_BASE_URL}${endpoint}`);
+            console.error('- Order ID:', orderId);
+            console.error('- Token exists:', !!getToken());
+            console.error('- User:', getUser());
+            
+            throw new Error(`Endpoint no encontrado: ${endpoint}. Verifica que el servidor esté ejecutándose y que la ruta exista.`);
+        }
+        
+        throw error;
+    }
 }
 
-// Cancel Order
+// Cancel Order - CORREGIDO
 async function cancelOrder(orderId, reason) {
-    return await apiRequest(`/api/orders/${orderId}/cancel`, {
-        method: 'PUT',
-        body: JSON.stringify({ reason: reason })
-    });
+    console.log('🔄 cancelOrder() llamado con:', { orderId, reason });
+    
+    // Validar parámetros
+    if (!orderId) {
+        throw new Error('ID de pedido requerido');
+    }
+    
+    // Construir la URL del endpoint
+    const endpoint = `/api/orders/${orderId}/cancel`;
+    console.log('📤 Enviando cancelación a:', endpoint);
+    
+    try {
+        const result = await apiRequest(endpoint, {
+            method: 'PUT',
+            body: JSON.stringify({ reason: reason || 'Cancelado por administrador' })
+        });
+        
+        console.log('✅ Pedido cancelado exitosamente:', result);
+        return result;
+        
+    } catch (error) {
+        console.error('❌ Error en cancelOrder:', error);
+        
+        // Agregar información de debugging específica
+        if (error.message.includes('404')) {
+            console.error('🔍 Debugging info:');
+            console.error('- Endpoint intentado:', `${window.API_BASE_URL}${endpoint}`);
+            console.error('- Order ID:', orderId);
+            console.error('- Token exists:', !!getToken());
+            
+            throw new Error(`Endpoint no encontrado: ${endpoint}. Verifica que el servidor esté ejecutándose y que la ruta exista.`);
+        }
+        
+        throw error;
+    }
 }
 
 // Get Order Details
 async function getOrderDetails(orderId) {
+    if (!orderId) {
+        throw new Error('ID de pedido requerido');
+    }
+    
     return await apiRequest(`/api/orders/${orderId}`);
 }
+
 // ===== VENTAS =====
 async function getSales() {
     return await apiRequest('/api/sales');
@@ -177,6 +251,51 @@ async function getInventoryReport() {
 // ===== STATUS API =====
 async function checkApiStatus() {
     return await apiRequest('/api/status');
+}
+
+// ===== FUNCIÓN DE DEBUGGING PARA ENDPOINTS =====
+async function debugApiEndpoints() {
+    console.log('🔍 Iniciando debug de endpoints de la API...');
+    
+    const endpoints = [
+        { method: 'GET', path: '/test', description: 'Test básico' },
+        { method: 'GET', path: '/api/status', description: 'Estado de la API' },
+        { method: 'GET', path: '/api/products', description: 'Obtener productos' },
+        { method: 'GET', path: '/api/orders', description: 'Obtener pedidos' },
+        { method: 'PUT', path: '/api/orders/1/confirm', description: 'Confirmar pedido (test)' },
+        { method: 'PUT', path: '/api/orders/1/cancel', description: 'Cancelar pedido (test)' }
+    ];
+    
+    for (const endpoint of endpoints) {
+        try {
+            console.log(`🔄 Probando ${endpoint.method} ${endpoint.path}...`);
+            
+            if (endpoint.method === 'GET') {
+                await fetch(`${window.API_BASE_URL}${endpoint.path}`, {
+                    method: 'HEAD', // Solo verificar si existe
+                    headers: getToken() ? { 'Authorization': `Bearer ${getToken()}` } : {}
+                });
+                console.log(`✅ ${endpoint.description}: Disponible`);
+            } else {
+                // Para métodos PUT/POST, solo verificar que no devuelva 404 método no permitido
+                const response = await fetch(`${window.API_BASE_URL}${endpoint.path}`, {
+                    method: 'OPTIONS',
+                    headers: getToken() ? { 'Authorization': `Bearer ${getToken()}` } : {}
+                });
+                
+                if (response.status !== 404) {
+                    console.log(`✅ ${endpoint.description}: Endpoint existe`);
+                } else {
+                    console.log(`❌ ${endpoint.description}: No encontrado (404)`);
+                }
+            }
+            
+        } catch (error) {
+            console.log(`❌ ${endpoint.description}: Error - ${error.message}`);
+        }
+    }
+    
+    console.log('🔍 Debug de endpoints completado');
 }
 
 // ===== UTILIDADES =====
@@ -346,6 +465,13 @@ document.addEventListener('DOMContentLoaded', async function() {
             await checkApiStatus();
             console.log('✅ API conectada correctamente');
             showNotification('Conexión establecida con el servidor', 'success');
+            
+            // Debug adicional para administradores
+            if (window.location.pathname.includes('admin/orders.html')) {
+                console.log('🔧 Ejecutando debug adicional para página de órdenes...');
+                setTimeout(debugApiEndpoints, 2000);
+            }
+            
         } catch (error) {
             console.error('❌ Error conectando con la API:', error);
             showNotification(`Error de conexión: ${error.message}`, 'error');
@@ -357,16 +483,17 @@ document.addEventListener('DOMContentLoaded', async function() {
 window.getProducts = getProducts;
 window.getEmployees = getEmployees;
 window.getOrders = getOrders;
-
 window.getSales = getSales;
 window.createProduct = createProduct;
 window.updateProduct = updateProduct;
 window.deleteProduct = deleteProduct;
-window.confirmOrder = confirmOrder;
-window.cancelOrder = cancelOrder;
+window.createOrder = createOrder;
+window.confirmOrder = confirmOrder; // ✅ FUNCIÓN CORREGIDA
+window.cancelOrder = cancelOrder; // ✅ FUNCIÓN CORREGIDA
 window.getOrderDetails = getOrderDetails;
 window.getSalesByEmployee = getSalesByEmployee;
 window.getInventoryReport = getInventoryReport;
 window.formatCurrency = formatCurrency;
 window.formatDate = formatDate;
 window.showNotification = showNotification;
+window.debugApiEndpoints = debugApiEndpoints; // Para debugging manual

@@ -1,4 +1,4 @@
-// Funciones específicas para el panel de administrador
+// Funciones específicas para el panel de administrador - VERSIÓN COMPLETA CORREGIDA
 
 console.log('🔧 admin.js cargado correctamente');
 
@@ -57,6 +57,304 @@ function requireAuth() {
     }
     return true;
 }
+
+// ===== FUNCIONES DE CONFIRMACIÓN DE PEDIDOS (CORREGIDAS) =====
+
+// Función corregida para confirmar pedido
+async function confirmOrderModal(orderId) {
+    console.log('🔄 Iniciando confirmación de pedido:', orderId);
+    
+    const order = orders.find(o => o.id === orderId);
+    
+    if (!order) {
+        console.error('❌ Pedido no encontrado:', orderId);
+        if (window.showNotification) {
+            window.showNotification('Pedido no encontrado', 'error');
+        }
+        return;
+    }
+    
+    // ✅ CORRECCIÓN: Declarar paymentMethod ANTES de usarlo
+    let paymentMethod;
+    
+    try {
+        // Mostrar modal de confirmación personalizado
+        paymentMethod = prompt(`¿Confirmar el pedido ${order.order_number}?\n\nIngresa el método de pago:\n- efectivo\n- tarjeta\n- transferencia`, 'efectivo');
+        
+        if (!paymentMethod) {
+            console.log('❌ Confirmación cancelada por el usuario');
+            return;
+        }
+        
+        // ✅ CORRECCIÓN: Crear paymentInfo DESPUÉS de obtener paymentMethod
+        const paymentInfo = {
+            method: paymentMethod.toLowerCase().trim(),
+            amount: order.total,
+            confirmed_at: new Date().toISOString(),
+            confirmed_by: 'admin'
+        };
+        
+        console.log('📤 Enviando confirmación de pedido con datos:', paymentInfo);
+        
+        // Verificar que la función confirmOrder existe
+        if (typeof window.confirmOrder !== 'function') {
+            console.error('❌ Función confirmOrder no está disponible');
+            if (window.showNotification) {
+                window.showNotification('Error: Función de confirmación no disponible', 'error');
+            }
+            return;
+        }
+        
+        const result = await window.confirmOrder(orderId, paymentInfo);
+        
+        console.log('✅ Pedido confirmado exitosamente:', result);
+        
+        if (window.showNotification) {
+            window.showNotification('Pedido confirmado exitosamente', 'success');
+        }
+        
+        // Mostrar mensaje de éxito detallado
+        alert(`✅ PEDIDO CONFIRMADO EXITOSAMENTE
+
+📋 Número: ${order.order_number}
+👤 Cliente: ${order.client_info?.name || 'Sin cliente'}
+💰 Total: $${order.total}
+💳 Método de pago: ${paymentMethod}
+📅 Confirmado: ${new Date().toLocaleString()}
+
+El pedido ha sido procesado correctamente.`);
+        
+        // Recargar la página de pedidos
+        await loadOrdersPage();
+        
+    } catch (error) {
+        console.error('❌ Error confirmando pedido:', error);
+        
+        let errorMessage = 'Error al confirmar pedido';
+        
+        // Mensajes de error más específicos
+        if (error.message.includes('404')) {
+            errorMessage = `Endpoint no encontrado. 
+
+🔧 POSIBLES SOLUCIONES:
+1. Verificar que el servidor esté funcionando
+2. Comprobar que la ruta existe en el servidor
+3. Reiniciar el servidor
+4. Verificar la configuración de rutas
+
+URL intentada: ${window.API_BASE_URL}/api/orders/${orderId}/confirm`;
+        } else if (error.message.includes('401')) {
+            errorMessage = 'No autorizado. Tu sesión puede haber expirado. Intenta hacer login nuevamente.';
+        } else if (error.message.includes('403')) {
+            errorMessage = 'Sin permisos de administrador para esta acción.';
+        } else if (error.message.includes('500')) {
+            errorMessage = 'Error interno del servidor. Contacta al administrador del sistema.';
+        } else if (error.message) {
+            errorMessage = error.message;
+        }
+        
+        if (window.showNotification) {
+            window.showNotification(errorMessage, 'error');
+        }
+        
+        // Mostrar información adicional para debugging
+        console.log('🔍 Información de debugging:');
+        console.log('- Order ID:', orderId);
+        console.log('- API Base URL:', window.API_BASE_URL);
+        console.log('- User token exists:', !!localStorage.getItem('token'));
+        console.log('- User:', getUser());
+        console.log('- Payment info was:', paymentInfo || 'undefined');
+        
+        // Mostrar error al usuario con opción de debug
+        const showDebugInfo = confirm(`❌ Error al confirmar el pedido:
+
+${errorMessage}
+
+¿Quieres ver información de debugging para reportar el problema?`);
+        
+        if (showDebugInfo) {
+            const debugInfo = `
+INFORMACIÓN DE DEBUG:
+====================
+- Fecha: ${new Date().toISOString()}
+- Usuario: ${getUser()?.name} (${getUser()?.role})
+- Order ID: ${orderId}
+- API URL: ${window.API_BASE_URL}
+- Error: ${error.message}
+- Token: ${localStorage.getItem('token') ? 'Presente' : 'Ausente'}
+
+Copia esta información para reportar el problema.`;
+            
+            alert(debugInfo);
+        }
+    }
+}
+
+// Función corregida para cancelar pedido
+async function cancelOrderModal(orderId) {
+    console.log('🚫 Iniciando cancelación de pedido:', orderId);
+    
+    const order = orders.find(o => o.id === orderId);
+    
+    if (!order) {
+        console.error('❌ Pedido no encontrado:', orderId);
+        if (window.showNotification) {
+            window.showNotification('Pedido no encontrado', 'error');
+        }
+        return;
+    }
+    
+    const reason = prompt(`¿Cancelar el pedido ${order.order_number}?\n\nIngresa el motivo de cancelación:`, 'Cancelado por administrador');
+    
+    if (!reason) {
+        console.log('❌ Cancelación cancelada por el usuario');
+        return;
+    }
+    
+    try {
+        console.log('📤 Enviando cancelación de pedido...');
+        
+        if (typeof window.cancelOrder !== 'function') {
+            console.error('❌ Función cancelOrder no está disponible');
+            if (window.showNotification) {
+                window.showNotification('Error: Función de cancelación no disponible', 'error');
+            }
+            return;
+        }
+        
+        const result = await window.cancelOrder(orderId, reason);
+        
+        console.log('✅ Pedido cancelado exitosamente:', result);
+        
+        if (window.showNotification) {
+            window.showNotification('Pedido cancelado exitosamente', 'success');
+        }
+        
+        // Mostrar confirmación
+        alert(`🚫 PEDIDO CANCELADO
+
+📋 Número: ${order.order_number}
+📝 Motivo: ${reason}
+📅 Cancelado: ${new Date().toLocaleString()}
+
+El pedido ha sido cancelado correctamente.`);
+        
+        // Recargar la página de pedidos
+        await loadOrdersPage();
+        
+    } catch (error) {
+        console.error('❌ Error cancelando pedido:', error);
+        
+        if (window.showNotification) {
+            window.showNotification('Error al cancelar pedido: ' + error.message, 'error');
+        }
+        
+        alert(`❌ Error al cancelar el pedido:
+
+${error.message}
+
+Verifica tu conexión e intenta nuevamente.`);
+    }
+}
+
+// Función para debugging - crear pedido de prueba
+async function createTestOrder() {
+    if (!confirm('¿Crear un pedido de prueba para testing?')) {
+        return;
+    }
+    
+    try {
+        const testOrderData = {
+            client_info: {
+                name: 'Cliente de Prueba',
+                phone: '123456789',
+                address: 'Dirección de prueba',
+                email: 'test@test.com'
+            },
+            products: [
+                {
+                    product_id: 1,
+                    name: 'Aceite de Prueba',
+                    code: 'TEST001',
+                    price: 25.99,
+                    quantity: 1
+                }
+            ],
+            total: 25.99,
+            notes: 'Pedido creado para pruebas de confirmación'
+        };
+        
+        const result = await window.createOrder(testOrderData);
+        
+        console.log('✅ Pedido de prueba creado:', result);
+        
+        if (window.showNotification) {
+            window.showNotification(`Pedido de prueba creado: ${result.order_number}`, 'success');
+        }
+        
+        alert(`✅ PEDIDO DE PRUEBA CREADO
+
+📋 Número: ${result.order_number}
+🆔 ID: ${result.id}
+💰 Total: $${result.total}
+
+Ahora puedes probar la confirmación con este pedido.`);
+        
+        // Recargar pedidos para mostrar el nuevo
+        await loadOrdersPage();
+        
+    } catch (error) {
+        console.error('❌ Error creando pedido de prueba:', error);
+        
+        if (window.showNotification) {
+            window.showNotification('Error creando pedido de prueba: ' + error.message, 'error');
+        }
+    }
+}
+
+// Función para debugging del servidor
+async function debugServer() {
+    try {
+        console.log('🔍 Iniciando debug del servidor...');
+        
+        // 1. Test básico
+        const testResponse = await fetch(`${window.API_BASE_URL}/test`);
+        console.log('📡 Test endpoint:', testResponse.status);
+        
+        // 2. Test de rutas
+        const routesResponse = await fetch(`${window.API_BASE_URL}/api/routes-debug`);
+        const routesData = await routesResponse.json();
+        console.log('📋 Rutas disponibles:', routesData);
+        
+        // 3. Test con autenticación
+        const token = localStorage.getItem('token');
+        if (token) {
+            const ordersResponse = await fetch(`${window.API_BASE_URL}/api/orders`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            console.log('📦 Orders endpoint:', ordersResponse.status);
+            
+            // 4. Test de debug de orden específica
+            const debugResponse = await fetch(`${window.API_BASE_URL}/api/orders/1/debug`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            console.log('🔍 Debug endpoint:', debugResponse.status);
+            
+            if (debugResponse.ok) {
+                const debugData = await debugResponse.json();
+                console.log('🔍 Debug data:', debugData);
+            }
+        }
+        
+        alert('✅ Debug completado. Revisa la consola para ver los resultados.');
+        
+    } catch (error) {
+        console.error('❌ Error en debug:', error);
+        alert('❌ Error en debug: ' + error.message);
+    }
+}
+
+// ===== RESTO DEL CÓDIGO SIN CAMBIOS =====
 
 // Inicialización
 document.addEventListener('DOMContentLoaded', function() {
@@ -266,12 +564,10 @@ function updateRecentActivity() {
 
 function loadEmployeeOrdersPage() {
     console.log('📋 Cargando página de pedidos del empleado...');
-    // Aquí iría la lógica específica para la página de pedidos del empleado
 }
 
 function loadSalesPage() {
     console.log('💰 Cargando página de ventas del empleado...');
-    // Aquí iría la lógica específica para la página de ventas del empleado
 }
 
 function getUser() {
@@ -279,7 +575,7 @@ function getUser() {
     return user ? JSON.parse(user) : null;
 }
 
-// ===== RESTO DE FUNCIONES ADMIN (sin cambios) =====
+// ===== RESTO DE FUNCIONES ADMIN =====
 function updateDashboardStats() {
     console.log('📊 Actualizando estadísticas del dashboard...');
     
@@ -595,7 +891,7 @@ function displayEmployees() {
     `).join('');
 }
 
-// ===== PEDIDOS =====
+// ===== PEDIDOS (CORREGIDO) =====
 async function loadOrdersPage() {
     try {
         orders = await window.getOrders();
@@ -626,6 +922,9 @@ function displayOrders() {
                         <button class="btn btn-sm btn-confirm" onclick="confirmOrderModal(${order.id})">
                             ✅ Confirmar
                         </button>
+                        <button class="btn btn-sm btn-delete" onclick="cancelOrderModal(${order.id})">
+                            ❌ Cancelar
+                        </button>
                     ` : ''}
                     <button class="btn btn-sm btn-primary" onclick="viewOrderDetails(${order.id})">
                         👁️ Ver
@@ -634,31 +933,6 @@ function displayOrders() {
             </td>
         </tr>
     `).join('');
-}
-
-async function confirmOrderModal(orderId) {
-    const order = orders.find(o => o.id === orderId);
-    
-    if (confirm(`¿Confirmar el pedido ${order.order_number}?`)) {
-        try {
-            const paymentInfo = {
-                method: 'efectivo',
-                amount: order.total,
-                confirmed_at: new Date().toISOString()
-            };
-            
-            await window.confirmOrder(orderId, paymentInfo);
-            if (window.showNotification) {
-                window.showNotification('Pedido confirmado exitosamente', 'success');
-            }
-            loadOrdersPage();
-        } catch (error) {
-            console.error('Error confirming order:', error);
-            if (window.showNotification) {
-                window.showNotification('Error al confirmar pedido: ' + error.message, 'error');
-            }
-        }
-    }
 }
 
 function viewOrderDetails(orderId) {
@@ -781,3 +1055,12 @@ window.onclick = function(event) {
         closeConfirmModal();
     }
 }
+
+// ===== EXPORTAR FUNCIONES GLOBALES =====
+window.confirmOrderModal = confirmOrderModal;
+window.cancelOrderModal = cancelOrderModal;
+window.viewOrderDetails = viewOrderDetails;
+window.createTestOrder = createTestOrder;
+window.debugServer = debugServer;
+
+console.log('✅ Admin.js completo cargado correctamente');

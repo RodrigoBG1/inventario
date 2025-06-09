@@ -513,9 +513,12 @@ app.get("/api/employees", auth, adminOnly, async (req, res) => {
   }
 });
 
-// API Routes - Pedidos
+// ========== API ROUTES - PEDIDOS (CORREGIDO) ==========
+
+// GET Orders - Lista de pedidos
 app.get("/api/orders", auth, async (req, res) => {
   try {
+    console.log('🔍 GET /api/orders - User:', req.user?.role);
     const orders = await getOrders(req.user.id, req.user.role);
     res.json(orders);
   } catch (error) {
@@ -524,8 +527,10 @@ app.get("/api/orders", auth, async (req, res) => {
   }
 });
 
+// POST Orders - Crear nuevo pedido
 app.post("/api/orders", auth, async (req, res) => {
   try {
+    console.log('🔍 POST /api/orders - User:', req.user?.role);
     const orderData = {
       order_number: `ORD-${Date.now()}`,
       employee_id: req.user.id,
@@ -535,6 +540,7 @@ app.post("/api/orders", auth, async (req, res) => {
     };
     
     const newOrder = await createOrder(orderData);
+    console.log('✅ Pedido creado:', newOrder.id);
     res.json(newOrder);
   } catch (error) {
     console.error('Error in POST /api/orders:', error);
@@ -542,29 +548,72 @@ app.post("/api/orders", auth, async (req, res) => {
   }
 });
 
-
+// PUT Confirm Order - ENDPOINT CRÍTICO CORREGIDO
 app.put("/api/orders/:id/confirm", auth, adminOnly, async (req, res) => {
   try {
     const orderId = parseInt(req.params.id);
     const { payment_info } = req.body;
     
-    console.log(`🔄 Confirmando pedido ${orderId}...`);
+    console.log(`🔄 CONFIRMAR PEDIDO - DEBUG COMPLETO:`);
+    console.log(`- URL completa: ${req.originalUrl}`);
+    console.log(`- Método: ${req.method}`);
+    console.log(`- Parámetros: ${JSON.stringify(req.params)}`);
+    console.log(`- Order ID: ${req.params.id} (parsed: ${orderId})`);
+    console.log(`- Payment info:`, payment_info);
+    console.log(`- Usuario: ${req.user?.name} (${req.user?.role})`);
+    console.log(`- Headers Auth: ${req.headers.authorization ? 'Presente' : 'Ausente'}`);
+    
+    // Validación básica
+    if (!orderId || isNaN(orderId)) {
+      console.error('❌ ID de pedido inválido:', req.params.id);
+      return res.status(400).json({ 
+        message: 'ID de pedido inválido',
+        received_id: req.params.id,
+        parsed_id: orderId
+      });
+    }
+    
+    if (!payment_info || !payment_info.method) {
+      console.error('❌ Información de pago faltante');
+      return res.status(400).json({ 
+        message: 'Información de pago requerida',
+        received_payment_info: payment_info
+      });
+    }
+    
+    console.log(`🔄 Procesando confirmación del pedido ${orderId}...`);
     
     if (supabase) {
       try {
-        // Get the order first
+        console.log('📋 Buscando pedido en Supabase...');
         const { data: order, error: getError } = await supabase
           .from('orders')
           .select('*')
           .eq('id', orderId)
           .single();
         
-        if (getError) throw getError;
+        if (getError) {
+          console.error('❌ Error obteniendo pedido de Supabase:', getError);
+          if (getError.code === 'PGRST116') {
+            return res.status(404).json({ message: 'Pedido no encontrado en Supabase' });
+          }
+          throw getError;
+        }
+        
         if (!order) {
+          console.error('❌ Pedido no encontrado en Supabase:', orderId);
           return res.status(404).json({ message: 'Pedido no encontrado' });
         }
         
-        // Update order status to confirmed
+        console.log('✅ Pedido encontrado en Supabase:', order.order_number);
+        
+        if (order.status === 'confirmed') {
+          console.log('⚠️ Pedido ya confirmado');
+          return res.status(400).json({ message: 'El pedido ya está confirmado' });
+        }
+        
+        // Actualizar pedido
+        console.log('📝 Actualizando estado del pedido en Supabase...');
         const { data: updatedOrder, error: updateError } = await supabase
           .from('orders')
           .update({ 
@@ -576,9 +625,15 @@ app.put("/api/orders/:id/confirm", auth, adminOnly, async (req, res) => {
           .select()
           .single();
         
-        if (updateError) throw updateError;
+        if (updateError) {
+          console.error('❌ Error actualizando pedido:', updateError);
+          throw updateError;
+        }
         
-        // Create a sale record
+        console.log('✅ Pedido actualizado en Supabase');
+        
+        // Crear registro de venta
+        console.log('💰 Creando registro de venta...');
         const saleData = {
           order_id: orderId,
           sale_number: `SALE-${Date.now()}`,
@@ -600,32 +655,53 @@ app.put("/api/orders/:id/confirm", auth, adminOnly, async (req, res) => {
           .single();
         
         if (saleError) {
-          console.warn('Error creating sale record:', saleError);
-          // Continue anyway, order is confirmed
+          console.warn('⚠️ Error creando venta:', saleError);
+        } else {
+          console.log('✅ Venta creada:', newSale?.sale_number);
         }
         
-        console.log(`✅ Pedido ${orderId} confirmado exitosamente`);
-        res.json({ 
+        console.log(`✅ Pedido ${orderId} confirmado exitosamente en Supabase`);
+        return res.json({ 
           message: 'Pedido confirmado exitosamente',
           order: updatedOrder,
-          sale: newSale || null
+          sale: newSale || null,
+          debug: {
+            database: 'supabase',
+            order_id: orderId,
+            confirmed_at: new Date().toISOString()
+          }
         });
         
       } catch (error) {
-        console.error('Error en Supabase, usando fallback:', error);
-        // Fallback to memory database
+        console.error('❌ Error en Supabase, usando fallback:', error);
+        // Continuar con fallback
       }
     }
     
-    // Fallback for memory database
+    // Fallback: base de datos en memoria
+    console.log('📋 Buscando pedido en memoria...');
     const orderIndex = fallbackDatabase.orders.findIndex(o => o.id === orderId);
+    
     if (orderIndex === -1) {
-      return res.status(404).json({ message: 'Pedido no encontrado' });
+      console.error('❌ Pedido no encontrado en memoria:', orderId);
+      console.log('📊 Pedidos disponibles en memoria:', fallbackDatabase.orders.map(o => ({ id: o.id, number: o.order_number })));
+      return res.status(404).json({ 
+        message: 'Pedido no encontrado',
+        available_orders: fallbackDatabase.orders.map(o => ({ id: o.id, number: o.order_number })),
+        searched_id: orderId
+      });
     }
     
     const order = fallbackDatabase.orders[orderIndex];
+    console.log('✅ Pedido encontrado en memoria:', order.order_number);
     
-    // Update order
+    if (order.status === 'confirmed') {
+      console.log('⚠️ Pedido ya confirmado');
+      return res.status(400).json({ message: 'El pedido ya está confirmado' });
+    }
+    
+    // Actualizar pedido en memoria
+    console.log('📝 Actualizando pedido en memoria...');
     fallbackDatabase.orders[orderIndex] = {
       ...order,
       status: 'confirmed',
@@ -633,7 +709,8 @@ app.put("/api/orders/:id/confirm", auth, adminOnly, async (req, res) => {
       payment_info: payment_info
     };
     
-    // Create sale record
+    // Crear venta en memoria
+    console.log('💰 Creando venta en memoria...');
     const newSale = {
       id: fallbackDatabase.sales.length + 1,
       order_id: orderId,
@@ -651,41 +728,61 @@ app.put("/api/orders/:id/confirm", auth, adminOnly, async (req, res) => {
     
     fallbackDatabase.sales.push(newSale);
     
-    console.log(`✅ Pedido ${orderId} confirmado exitosamente (fallback)`);
-    res.json({ 
+    console.log(`✅ Pedido ${orderId} confirmado exitosamente en memoria`);
+    return res.json({ 
       message: 'Pedido confirmado exitosamente',
       order: fallbackDatabase.orders[orderIndex],
-      sale: newSale
+      sale: newSale,
+      debug: {
+        database: 'memory',
+        order_id: orderId,
+        confirmed_at: new Date().toISOString()
+      }
     });
     
   } catch (error) {
-    console.error('❌ Error confirming order:', error);
-    res.status(500).json({ 
-      message: 'Error al confirmar pedido', 
-      error: error.message 
+    console.error('❌ ERROR CRÍTICO en confirmación de pedido:', error);
+    console.error('❌ Stack trace:', error.stack);
+    
+    return res.status(500).json({ 
+      message: 'Error interno del servidor al confirmar pedido', 
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Error interno',
+      debug: {
+        orderId: req.params.id,
+        hasPaymentInfo: !!req.body.payment_info,
+        userRole: req.user?.role,
+        timestamp: new Date().toISOString(),
+        url: req.originalUrl,
+        method: req.method
+      }
     });
   }
 });
 
-// Cancel Order endpoint (NEW)
+// PUT Cancel Order - Cancelar pedido
 app.put("/api/orders/:id/cancel", auth, adminOnly, async (req, res) => {
   try {
     const orderId = parseInt(req.params.id);
     const { reason } = req.body;
     
-    console.log(`🚫 Cancelando pedido ${orderId}...`);
+    console.log(`🚫 CANCELAR PEDIDO - DEBUG:`);
+    console.log(`- Order ID: ${orderId}`);
+    console.log(`- Motivo: ${reason}`);
+    console.log(`- Usuario: ${req.user?.name}`);
+    
+    if (!orderId || isNaN(orderId)) {
+      return res.status(400).json({ message: 'ID de pedido inválido' });
+    }
     
     if (supabase) {
       try {
-        // Check if order exists and is not already confirmed
         const { data: order, error: getError } = await supabase
           .from('orders')
           .select('*')
           .eq('id', orderId)
           .single();
         
-        if (getError) throw getError;
-        if (!order) {
+        if (getError || !order) {
           return res.status(404).json({ message: 'Pedido no encontrado' });
         }
         
@@ -693,7 +790,6 @@ app.put("/api/orders/:id/cancel", auth, adminOnly, async (req, res) => {
           return res.status(400).json({ message: 'No se puede cancelar un pedido ya confirmado' });
         }
         
-        // Update order status to cancelled
         const { data: updatedOrder, error: updateError } = await supabase
           .from('orders')
           .update({ 
@@ -708,30 +804,27 @@ app.put("/api/orders/:id/cancel", auth, adminOnly, async (req, res) => {
         if (updateError) throw updateError;
         
         console.log(`✅ Pedido ${orderId} cancelado exitosamente`);
-        res.json({ 
+        return res.json({ 
           message: 'Pedido cancelado exitosamente',
           order: updatedOrder
         });
         
       } catch (error) {
         console.error('Error en Supabase, usando fallback:', error);
-        // Fallback to memory database
       }
     }
     
-    // Fallback for memory database
+    // Fallback
     const orderIndex = fallbackDatabase.orders.findIndex(o => o.id === orderId);
     if (orderIndex === -1) {
       return res.status(404).json({ message: 'Pedido no encontrado' });
     }
     
     const order = fallbackDatabase.orders[orderIndex];
-    
     if (order.status === 'confirmed') {
       return res.status(400).json({ message: 'No se puede cancelar un pedido ya confirmado' });
     }
     
-    // Update order
     fallbackDatabase.orders[orderIndex] = {
       ...order,
       status: 'cancelled',
@@ -746,7 +839,7 @@ app.put("/api/orders/:id/cancel", auth, adminOnly, async (req, res) => {
     });
     
   } catch (error) {
-    console.error('❌ Error cancelling order:', error);
+    console.error('❌ Error cancelando pedido:', error);
     res.status(500).json({ 
       message: 'Error al cancelar pedido', 
       error: error.message 
@@ -754,10 +847,12 @@ app.put("/api/orders/:id/cancel", auth, adminOnly, async (req, res) => {
   }
 });
 
-// Get Order Details endpoint (HELPFUL FOR ADMIN)
+// GET Order Details - Obtener detalles de un pedido específico
 app.get("/api/orders/:id", auth, async (req, res) => {
   try {
     const orderId = parseInt(req.params.id);
+    
+    console.log(`🔍 GET ORDER DETAILS - ID: ${orderId}, Usuario: ${req.user?.name}`);
     
     if (supabase) {
       try {
@@ -770,26 +865,22 @@ app.get("/api/orders/:id", auth, async (req, res) => {
         if (error && error.code !== 'PGRST116') throw error;
         
         if (data) {
-          // Check if user has permission to view this order
           if (req.user.role !== 'admin' && data.employee_id !== req.user.id) {
             return res.status(403).json({ message: 'No tienes permisos para ver este pedido' });
           }
-          
           return res.json(data);
         }
       } catch (error) {
-        console.error('Error getting order from Supabase:', error);
-        // Fallback to memory database
+        console.error('Error obteniendo pedido de Supabase:', error);
       }
     }
     
-    // Fallback for memory database
+    // Fallback
     const order = fallbackDatabase.orders.find(o => o.id === orderId);
     if (!order) {
       return res.status(404).json({ message: 'Pedido no encontrado' });
     }
     
-    // Check permissions
     if (req.user.role !== 'admin' && order.employee_id !== req.user.id) {
       return res.status(403).json({ message: 'No tienes permisos para ver este pedido' });
     }
@@ -797,10 +888,126 @@ app.get("/api/orders/:id", auth, async (req, res) => {
     res.json(order);
     
   } catch (error) {
-    console.error('Error getting order details:', error);
+    console.error('Error obteniendo detalles del pedido:', error);
     res.status(500).json({ 
       message: 'Error al obtener detalles del pedido', 
       error: error.message 
+    });
+  }
+});
+
+// ===== DEBUG ENDPOINTS =====
+app.get("/api/orders/:id/debug", auth, async (req, res) => {
+  try {
+    const orderId = parseInt(req.params.id);
+    
+    console.log('🔍 DEBUG ORDER ENDPOINT:');
+    console.log('- Order ID:', orderId);
+    console.log('- User:', req.user);
+    
+    let supabaseResult = null;
+    let memoryResult = null;
+    
+    if (supabase) {
+      try {
+        const { data: order, error } = await supabase
+          .from('orders')
+          .select('*')
+          .eq('id', orderId)
+          .single();
+        
+        supabaseResult = {
+          found: !!order,
+          error: error?.message || null,
+          data: order || null
+        };
+      } catch (err) {
+        supabaseResult = {
+          found: false,
+          error: err.message,
+          data: null
+        };
+      }
+    }
+    
+    const memoryOrder = fallbackDatabase.orders.find(o => o.id === orderId);
+    memoryResult = {
+      found: !!memoryOrder,
+      data: memoryOrder || null,
+      total_orders: fallbackDatabase.orders.length
+    };
+    
+    res.json({
+      message: 'Debug exitoso',
+      orderId: orderId,
+      user: req.user,
+      supabase: supabaseResult,
+      memory: memoryResult,
+      available_endpoints: [
+        'GET /api/orders/:id/debug',
+        'PUT /api/orders/:id/confirm',
+        'PUT /api/orders/:id/cancel',
+        'GET /api/orders/:id'
+      ],
+      server_info: {
+        timestamp: new Date().toISOString(),
+        node_version: process.version,
+        supabase_connected: !!supabase
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error en debug endpoint:', error);
+    res.status(500).json({
+      message: 'Debug falló',
+      error: error.message
+    });
+  }
+});
+
+app.get("/api/routes-debug", (req, res) => {
+  try {
+    const routes = [];
+    
+    // Extraer rutas manualmente
+    app._router.stack.forEach((middleware) => {
+      if (middleware.route) {
+        const methods = Object.keys(middleware.route.methods);
+        routes.push({
+          method: methods[0].toUpperCase(),
+          path: middleware.route.path
+        });
+      }
+    });
+    
+    const orderRoutes = routes.filter(r => r.path.includes('orders'));
+    
+    res.json({
+      message: 'Rutas disponibles',
+      total_routes: routes.length,
+      all_routes: routes,
+      order_routes: orderRoutes,
+      confirm_route_exists: routes.some(r => r.path.includes('confirm')),
+      timestamp: new Date().toISOString(),
+      server_info: {
+        node_version: process.version,
+        environment: process.env.NODE_ENV || 'development',
+        supabase_connected: !!supabase,
+        fallback_orders: fallbackDatabase.orders.length
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: 'Error extrayendo rutas',
+      error: error.message,
+      manual_routes: [
+        { method: 'GET', path: '/api/orders' },
+        { method: 'POST', path: '/api/orders' },
+        { method: 'PUT', path: '/api/orders/:id/confirm' },
+        { method: 'PUT', path: '/api/orders/:id/cancel' },
+        { method: 'GET', path: '/api/orders/:id' },
+        { method: 'GET', path: '/api/orders/:id/debug' }
+      ]
     });
   }
 });
