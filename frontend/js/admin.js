@@ -1064,3 +1064,870 @@ window.createTestOrder = createTestOrder;
 window.debugServer = debugServer;
 
 console.log('✅ Admin.js completo cargado correctamente');
+
+// ===== AGREGAR ESTAS FUNCIONES AL FINAL DE admin.js =====
+// ===== SIN MODIFICAR NADA MÁS DEL ARCHIVO EXISTENTE =====
+
+console.log('🔧 Cargando extensiones para vista detallada de pedidos...');
+
+// ===== FUNCIONES ADICIONALES PARA VISTA DETALLADA DE PEDIDOS =====
+
+// Función mejorada para mostrar detalles del pedido (NUEVA)
+function viewOrderDetailsEnhanced(orderId) {
+    const order = orders.find(o => o.id === orderId);
+    
+    if (!order) {
+        if (window.showNotification) {
+            window.showNotification('Pedido no encontrado', 'error');
+        }
+        return;
+    }
+    
+    console.log('📋 Mostrando detalles mejorados del pedido:', order);
+    
+    // Verificar si el modal ya existe, si no, crearlo
+    ensureEnhancedOrderModalExists();
+    
+    // Mostrar el modal con los datos del pedido
+    showEnhancedOrderModal(order);
+}
+
+// Función para asegurar que el modal mejorado existe en el DOM (NUEVA)
+function ensureEnhancedOrderModalExists() {
+    if (document.getElementById('enhancedOrderModal')) {
+        return; // Ya existe
+    }
+    
+    console.log('🔧 Creando modal mejorado de detalles de pedido...');
+    
+    // Crear los estilos CSS para el modal mejorado
+    const modalCSS = document.createElement('style');
+    modalCSS.id = 'enhancedOrderModalStyles';
+    modalCSS.textContent = `
+        .enhanced-order-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 1rem;
+        }
+
+        .enhanced-modal-container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 900px;
+            max-height: 95vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            animation: enhancedModalAppear 0.3s ease-out;
+        }
+
+        @keyframes enhancedModalAppear {
+            from {
+                opacity: 0;
+                transform: scale(0.95) translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+
+        .enhanced-modal-header {
+            background: linear-gradient(135deg, #2563eb, #3b82f6);
+            color: white;
+            padding: 1.5rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .enhanced-modal-title {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        .enhanced-order-status {
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .enhanced-status-hold {
+            background: rgba(251, 191, 36, 0.2);
+            color: #f59e0b;
+            border: 1px solid #f59e0b;
+        }
+
+        .enhanced-status-confirmed {
+            background: rgba(16, 185, 129, 0.2);
+            color: #10b981;
+            border: 1px solid #10b981;
+        }
+
+        .enhanced-status-cancelled {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+            border: 1px solid #ef4444;
+        }
+
+        .enhanced-close-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            transition: background-color 0.2s;
+        }
+
+        .enhanced-close-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .enhanced-modal-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0;
+        }
+
+        .enhanced-content-section {
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .enhanced-content-section:last-child {
+            border-bottom: none;
+        }
+
+        .enhanced-section-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: #334155;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .enhanced-info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .enhanced-info-card {
+            background: #f8fafc;
+            padding: 1rem;
+            border-radius: 8px;
+            border-left: 4px solid #2563eb;
+        }
+
+        .enhanced-info-label {
+            font-size: 0.875rem;
+            color: #64748b;
+            font-weight: 500;
+            margin-bottom: 0.25rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .enhanced-info-value {
+            font-size: 1rem;
+            color: #334155;
+            font-weight: 600;
+        }
+
+        .enhanced-products-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .enhanced-products-table th {
+            background: #2563eb;
+            color: white;
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .enhanced-products-table td {
+            padding: 1rem;
+            border-bottom: 1px solid #e2e8f0;
+            vertical-align: middle;
+        }
+
+        .enhanced-products-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .enhanced-products-table tr:hover {
+            background: #f8fafc;
+        }
+
+        .enhanced-product-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .enhanced-product-name {
+            font-weight: 600;
+            color: #334155;
+        }
+
+        .enhanced-product-details {
+            font-size: 0.875rem;
+            color: #64748b;
+        }
+
+        .enhanced-product-code {
+            background: #2563eb;
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            display: inline-block;
+            margin-top: 0.25rem;
+        }
+
+        .enhanced-quantity-badge {
+            background: #059669;
+            color: white;
+            padding: 0.5rem 0.75rem;
+            border-radius: 20px;
+            font-weight: 600;
+            text-align: center;
+            min-width: 60px;
+        }
+
+        .enhanced-price-column {
+            text-align: right;
+            font-weight: 600;
+            font-size: 1.125rem;
+        }
+
+        .enhanced-subtotal {
+            color: #2563eb;
+        }
+
+        .enhanced-total-section {
+            background: linear-gradient(135deg, #f8fafc, #e2e8f0);
+            padding: 1.5rem;
+            text-align: center;
+            border-radius: 8px;
+            margin: 1rem 0;
+        }
+
+        .enhanced-total-amount {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #2563eb;
+            display: block;
+        }
+
+        .enhanced-total-label {
+            font-size: 0.875rem;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.5rem;
+        }
+
+        .enhanced-order-image {
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .enhanced-order-image:hover {
+            transform: scale(1.02);
+        }
+
+        .enhanced-image-container {
+            text-align: center;
+            background: #f8fafc;
+            padding: 1rem;
+            border-radius: 8px;
+            border: 2px dashed #e2e8f0;
+        }
+
+        .enhanced-no-content {
+            color: #64748b;
+            font-style: italic;
+            padding: 2rem;
+            text-align: center;
+        }
+
+        .enhanced-location-container {
+            background: #f8fafc;
+            padding: 1rem;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .enhanced-location-coordinates {
+            font-family: 'Courier New', monospace;
+            background: white;
+            padding: 0.75rem;
+            border-radius: 6px;
+            border: 1px solid #e2e8f0;
+            margin: 0.5rem 0;
+            font-size: 0.875rem;
+        }
+
+        .enhanced-location-btn {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: background-color 0.2s;
+        }
+
+        .enhanced-location-btn:hover {
+            background: #1d4ed8;
+        }
+
+        .enhanced-modal-actions {
+            background: #f8fafc;
+            padding: 1.5rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .enhanced-action-group {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .enhanced-btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 6px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .enhanced-btn-success {
+            background: #059669;
+            color: white;
+        }
+
+        .enhanced-btn-success:hover {
+            background: #047857;
+        }
+
+        .enhanced-btn-danger {
+            background: #dc2626;
+            color: white;
+        }
+
+        .enhanced-btn-danger:hover {
+            background: #b91c1c;
+        }
+
+        .enhanced-btn-secondary {
+            background: #64748b;
+            color: white;
+        }
+
+        .enhanced-btn-secondary:hover {
+            background: #475569;
+        }
+
+        .enhanced-text-center {
+            text-align: center;
+        }
+
+        .enhanced-mt-1 {
+            margin-top: 0.5rem;
+        }
+
+        @media (max-width: 768px) {
+            .enhanced-modal-container {
+                margin: 1rem;
+                max-height: calc(100vh - 2rem);
+            }
+
+            .enhanced-modal-header {
+                padding: 1rem;
+            }
+
+            .enhanced-modal-title {
+                font-size: 1.125rem;
+            }
+
+            .enhanced-content-section {
+                padding: 1rem;
+            }
+
+            .enhanced-info-grid {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+
+            .enhanced-products-table {
+                font-size: 0.875rem;
+            }
+
+            .enhanced-products-table th,
+            .enhanced-products-table td {
+                padding: 0.75rem 0.5rem;
+            }
+
+            .enhanced-modal-actions {
+                padding: 1rem;
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .enhanced-action-group {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .enhanced-btn {
+                flex: 1;
+                justify-content: center;
+            }
+
+            .enhanced-total-amount {
+                font-size: 1.5rem;
+            }
+        }
+    `;
+    
+    document.head.appendChild(modalCSS);
+    
+    // Crear el HTML del modal mejorado
+    const modalHTML = `
+    <!-- Modal mejorado de detalle de pedido -->
+    <div id="enhancedOrderModal" class="enhanced-order-modal" style="display: none;">
+        <div class="enhanced-modal-container">
+            <!-- Header -->
+            <div class="enhanced-modal-header">
+                <div class="enhanced-modal-title">
+                    <span>📋</span>
+                    <span>Pedido <span id="enhancedOrderNumber">#ORD-2025001</span></span>
+                    <div class="enhanced-order-status enhanced-status-hold" id="enhancedOrderStatus">En Espera</div>
+                </div>
+                <button class="enhanced-close-btn" onclick="closeEnhancedOrderModal()">&times;</button>
+            </div>
+
+            <!-- Contenido -->
+            <div class="enhanced-modal-content">
+                <!-- Información General -->
+                <div class="enhanced-content-section">
+                    <h3 class="enhanced-section-title">
+                        <span>ℹ️</span>
+                        Información General
+                    </h3>
+                    <div class="enhanced-info-grid">
+                        <div class="enhanced-info-card">
+                            <div class="enhanced-info-label">Empleado</div>
+                            <div class="enhanced-info-value" id="enhancedEmployeeInfo">-</div>
+                        </div>
+                        <div class="enhanced-info-card">
+                            <div class="enhanced-info-label">Cliente</div>
+                            <div class="enhanced-info-value" id="enhancedClientInfo">-</div>
+                        </div>
+                        <div class="enhanced-info-card">
+                            <div class="enhanced-info-label">Teléfono</div>
+                            <div class="enhanced-info-value" id="enhancedClientPhone">-</div>
+                        </div>
+                        <div class="enhanced-info-card">
+                            <div class="enhanced-info-label">Fecha</div>
+                            <div class="enhanced-info-value" id="enhancedOrderDate">-</div>
+                        </div>
+                        <div class="enhanced-info-card">
+                            <div class="enhanced-info-label">Dirección</div>
+                            <div class="enhanced-info-value" id="enhancedClientAddress">-</div>
+                        </div>
+                        <div class="enhanced-info-card">
+                            <div class="enhanced-info-label">Email</div>
+                            <div class="enhanced-info-value" id="enhancedClientEmail">-</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Productos -->
+                <div class="enhanced-content-section">
+                    <h3 class="enhanced-section-title">
+                        <span>📦</span>
+                        Productos del Pedido
+                    </h3>
+                    <table class="enhanced-products-table">
+                        <thead>
+                            <tr>
+                                <th>Producto</th>
+                                <th>Precio Unit.</th>
+                                <th>Cantidad</th>
+                                <th>Subtotal</th>
+                            </tr>
+                        </thead>
+                        <tbody id="enhancedProductsTableBody">
+                        </tbody>
+                    </table>
+
+                    <div class="enhanced-total-section">
+                        <div class="enhanced-total-label">Total del Pedido</div>
+                        <span class="enhanced-total-amount" id="enhancedOrderTotal">$0.00</span>
+                    </div>
+                </div>
+
+                <!-- Foto del Pedido -->
+                <div class="enhanced-content-section">
+                    <h3 class="enhanced-section-title">
+                        <span>📷</span>
+                        Foto del Pedido
+                    </h3>
+                    <div class="enhanced-image-container" id="enhancedImageContainer">
+                        <div class="enhanced-no-content">📷 No se adjuntó imagen al pedido</div>
+                    </div>
+                </div>
+
+                <!-- Ubicación -->
+                <div class="enhanced-content-section">
+                    <h3 class="enhanced-section-title">
+                        <span>📍</span>
+                        Ubicación del Pedido
+                    </h3>
+                    <div class="enhanced-location-container" id="enhancedLocationContainer">
+                        <div class="enhanced-no-content">📍 No se registró ubicación para este pedido</div>
+                    </div>
+                </div>
+
+                <!-- Notas -->
+                <div class="enhanced-content-section">
+                    <h3 class="enhanced-section-title">
+                        <span>📝</span>
+                        Notas Adicionales
+                    </h3>
+                    <div class="enhanced-info-card">
+                        <div class="enhanced-info-value" id="enhancedOrderNotes">Sin notas adicionales</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Acciones -->
+            <div class="enhanced-modal-actions">
+                <div class="enhanced-action-group">
+                    <button class="enhanced-btn enhanced-btn-secondary" onclick="closeEnhancedOrderModal()">
+                        ✖️ Cerrar
+                    </button>
+                </div>
+                <div class="enhanced-action-group" id="enhancedOrderActions">
+                    <button class="enhanced-btn enhanced-btn-success" onclick="confirmOrderFromEnhancedModal()">
+                        ✅ Confirmar Pedido
+                    </button>
+                    <button class="enhanced-btn enhanced-btn-danger" onclick="cancelOrderFromEnhancedModal()">
+                        ❌ Cancelar Pedido
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de imagen ampliada -->
+    <div id="enhancedImageModal" class="enhanced-order-modal" style="display: none;">
+        <div style="text-align: center; position: relative;">
+            <button class="enhanced-close-btn" onclick="closeEnhancedImageModal()" 
+                    style="position: absolute; top: 1rem; right: 1rem; z-index: 1001;">
+                &times;
+            </button>
+            <img id="enhancedExpandedImage" src="" alt="Imagen ampliada" 
+                 style="max-width: 95vw; max-height: 95vh; border-radius: 8px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);">
+        </div>
+    </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+    
+    // Configurar eventos
+    setupEnhancedModalEvents();
+    
+    console.log('✅ Modal mejorado de detalles de pedido creado');
+}
+
+// Función para configurar los eventos del modal mejorado (NUEVA)
+function setupEnhancedModalEvents() {
+    const modal = document.getElementById('enhancedOrderModal');
+    const imageModal = document.getElementById('enhancedImageModal');
+    
+    if (modal) {
+        modal.addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeEnhancedOrderModal();
+            }
+        });
+    }
+    
+    if (imageModal) {
+        imageModal.addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeEnhancedImageModal();
+            }
+        });
+    }
+    
+    // Cerrar con ESC (no interfiere con otros modales)
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            const enhancedModal = document.getElementById('enhancedOrderModal');
+            const enhancedImageModal = document.getElementById('enhancedImageModal');
+            
+            if (enhancedModal && enhancedModal.style.display === 'flex') {
+                closeEnhancedOrderModal();
+            }
+            if (enhancedImageModal && enhancedImageModal.style.display === 'flex') {
+                closeEnhancedImageModal();
+            }
+        }
+    });
+}
+
+// Función principal para mostrar el modal mejorado con datos (NUEVA)
+function showEnhancedOrderModal(order) {
+    console.log('📋 Mostrando modal mejorado con datos:', order);
+    
+    // Llenar información básica
+    document.getElementById('enhancedOrderNumber').textContent = order.order_number || `#${order.id}`;
+    document.getElementById('enhancedEmployeeInfo').textContent = `${order.employee_name || order.employee_code || 'N/A'}`;
+    document.getElementById('enhancedClientInfo').textContent = order.client_info?.name || 'Sin cliente';
+    document.getElementById('enhancedClientPhone').textContent = order.client_info?.phone || 'No especificado';
+    document.getElementById('enhancedClientAddress').textContent = order.client_info?.address || 'No especificada';
+    document.getElementById('enhancedClientEmail').textContent = order.client_info?.email || 'No especificado';
+    document.getElementById('enhancedOrderDate').textContent = window.formatDate ? window.formatDate(order.created_at) : order.created_at;
+    document.getElementById('enhancedOrderNotes').textContent = order.notes || 'Sin notas adicionales';
+    document.getElementById('enhancedOrderTotal').textContent = window.formatCurrency ? window.formatCurrency(order.total) : `$${order.total}`;
+
+    // Status
+    const statusElement = document.getElementById('enhancedOrderStatus');
+    statusElement.className = `enhanced-order-status enhanced-status-${order.status}`;
+    statusElement.textContent = getEnhancedStatusText(order.status);
+
+    // Llenar tabla de productos
+    const tbody = document.getElementById('enhancedProductsTableBody');
+    if (order.products && order.products.length > 0) {
+        tbody.innerHTML = order.products.map(product => `
+            <tr>
+                <td>
+                    <div class="enhanced-product-info">
+                        <div class="enhanced-product-name">${product.name || 'Producto sin nombre'}</div>
+                        <div class="enhanced-product-details">${product.brand || ''} • ${product.viscosity || ''} • ${product.capacity || ''}</div>
+                        <div class="enhanced-product-code">${product.code || product.product_code || 'N/A'}</div>
+                    </div>
+                </td>
+                <td class="enhanced-price-column">${window.formatCurrency ? window.formatCurrency(product.price) : `$${product.price}`}</td>
+                <td class="enhanced-text-center">
+                    <div class="enhanced-quantity-badge">${product.quantity}</div>
+                </td>
+                <td class="enhanced-price-column enhanced-subtotal">${window.formatCurrency ? window.formatCurrency(product.price * product.quantity) : `$${(product.price * product.quantity).toFixed(2)}`}</td>
+            </tr>
+        `).join('');
+    } else {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="4" class="enhanced-no-content">
+                    📦 No hay productos en este pedido
+                </td>
+            </tr>
+        `;
+    }
+
+    // Imagen
+    const imageContainer = document.getElementById('enhancedImageContainer');
+    if (order.photo_url) {
+        imageContainer.innerHTML = `
+            <img src="${order.photo_url}" alt="Foto del pedido" class="enhanced-order-image" onclick="openEnhancedImageModal('${order.photo_url}')">
+        `;
+    } else {
+        imageContainer.innerHTML = `
+            <div class="enhanced-no-content">📷 No se adjuntó imagen al pedido</div>
+        `;
+    }
+
+    // Ubicación
+    const locationContainer = document.getElementById('enhancedLocationContainer');
+    if (order.location && order.location.latitude && order.location.longitude) {
+        const mapsUrl = `https://www.google.com/maps?q=${order.location.latitude},${order.location.longitude}`;
+        locationContainer.innerHTML = `
+            <div class="enhanced-location-coordinates">
+                <strong>Latitud:</strong> ${order.location.latitude}, <strong>Longitud:</strong> ${order.location.longitude}
+            </div>
+            <div class="enhanced-mt-1">
+                <strong>Precisión:</strong> ±${order.location.accuracy || 'N/A'} metros
+            </div>
+            <div class="enhanced-mt-1">
+                <a href="${mapsUrl}" target="_blank" class="enhanced-location-btn">
+                    <span>🗺️</span>
+                    Ver en Google Maps
+                </a>
+            </div>
+        `;
+    } else {
+        locationContainer.innerHTML = `
+            <div class="enhanced-no-content">📍 No se registró ubicación para este pedido</div>
+        `;
+    }
+
+    // Mostrar/ocultar acciones según el estado
+    const actionsContainer = document.getElementById('enhancedOrderActions');
+    if (order.status === 'hold') {
+        actionsContainer.style.display = 'flex';
+        window.currentEnhancedOrderId = order.id;
+    } else {
+        actionsContainer.style.display = 'none';
+    }
+
+    // Mostrar modal
+    document.getElementById('enhancedOrderModal').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+}
+
+// Función para cerrar el modal mejorado (NUEVA)
+function closeEnhancedOrderModal() {
+    const modal = document.getElementById('enhancedOrderModal');
+    if (modal) {
+        modal.style.display = 'none';
+        document.body.style.overflow = 'auto';
+        window.currentEnhancedOrderId = null;
+    }
+}
+
+// Funciones para manejar la imagen (NUEVAS)
+function openEnhancedImageModal(imageSrc) {
+    const expandedImage = document.getElementById('enhancedExpandedImage');
+    const imageModal = document.getElementById('enhancedImageModal');
+    
+    if (expandedImage && imageModal) {
+        expandedImage.src = imageSrc;
+        imageModal.style.display = 'flex';
+    }
+}
+
+function closeEnhancedImageModal() {
+    const imageModal = document.getElementById('enhancedImageModal');
+    if (imageModal) {
+        imageModal.style.display = 'none';
+    }
+}
+
+// Funciones para las acciones del modal mejorado (NUEVAS)
+function confirmOrderFromEnhancedModal() {
+    if (window.currentEnhancedOrderId) {
+        closeEnhancedOrderModal();
+        // Usar la función existente de confirmación
+        if (typeof confirmOrderModal === 'function') {
+            confirmOrderModal(window.currentEnhancedOrderId);
+        } else {
+            console.error('Función confirmOrderModal no encontrada');
+        }
+    }
+}
+
+function cancelOrderFromEnhancedModal() {
+    if (window.currentEnhancedOrderId) {
+        closeEnhancedOrderModal();
+        // Usar la función existente de cancelación
+        if (typeof cancelOrderModal === 'function') {
+            cancelOrderModal(window.currentEnhancedOrderId);
+        } else {
+            console.error('Función cancelOrderModal no encontrada');
+        }
+    }
+}
+
+// Función helper para obtener texto del estado (NUEVA)
+function getEnhancedStatusText(status) {
+    const statusMap = {
+        'hold': 'En Espera',
+        'confirmed': 'Confirmado', 
+        'cancelled': 'Cancelado'
+    };
+    return statusMap[status] || status;
+}
+
+// SOBRESCRIBIR SOLO la función viewOrderDetails original para usar la nueva vista
+// Guardar la función original por si acaso
+const originalViewOrderDetails = window.viewOrderDetails;
+
+// Nueva función viewOrderDetails que usa la vista mejorada
+window.viewOrderDetails = function(orderId) {
+    console.log('🔄 Usando vista mejorada para pedido:', orderId);
+    viewOrderDetailsEnhanced(orderId);
+};
+
+// Hacer las nuevas funciones globales
+window.viewOrderDetailsEnhanced = viewOrderDetailsEnhanced;
+window.ensureEnhancedOrderModalExists = ensureEnhancedOrderModalExists;
+window.showEnhancedOrderModal = showEnhancedOrderModal;
+window.closeEnhancedOrderModal = closeEnhancedOrderModal;
+window.openEnhancedImageModal = openEnhancedImageModal;
+window.closeEnhancedImageModal = closeEnhancedImageModal;
+window.confirmOrderFromEnhancedModal = confirmOrderFromEnhancedModal;
+window.cancelOrderFromEnhancedModal = cancelOrderFromEnhancedModal;
+window.getEnhancedStatusText = getEnhancedStatusText;
+
+// Inicializar cuando se cargue la página de pedidos
+document.addEventListener('DOMContentLoaded', function() {
+    const currentPage = window.location.pathname;
+    if (currentPage.includes('orders.html') && currentPage.includes('/admin/')) {
+        // Esperar un poco para que se carguen otros scripts
+        setTimeout(() => {
+            ensureEnhancedOrderModalExists();
+            console.log('✅ Vista detallada de pedidos inicializada correctamente');
+        }, 2000);
+    }
+});
+
+console.log('✅ Extensiones para vista detallada de pedidos cargadas correctamente');
+
+// ===== FIN DE LAS ADICIONES - NO MODIFICAR NADA MÁS =====
