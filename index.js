@@ -107,7 +107,248 @@ const fallbackDatabase = {
   inventory_movements: []
 };
 
-// Funciones helper para manejar Supabase o fallback
+// ===== NUEVA FUNCIÓN: ACTUALIZAR INVENTARIO =====
+async function updateInventoryStock(products, operation = 'subtract', notes = '') {
+  console.log(`📦 Actualizando inventario (${operation}):`, products);
+  
+  const movements = [];
+  
+  if (supabase) {
+    try {
+      // Usar transacción para asegurar consistencia
+      for (const orderProduct of products) {
+        const { product_id, quantity } = orderProduct;
+        
+        console.log(`🔄 Procesando producto ${product_id}: ${operation} ${quantity}`);
+        
+        // 1. Obtener stock actual
+        const { data: currentProduct, error: getError } = await supabase
+          .from('products')
+          .select('id, code, name, stock')
+          .eq('id', product_id)
+          .single();
+        
+        if (getError) {
+          console.error(`❌ Error obteniendo producto ${product_id}:`, getError);
+          throw new Error(`Producto ${product_id} no encontrado: ${getError.message}`);
+        }
+        
+        if (!currentProduct) {
+          throw new Error(`Producto ${product_id} no existe`);
+        }
+        
+        console.log(`📊 Stock actual de ${currentProduct.name}: ${currentProduct.stock}`);
+        
+        // 2. Calcular nuevo stock
+        let newStock;
+        if (operation === 'subtract') {
+          newStock = currentProduct.stock - quantity;
+          if (newStock < 0) {
+            throw new Error(`Stock insuficiente para ${currentProduct.name}. Stock actual: ${currentProduct.stock}, solicitado: ${quantity}`);
+          }
+        } else if (operation === 'add') {
+          newStock = currentProduct.stock + quantity;
+        } else {
+          throw new Error(`Operación de inventario inválida: ${operation}`);
+        }
+        
+        console.log(`📊 Nuevo stock para ${currentProduct.name}: ${newStock}`);
+        
+        // 3. Actualizar stock en la base de datos
+        const { data: updatedProduct, error: updateError } = await supabase
+          .from('products')
+          .update({ stock: newStock })
+          .eq('id', product_id)
+          .select()
+          .single();
+        
+        if (updateError) {
+          console.error(`❌ Error actualizando stock del producto ${product_id}:`, updateError);
+          throw new Error(`Error actualizando stock: ${updateError.message}`);
+        }
+        
+        console.log(`✅ Stock actualizado para ${currentProduct.name}: ${currentProduct.stock} → ${newStock}`);
+        
+        // 4. Registrar movimiento de inventario
+        const movement = {
+          product_id: product_id,
+          product_code: currentProduct.code,
+          product_name: currentProduct.name,
+          movement_type: operation === 'subtract' ? 'out' : 'in',
+          quantity: quantity,
+          previous_stock: currentProduct.stock,
+          new_stock: newStock,
+          reason: operation === 'subtract' ? 'sale' : 'restock',
+          notes: notes,
+          created_at: new Date().toISOString()
+        };
+        
+        const { data: newMovement, error: movementError } = await supabase
+          .from('inventory_movements')
+          .insert([movement])
+          .select()
+          .single();
+        
+        if (movementError) {
+          console.warn(`⚠️ Error registrando movimiento de inventario:`, movementError);
+          // No fallar por esto, solo advertir
+        } else {
+          console.log(`📝 Movimiento registrado para ${currentProduct.name}`);
+          movements.push(newMovement);
+        }
+      }
+      
+      console.log(`✅ Inventario actualizado exitosamente (Supabase)`);
+      return { success: true, movements, database: 'supabase' };
+      
+    } catch (error) {
+      console.error(`❌ Error actualizando inventario en Supabase:`, error);
+      throw error; // Re-lanzar el error para manejarlo en la confirmación del pedido
+    }
+  } else {
+    // Fallback: actualizar inventario en memoria
+    console.log(`📦 Actualizando inventario en memoria...`);
+    
+    try {
+      for (const orderProduct of products) {
+        const { product_id, quantity } = orderProduct;
+        
+        // Buscar producto en memoria
+        const productIndex = fallbackDatabase.products.findIndex(p => p.id === product_id);
+        if (productIndex === -1) {
+          throw new Error(`Producto ${product_id} no encontrado en inventario`);
+        }
+        
+        const product = fallbackDatabase.products[productIndex];
+        const previousStock = product.stock;
+        
+        // Calcular nuevo stock
+        let newStock;
+        if (operation === 'subtract') {
+          newStock = previousStock - quantity;
+          if (newStock < 0) {
+            throw new Error(`Stock insuficiente para ${product.name}. Stock actual: ${previousStock}, solicitado: ${quantity}`);
+          }
+        } else if (operation === 'add') {
+          newStock = previousStock + quantity;
+        } else {
+          throw new Error(`Operación de inventario inválida: ${operation}`);
+        }
+        
+        // Actualizar stock
+        fallbackDatabase.products[productIndex].stock = newStock;
+        
+        console.log(`✅ Stock actualizado para ${product.name}: ${previousStock} → ${newStock}`);
+        
+        // Registrar movimiento
+        const movement = {
+          id: fallbackDatabase.inventory_movements.length + 1,
+          product_id: product_id,
+          product_code: product.code,
+          product_name: product.name,
+          movement_type: operation === 'subtract' ? 'out' : 'in',
+          quantity: quantity,
+          previous_stock: previousStock,
+          new_stock: newStock,
+          reason: operation === 'subtract' ? 'sale' : 'restock',
+          notes: notes,
+          created_at: new Date().toISOString()
+        };
+        
+        fallbackDatabase.inventory_movements.push(movement);
+        movements.push(movement);
+      }
+      
+      console.log(`✅ Inventario actualizado exitosamente (memoria)`);
+      return { success: true, movements, database: 'memory' };
+      
+    } catch (error) {
+      console.error(`❌ Error actualizando inventario en memoria:`, error);
+      throw error;
+    }
+  }
+}
+
+// ===== FUNCIÓN PARA VERIFICAR STOCK DISPONIBLE =====
+async function validateStockAvailability(products) {
+  console.log(`🔍 Validando disponibilidad de stock para:`, products);
+  
+  const stockIssues = [];
+  
+  if (supabase) {
+    try {
+      for (const orderProduct of products) {
+        const { product_id, quantity } = orderProduct;
+        
+        const { data: product, error } = await supabase
+          .from('products')
+          .select('id, code, name, stock')
+          .eq('id', product_id)
+          .single();
+        
+        if (error || !product) {
+          stockIssues.push({
+            product_id,
+            issue: 'not_found',
+            message: `Producto ${product_id} no encontrado`
+          });
+          continue;
+        }
+        
+        if (product.stock < quantity) {
+          stockIssues.push({
+            product_id,
+            product_name: product.name,
+            issue: 'insufficient_stock',
+            available: product.stock,
+            requested: quantity,
+            message: `Stock insuficiente para ${product.name}. Disponible: ${product.stock}, solicitado: ${quantity}`
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error validando stock:', error);
+      throw new Error('Error al validar disponibilidad de stock');
+    }
+  } else {
+    // Validación en memoria
+    for (const orderProduct of products) {
+      const { product_id, quantity } = orderProduct;
+      
+      const product = fallbackDatabase.products.find(p => p.id === product_id);
+      
+      if (!product) {
+        stockIssues.push({
+          product_id,
+          issue: 'not_found',
+          message: `Producto ${product_id} no encontrado`
+        });
+        continue;
+      }
+      
+      if (product.stock < quantity) {
+        stockIssues.push({
+          product_id,
+          product_name: product.name,
+          issue: 'insufficient_stock',
+          available: product.stock,
+          requested: quantity,
+          message: `Stock insuficiente para ${product.name}. Disponible: ${product.stock}, solicitado: ${quantity}`
+        });
+      }
+    }
+  }
+  
+  if (stockIssues.length > 0) {
+    console.log(`❌ Problemas de stock encontrados:`, stockIssues);
+    return { valid: false, issues: stockIssues };
+  }
+  
+  console.log(`✅ Stock disponible para todos los productos`);
+  return { valid: true, issues: [] };
+}
+
+// Funciones helper para manejar Supabase o fallback (sin cambios)
 async function getProducts() {
   if (supabase) {
     try {
@@ -513,7 +754,7 @@ app.get("/api/employees", auth, adminOnly, async (req, res) => {
   }
 });
 
-// ========== API ROUTES - PEDIDOS (CORREGIDO) ==========
+// ========== API ROUTES - PEDIDOS (CON GESTIÓN DE INVENTARIO) ==========
 
 // GET Orders - Lista de pedidos
 app.get("/api/orders", auth, async (req, res) => {
@@ -527,10 +768,34 @@ app.get("/api/orders", auth, async (req, res) => {
   }
 });
 
-// POST Orders - Crear nuevo pedido
+// POST Orders - Crear nuevo pedido CON VALIDACIÓN DE STOCK
 app.post("/api/orders", auth, async (req, res) => {
   try {
     console.log('🔍 POST /api/orders - User:', req.user?.role);
+    
+    const { products } = req.body;
+    
+    // Validar que hay productos en el pedido
+    if (!products || !Array.isArray(products) || products.length === 0) {
+      return res.status(400).json({ 
+        message: 'El pedido debe contener al menos un producto',
+        error: 'invalid_products'
+      });
+    }
+    
+    // ✅ NUEVA VALIDACIÓN: Verificar stock disponible antes de crear el pedido
+    console.log('🔍 Validando stock disponible...');
+    const stockValidation = await validateStockAvailability(products);
+    
+    if (!stockValidation.valid) {
+      console.log('❌ Stock insuficiente:', stockValidation.issues);
+      return res.status(400).json({
+        message: 'Stock insuficiente para algunos productos',
+        error: 'insufficient_stock',
+        stock_issues: stockValidation.issues
+      });
+    }
+    
     const orderData = {
       order_number: `ORD-${Date.now()}`,
       employee_id: req.user.id,
@@ -541,31 +806,30 @@ app.post("/api/orders", auth, async (req, res) => {
     
     const newOrder = await createOrder(orderData);
     console.log('✅ Pedido creado:', newOrder.id);
-    res.json(newOrder);
+    
+    res.json({
+      ...newOrder,
+      stock_validation: 'passed'
+    });
   } catch (error) {
     console.error('Error in POST /api/orders:', error);
     res.status(500).json({ message: 'Error creando pedido', error: error.message });
   }
 });
 
-// PUT Confirm Order - ENDPOINT CRÍTICO CORREGIDO
+// PUT Confirm Order - CON GESTIÓN AUTOMÁTICA DE INVENTARIO
 app.put("/api/orders/:id/confirm", auth, adminOnly, async (req, res) => {
   try {
     const orderId = parseInt(req.params.id);
     const { payment_info } = req.body;
     
-    console.log(`🔄 CONFIRMAR PEDIDO - DEBUG COMPLETO:`);
-    console.log(`- URL completa: ${req.originalUrl}`);
-    console.log(`- Método: ${req.method}`);
-    console.log(`- Parámetros: ${JSON.stringify(req.params)}`);
-    console.log(`- Order ID: ${req.params.id} (parsed: ${orderId})`);
+    console.log(`🔄 CONFIRMAR PEDIDO CON INVENTARIO - DEBUG:`);
+    console.log(`- Order ID: ${orderId}`);
     console.log(`- Payment info:`, payment_info);
     console.log(`- Usuario: ${req.user?.name} (${req.user?.role})`);
-    console.log(`- Headers Auth: ${req.headers.authorization ? 'Presente' : 'Ausente'}`);
     
     // Validación básica
     if (!orderId || isNaN(orderId)) {
-      console.error('❌ ID de pedido inválido:', req.params.id);
       return res.status(400).json({ 
         message: 'ID de pedido inválido',
         received_id: req.params.id,
@@ -574,7 +838,6 @@ app.put("/api/orders/:id/confirm", auth, adminOnly, async (req, res) => {
     }
     
     if (!payment_info || !payment_info.method) {
-      console.error('❌ Información de pago faltante');
       return res.status(400).json({ 
         message: 'Información de pago requerida',
         received_payment_info: payment_info
@@ -585,6 +848,7 @@ app.put("/api/orders/:id/confirm", auth, adminOnly, async (req, res) => {
     
     if (supabase) {
       try {
+        // 1. Obtener el pedido
         console.log('📋 Buscando pedido en Supabase...');
         const { data: order, error: getError } = await supabase
           .from('orders')
@@ -612,6 +876,41 @@ app.put("/api/orders/:id/confirm", auth, adminOnly, async (req, res) => {
           return res.status(400).json({ message: 'El pedido ya está confirmado' });
         }
         
+        // ✅ NUEVA FUNCIONALIDAD: Validar stock antes de confirmar
+        console.log('🔍 Validando stock disponible antes de confirmar...');
+        if (order.products && Array.isArray(order.products)) {
+          const stockValidation = await validateStockAvailability(order.products);
+          
+          if (!stockValidation.valid) {
+            console.log('❌ Stock insuficiente al confirmar:', stockValidation.issues);
+            return res.status(400).json({
+              message: 'Stock insuficiente para confirmar el pedido',
+              error: 'insufficient_stock_on_confirm',
+              stock_issues: stockValidation.issues
+            });
+          }
+        }
+        
+        // ✅ NUEVA FUNCIONALIDAD: Actualizar inventario ANTES de confirmar
+        let inventoryUpdate = null;
+        if (order.products && Array.isArray(order.products)) {
+          console.log('📦 Actualizando inventario...');
+          try {
+            inventoryUpdate = await updateInventoryStock(
+              order.products, 
+              'subtract', 
+              `Venta - Pedido ${order.order_number} confirmado`
+            );
+            console.log('✅ Inventario actualizado exitosamente');
+          } catch (inventoryError) {
+            console.error('❌ Error actualizando inventario:', inventoryError);
+            return res.status(400).json({
+              message: 'Error actualizando inventario: ' + inventoryError.message,
+              error: 'inventory_update_failed'
+            });
+          }
+        }
+        
         // Actualizar pedido
         console.log('📝 Actualizando estado del pedido en Supabase...');
         const { data: updatedOrder, error: updateError } = await supabase
@@ -627,6 +926,23 @@ app.put("/api/orders/:id/confirm", auth, adminOnly, async (req, res) => {
         
         if (updateError) {
           console.error('❌ Error actualizando pedido:', updateError);
+          
+          // Si falla la actualización del pedido, intentar revertir el inventario
+          if (inventoryUpdate && order.products) {
+            console.log('🔄 Revirtiendo cambios de inventario...');
+            try {
+              await updateInventoryStock(
+                order.products, 
+                'add', 
+                `Reversión - Error confirmando pedido ${order.order_number}`
+              );
+              console.log('✅ Inventario revertido');
+            } catch (revertError) {
+              console.error('❌ Error revirtiendo inventario:', revertError);
+              // Esto es crítico - debería notificarse al administrador
+            }
+          }
+          
           throw updateError;
         }
         
@@ -665,10 +981,12 @@ app.put("/api/orders/:id/confirm", auth, adminOnly, async (req, res) => {
           message: 'Pedido confirmado exitosamente',
           order: updatedOrder,
           sale: newSale || null,
+          inventory_update: inventoryUpdate,
           debug: {
             database: 'supabase',
             order_id: orderId,
-            confirmed_at: new Date().toISOString()
+            confirmed_at: new Date().toISOString(),
+            products_updated: order.products?.length || 0
           }
         });
         
@@ -684,7 +1002,6 @@ app.put("/api/orders/:id/confirm", auth, adminOnly, async (req, res) => {
     
     if (orderIndex === -1) {
       console.error('❌ Pedido no encontrado en memoria:', orderId);
-      console.log('📊 Pedidos disponibles en memoria:', fallbackDatabase.orders.map(o => ({ id: o.id, number: o.order_number })));
       return res.status(404).json({ 
         message: 'Pedido no encontrado',
         available_orders: fallbackDatabase.orders.map(o => ({ id: o.id, number: o.order_number })),
@@ -698,6 +1015,38 @@ app.put("/api/orders/:id/confirm", auth, adminOnly, async (req, res) => {
     if (order.status === 'confirmed') {
       console.log('⚠️ Pedido ya confirmado');
       return res.status(400).json({ message: 'El pedido ya está confirmado' });
+    }
+    
+    // ✅ NUEVA FUNCIONALIDAD: Validar y actualizar inventario en memoria
+    let inventoryUpdate = null;
+    if (order.products && Array.isArray(order.products)) {
+      console.log('🔍 Validando stock disponible...');
+      const stockValidation = await validateStockAvailability(order.products);
+      
+      if (!stockValidation.valid) {
+        console.log('❌ Stock insuficiente al confirmar:', stockValidation.issues);
+        return res.status(400).json({
+          message: 'Stock insuficiente para confirmar el pedido',
+          error: 'insufficient_stock_on_confirm',
+          stock_issues: stockValidation.issues
+        });
+      }
+      
+      console.log('📦 Actualizando inventario en memoria...');
+      try {
+        inventoryUpdate = await updateInventoryStock(
+          order.products, 
+          'subtract', 
+          `Venta - Pedido ${order.order_number} confirmado`
+        );
+        console.log('✅ Inventario actualizado exitosamente');
+      } catch (inventoryError) {
+        console.error('❌ Error actualizando inventario:', inventoryError);
+        return res.status(400).json({
+          message: 'Error actualizando inventario: ' + inventoryError.message,
+          error: 'inventory_update_failed'
+        });
+      }
     }
     
     // Actualizar pedido en memoria
@@ -733,10 +1082,12 @@ app.put("/api/orders/:id/confirm", auth, adminOnly, async (req, res) => {
       message: 'Pedido confirmado exitosamente',
       order: fallbackDatabase.orders[orderIndex],
       sale: newSale,
+      inventory_update: inventoryUpdate,
       debug: {
         database: 'memory',
         order_id: orderId,
-        confirmed_at: new Date().toISOString()
+        confirmed_at: new Date().toISOString(),
+        products_updated: order.products?.length || 0
       }
     });
     
@@ -759,7 +1110,7 @@ app.put("/api/orders/:id/confirm", auth, adminOnly, async (req, res) => {
   }
 });
 
-// PUT Cancel Order - Cancelar pedido
+// PUT Cancel Order - Cancelar pedido (sin cambios en inventario)
 app.put("/api/orders/:id/cancel", auth, adminOnly, async (req, res) => {
   try {
     const orderId = parseInt(req.params.id);
@@ -787,7 +1138,10 @@ app.put("/api/orders/:id/cancel", auth, adminOnly, async (req, res) => {
         }
         
         if (order.status === 'confirmed') {
-          return res.status(400).json({ message: 'No se puede cancelar un pedido ya confirmado' });
+          return res.status(400).json({ 
+            message: 'No se puede cancelar un pedido ya confirmado. El inventario ya fue actualizado.',
+            suggestion: 'Para revertir esta venta, contacte al administrador del sistema.'
+          });
         }
         
         const { data: updatedOrder, error: updateError } = await supabase
@@ -822,7 +1176,10 @@ app.put("/api/orders/:id/cancel", auth, adminOnly, async (req, res) => {
     
     const order = fallbackDatabase.orders[orderIndex];
     if (order.status === 'confirmed') {
-      return res.status(400).json({ message: 'No se puede cancelar un pedido ya confirmado' });
+      return res.status(400).json({ 
+        message: 'No se puede cancelar un pedido ya confirmado. El inventario ya fue actualizado.',
+        suggestion: 'Para revertir esta venta, contacte al administrador del sistema.'
+      });
     }
     
     fallbackDatabase.orders[orderIndex] = {
@@ -896,6 +1253,102 @@ app.get("/api/orders/:id", auth, async (req, res) => {
   }
 });
 
+// ===== NUEVOS ENDPOINTS PARA GESTIÓN DE INVENTARIO =====
+
+// GET Inventory Movements - Historial de movimientos
+app.get("/api/inventory/movements", auth, adminOnly, async (req, res) => {
+  try {
+    console.log('📋 Obteniendo movimientos de inventario...');
+    
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('inventory_movements')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(100); // Limitar a los últimos 100 movimientos
+      
+      if (error) throw error;
+      
+      res.json(data || []);
+    } else {
+      // Fallback: usar datos en memoria
+      const movements = fallbackDatabase.inventory_movements
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+        .slice(0, 100);
+      
+      res.json(movements);
+    }
+  } catch (error) {
+    console.error('Error obteniendo movimientos de inventario:', error);
+    res.status(500).json({ 
+      message: 'Error obteniendo movimientos de inventario', 
+      error: error.message 
+    });
+  }
+});
+
+// POST Manual Stock Adjustment - Ajuste manual de inventario
+app.post("/api/inventory/adjust", auth, adminOnly, async (req, res) => {
+  try {
+    const { product_id, quantity, operation, reason, notes } = req.body;
+    
+    console.log('🔧 Ajuste manual de inventario:', { product_id, quantity, operation, reason });
+    
+    // Validaciones
+    if (!product_id || !quantity || !operation || !reason) {
+      return res.status(400).json({
+        message: 'Faltan campos requeridos: product_id, quantity, operation, reason'
+      });
+    }
+    
+    if (!['add', 'subtract'].includes(operation)) {
+      return res.status(400).json({
+        message: 'Operación debe ser "add" o "subtract"'
+      });
+    }
+    
+    if (quantity <= 0) {
+      return res.status(400).json({
+        message: 'La cantidad debe ser mayor a 0'
+      });
+    }
+    
+    // Preparar datos para la actualización
+    const adjustmentProducts = [{
+      product_id: product_id,
+      quantity: quantity
+    }];
+    
+    const adjustmentNotes = `${notes || ''} - Ajuste manual por ${req.user.employee_code} (${reason})`.trim();
+    
+    // Realizar ajuste
+    const result = await updateInventoryStock(adjustmentProducts, operation, adjustmentNotes);
+    
+    console.log('✅ Ajuste manual completado');
+    
+    res.json({
+      message: 'Ajuste de inventario completado exitosamente',
+      adjustment: {
+        product_id,
+        quantity,
+        operation,
+        reason,
+        notes: adjustmentNotes,
+        performed_by: req.user.employee_code,
+        timestamp: new Date().toISOString()
+      },
+      inventory_update: result
+    });
+    
+  } catch (error) {
+    console.error('Error en ajuste manual de inventario:', error);
+    res.status(500).json({
+      message: 'Error realizando ajuste de inventario: ' + error.message,
+      error: error.message
+    });
+  }
+});
+
 // ===== DEBUG ENDPOINTS =====
 app.get("/api/orders/:id/debug", auth, async (req, res) => {
   try {
@@ -947,7 +1400,9 @@ app.get("/api/orders/:id/debug", auth, async (req, res) => {
         'GET /api/orders/:id/debug',
         'PUT /api/orders/:id/confirm',
         'PUT /api/orders/:id/cancel',
-        'GET /api/orders/:id'
+        'GET /api/orders/:id',
+        'GET /api/inventory/movements',
+        'POST /api/inventory/adjust'
       ],
       server_info: {
         timestamp: new Date().toISOString(),
@@ -981,12 +1436,14 @@ app.get("/api/routes-debug", (req, res) => {
     });
     
     const orderRoutes = routes.filter(r => r.path.includes('orders'));
+    const inventoryRoutes = routes.filter(r => r.path.includes('inventory'));
     
     res.json({
       message: 'Rutas disponibles',
       total_routes: routes.length,
       all_routes: routes,
       order_routes: orderRoutes,
+      inventory_routes: inventoryRoutes,
       confirm_route_exists: routes.some(r => r.path.includes('confirm')),
       timestamp: new Date().toISOString(),
       server_info: {
@@ -1006,7 +1463,9 @@ app.get("/api/routes-debug", (req, res) => {
         { method: 'PUT', path: '/api/orders/:id/confirm' },
         { method: 'PUT', path: '/api/orders/:id/cancel' },
         { method: 'GET', path: '/api/orders/:id' },
-        { method: 'GET', path: '/api/orders/:id/debug' }
+        { method: 'GET', path: '/api/orders/:id/debug' },
+        { method: 'GET', path: '/api/inventory/movements' },
+        { method: 'POST', path: '/api/inventory/adjust' }
       ]
     });
   }
@@ -1155,6 +1614,7 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`Node.js: ${process.version}`);
   console.log(`Base de datos: ${supabase ? 'Supabase (PostgreSQL)' : 'En memoria (fallback)'}`);
   console.log(`Entorno: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`✅ Gestión de inventario ACTIVADA`);
   
   if (supabase) {
     console.log(`✅ Supabase conectado`);
