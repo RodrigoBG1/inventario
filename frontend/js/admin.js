@@ -1,13 +1,22 @@
-// Funciones específicas para el panel de administrador - VERSIÓN COMPLETA CORREGIDA
+// Funciones específicas para el panel de administrador - VERSIÓN CORREGIDA SIN DUPLICACIONES
 
 console.log('🔧 admin.js cargado correctamente');
 
-// Variables globales
-let products = [];
-let employees = [];
-let orders = [];
-let sales = [];
-let currentEditingProduct = null;
+// Variables globales - EVITAR REDECLARACIONES
+if (typeof window.adminProducts === 'undefined') {
+    window.adminProducts = [];
+    window.adminEmployees = [];
+    window.adminOrders = [];
+    window.adminSales = [];
+    window.currentEditingProduct = null;
+}
+
+// Usar referencias directas a las variables globales - SIN let/const/var
+var products = window.adminProducts;
+var employees = window.adminEmployees;
+var orders = window.adminOrders;
+var sales = window.adminSales;
+var currentEditingProduct = window.currentEditingProduct;
 
 // Función para verificar autenticación (para cualquier usuario)
 function checkAuth() {
@@ -312,48 +321,6 @@ Ahora puedes probar la confirmación con este pedido.`);
     }
 }
 
-// Función para debugging del servidor
-async function debugServer() {
-    try {
-        console.log('🔍 Iniciando debug del servidor...');
-        
-        // 1. Test básico
-        const testResponse = await fetch(`${window.API_BASE_URL}/test`);
-        console.log('📡 Test endpoint:', testResponse.status);
-        
-        // 2. Test de rutas
-        const routesResponse = await fetch(`${window.API_BASE_URL}/api/routes-debug`);
-        const routesData = await routesResponse.json();
-        console.log('📋 Rutas disponibles:', routesData);
-        
-        // 3. Test con autenticación
-        const token = localStorage.getItem('token');
-        if (token) {
-            const ordersResponse = await fetch(`${window.API_BASE_URL}/api/orders`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            console.log('📦 Orders endpoint:', ordersResponse.status);
-            
-            // 4. Test de debug de orden específica
-            const debugResponse = await fetch(`${window.API_BASE_URL}/api/orders/1/debug`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            console.log('🔍 Debug endpoint:', debugResponse.status);
-            
-            if (debugResponse.ok) {
-                const debugData = await debugResponse.json();
-                console.log('🔍 Debug data:', debugData);
-            }
-        }
-        
-        alert('✅ Debug completado. Revisa la consola para ver los resultados.');
-        
-    } catch (error) {
-        console.error('❌ Error en debug:', error);
-        alert('❌ Error en debug: ' + error.message);
-    }
-}
-
 // ===== RESTO DEL CÓDIGO SIN CAMBIOS =====
 
 // Inicialización
@@ -427,11 +394,17 @@ async function loadDashboardData() {
         const salesData = await window.getSales();
         console.log('💰 Ventas obtenidas:', salesData?.length || 0);
         
-        // Guardar datos globalmente
-        products = productsData || [];
-        employees = employeesData || [];
-        orders = ordersData || [];
-        sales = salesData || [];
+        // Guardar datos globalmente y actualizar referencias
+        window.adminProducts = productsData || [];
+        window.adminEmployees = employeesData || [];
+        window.adminOrders = ordersData || [];
+        window.adminSales = salesData || [];
+        
+        // Actualizar referencias locales
+        products = window.adminProducts;
+        employees = window.adminEmployees;
+        orders = window.adminOrders;
+        sales = window.adminSales;
         
         // Actualizar estadísticas
         console.log('📊 Actualizando estadísticas...');
@@ -465,9 +438,13 @@ async function loadEmployeeDashboard() {
         const salesData = await window.getSales();
         console.log('💰 Mis ventas obtenidas:', salesData?.length || 0);
         
-        // Guardar datos globalmente
-        orders = ordersData || [];
-        sales = salesData || [];
+        // Guardar datos globalmente y actualizar referencias
+        window.adminOrders = ordersData || [];
+        window.adminSales = salesData || [];
+        
+        // Actualizar referencias locales
+        orders = window.adminOrders;
+        sales = window.adminSales;
         
         // Actualizar estadísticas del empleado
         console.log('📊 Actualizando estadísticas del empleado...');
@@ -512,7 +489,7 @@ function updateEmployeeStats() {
     
     const monthlySalesElement = document.getElementById('monthly-sales');
     if (monthlySalesElement) {
-        monthlySalesElement.textContent = window.formatCurrency ? window.formatCurrency(monthlySales) : `$${monthlySales}`;
+        monthlySalesElement.textContent = window.formatCurrency ? window.formatCurrency(monthlySales) : `${monthlySales}`;
     }
     
     // Calcular comisiones
@@ -522,7 +499,7 @@ function updateEmployeeStats() {
     
     const commissionsElement = document.getElementById('commissions');
     if (commissionsElement) {
-        commissionsElement.textContent = window.formatCurrency ? window.formatCurrency(commissions) : `$${commissions}`;
+        commissionsElement.textContent = window.formatCurrency ? window.formatCurrency(commissions) : `${commissions}`;
     }
 }
 
@@ -535,14 +512,14 @@ function updateRecentActivity() {
         ...orders.map(order => ({
             type: 'order',
             title: `Pedido ${order.order_number}`,
-            subtitle: `${window.formatCurrency ? window.formatCurrency(order.total) : `$${order.total}`} - ${order.status}`,
+            subtitle: `${window.formatCurrency ? window.formatCurrency(order.total) : `${order.total}`} - ${order.status}`,
             date: order.created_at,
             icon: '📝'
         })),
         ...sales.map(sale => ({
             type: 'sale',
             title: `Venta ${sale.sale_number || sale.id}`,
-            subtitle: `${window.formatCurrency ? window.formatCurrency(sale.total) : `$${sale.total}`} - Confirmada`,
+            subtitle: `${window.formatCurrency ? window.formatCurrency(sale.total) : `${sale.total}`} - Confirmada`,
             date: sale.created_at,
             icon: '💰'
         }))
@@ -603,7 +580,7 @@ function updateDashboardStats() {
     
     const monthlySalesElement = document.getElementById('monthly-sales');
     if (monthlySalesElement) {
-        monthlySalesElement.textContent = window.formatCurrency ? window.formatCurrency(monthlySales) : `$${monthlySales}`;
+        monthlySalesElement.textContent = window.formatCurrency ? window.formatCurrency(monthlySales) : `${monthlySales}`;
         console.log('💰 Ventas del mes:', monthlySales);
     }
     
@@ -629,7 +606,7 @@ function updateRecentOrders() {
         <tr>
             <td>${order.order_number}</td>
             <td>${order.employee_code}</td>
-            <td>${window.formatCurrency ? window.formatCurrency(order.total) : `$${order.total}`}</td>
+            <td>${window.formatCurrency ? window.formatCurrency(order.total) : `${order.total}`}</td>
             <td><span class="status-badge status-${order.status}">${order.status}</span></td>
             <td>${window.formatDate ? window.formatDate(order.created_at) : order.created_at}</td>
         </tr>
@@ -661,7 +638,8 @@ function updateLowStock() {
 async function loadProductsPage() {
     console.log('📦 Cargando página de productos...');
     try {
-        products = await window.getProducts();
+        window.adminProducts = await window.getProducts();
+        products = window.adminProducts;
         displayProducts();
         loadBrandFilter();
         console.log('✅ Página de productos cargada');
@@ -685,7 +663,7 @@ function displayProducts() {
             <td>${product.viscosity}</td>
             <td>${product.capacity}</td>
             <td>${product.stock}</td>
-            <td>${window.formatCurrency ? window.formatCurrency(product.price) : `$${product.price}`}</td>
+            <td>${window.formatCurrency ? window.formatCurrency(product.price) : `${product.price}`}</td>
             <td>
                 <div class="action-buttons">
                     <button class="btn btn-sm btn-edit" onclick="editProduct(${product.id})">
@@ -737,7 +715,7 @@ function displayFilteredProducts(filteredProducts) {
             <td>${product.viscosity}</td>
             <td>${product.capacity}</td>
             <td>${product.stock}</td>
-            <td>${window.formatCurrency ? window.formatCurrency(product.price) : `$${product.price}`}</td>
+            <td>${window.formatCurrency ? window.formatCurrency(product.price) : `${product.price}`}</td>
             <td>
                 <div class="action-buttons">
                     <button class="btn btn-sm btn-edit" onclick="editProduct(${product.id})">
@@ -762,11 +740,11 @@ function openProductModal(productId = null) {
         const product = products.find(p => p.id === productId);
         title.textContent = 'Editar Producto';
         fillProductForm(product);
-        currentEditingProduct = productId;
+        currentEditingProduct = window.currentEditingProduct = productId;
     } else {
         title.textContent = 'Nuevo Producto';
         form.reset();
-        currentEditingProduct = null;
+        currentEditingProduct = window.currentEditingProduct = null;
     }
     
     modal.style.display = 'block';
@@ -774,7 +752,7 @@ function openProductModal(productId = null) {
 
 function closeProductModal() {
     document.getElementById('product-modal').style.display = 'none';
-    currentEditingProduct = null;
+    currentEditingProduct = window.currentEditingProduct = null;
 }
 
 function fillProductForm(product) {
@@ -812,53 +790,11 @@ async function deleteProductConfirm(productId) {
     }
 }
 
-// Event listener para el formulario de productos
-document.addEventListener('DOMContentLoaded', function() {
-    const productForm = document.getElementById('product-form');
-    if (productForm) {
-        productForm.addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
-            const formData = {
-                code: document.getElementById('product-code').value,
-                name: document.getElementById('product-name').value,
-                brand: document.getElementById('product-brand').value,
-                viscosity: document.getElementById('product-viscosity').value,
-                capacity: document.getElementById('product-capacity').value,
-                stock: parseInt(document.getElementById('product-stock').value),
-                price: parseFloat(document.getElementById('product-price').value),
-                cost: parseFloat(document.getElementById('product-cost').value)
-            };
-            
-            try {
-                if (currentEditingProduct) {
-                    await window.updateProduct(currentEditingProduct, formData);
-                    if (window.showNotification) {
-                        window.showNotification('Producto actualizado exitosamente', 'success');
-                    }
-                } else {
-                    await window.createProduct(formData);
-                    if (window.showNotification) {
-                        window.showNotification('Producto creado exitosamente', 'success');
-                    }
-                }
-                
-                closeProductModal();
-                loadProductsPage();
-            } catch (error) {
-                console.error('Error saving product:', error);
-                if (window.showNotification) {
-                    window.showNotification('Error al guardar producto: ' + error.message, 'error');
-                }
-            }
-        });
-    }
-});
-
 // ===== EMPLEADOS =====
 async function loadEmployeesPage() {
     try {
-        employees = await window.getEmployees();
+        window.adminEmployees = await window.getEmployees();
+        employees = window.adminEmployees;
         displayEmployees();
     } catch (error) {
         console.error('Error loading employees:', error);
@@ -894,7 +830,8 @@ function displayEmployees() {
 // ===== PEDIDOS (CORREGIDO) =====
 async function loadOrdersPage() {
     try {
-        orders = await window.getOrders();
+        window.adminOrders = await window.getOrders();
+        orders = window.adminOrders;
         displayOrders();
     } catch (error) {
         console.error('Error loading orders:', error);
@@ -1057,18 +994,66 @@ window.onclick = function(event) {
 }
 
 // ===== EXPORTAR FUNCIONES GLOBALES =====
-window.confirmOrderModal = confirmOrderModal;
-window.cancelOrderModal = cancelOrderModal;
-window.viewOrderDetails = viewOrderDetails;
-window.createTestOrder = createTestOrder;
-window.debugServer = debugServer;
+if (!window.confirmOrderModal) {
+    window.confirmOrderModal = confirmOrderModal;
+    window.cancelOrderModal = cancelOrderModal;
+    window.viewOrderDetails = viewOrderDetails;
+    window.createTestOrder = createTestOrder;
+    window.openProductModal = openProductModal;
+    window.closeProductModal = closeProductModal;
+    window.editProduct = editProduct;
+    window.deleteProductConfirm = deleteProductConfirm;
+    window.filterProducts = filterProducts;
+    window.openEmployeeModal = openEmployeeModal;
+    window.closeEmployeeModal = closeEmployeeModal;
+    window.editEmployee = editEmployee;
+    window.filterOrders = filterOrders;
+    window.updateReports = updateReports;
+    window.closeConfirmModal = closeConfirmModal;
+}
 
-console.log('✅ Admin.js completo cargado correctamente');
-
-// ===== AGREGAR ESTAS FUNCIONES AL FINAL DE admin.js =====
-// ===== SIN MODIFICAR NADA MÁS DEL ARCHIVO EXISTENTE =====
-
-console.log('🔧 Cargando extensiones para vista detallada de pedidos...');
+// Event listener para el formulario de productos
+document.addEventListener('DOMContentLoaded', function() {
+    const productForm = document.getElementById('product-form');
+    if (productForm) {
+        productForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = {
+                code: document.getElementById('product-code').value,
+                name: document.getElementById('product-name').value,
+                brand: document.getElementById('product-brand').value,
+                viscosity: document.getElementById('product-viscosity').value,
+                capacity: document.getElementById('product-capacity').value,
+                stock: parseInt(document.getElementById('product-stock').value),
+                price: parseFloat(document.getElementById('product-price').value),
+                cost: parseFloat(document.getElementById('product-cost').value)
+            };
+            
+            try {
+                if (currentEditingProduct) {
+                    await window.updateProduct(currentEditingProduct, formData);
+                    if (window.showNotification) {
+                        window.showNotification('Producto actualizado exitosamente', 'success');
+                    }
+                } else {
+                    await window.createProduct(formData);
+                    if (window.showNotification) {
+                        window.showNotification('Producto creado exitosamente', 'success');
+                    }
+                }
+                
+                closeProductModal();
+                loadProductsPage();
+            } catch (error) {
+                console.error('Error saving product:', error);
+                if (window.showNotification) {
+                    window.showNotification('Error al guardar producto: ' + error.message, 'error');
+                }
+            }
+        });
+    }
+});
 
 // ===== FUNCIONES ADICIONALES PARA VISTA DETALLADA DE PEDIDOS =====
 
@@ -1321,26 +1306,6 @@ function ensureEnhancedOrderModalExists() {
             margin-top: 0.25rem;
         }
 
-        .enhanced-quantity-badge {
-            background: #059669;
-            color: white;
-            padding: 0.5rem 0.75rem;
-            border-radius: 20px;
-            font-weight: 600;
-            text-align: center;
-            min-width: 60px;
-        }
-
-        .enhanced-price-column {
-            text-align: right;
-            font-weight: 600;
-            font-size: 1.125rem;
-        }
-
-        .enhanced-subtotal {
-            color: #2563eb;
-        }
-
         .enhanced-total-section {
             background: linear-gradient(135deg, #f8fafc, #e2e8f0);
             padding: 1.5rem;
@@ -1362,70 +1327,6 @@ function ensureEnhancedOrderModalExists() {
             text-transform: uppercase;
             letter-spacing: 0.5px;
             margin-bottom: 0.5rem;
-        }
-
-        .enhanced-order-image {
-            max-width: 100%;
-            max-height: 300px;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-            cursor: pointer;
-            transition: transform 0.2s;
-        }
-
-        .enhanced-order-image:hover {
-            transform: scale(1.02);
-        }
-
-        .enhanced-image-container {
-            text-align: center;
-            background: #f8fafc;
-            padding: 1rem;
-            border-radius: 8px;
-            border: 2px dashed #e2e8f0;
-        }
-
-        .enhanced-no-content {
-            color: #64748b;
-            font-style: italic;
-            padding: 2rem;
-            text-align: center;
-        }
-
-        .enhanced-location-container {
-            background: #f8fafc;
-            padding: 1rem;
-            border-radius: 8px;
-            text-align: center;
-        }
-
-        .enhanced-location-coordinates {
-            font-family: 'Courier New', monospace;
-            background: white;
-            padding: 0.75rem;
-            border-radius: 6px;
-            border: 1px solid #e2e8f0;
-            margin: 0.5rem 0;
-            font-size: 0.875rem;
-        }
-
-        .enhanced-location-btn {
-            background: #2563eb;
-            color: white;
-            border: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: 500;
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            transition: background-color 0.2s;
-        }
-
-        .enhanced-location-btn:hover {
-            background: #1d4ed8;
         }
 
         .enhanced-modal-actions {
@@ -1480,14 +1381,6 @@ function ensureEnhancedOrderModalExists() {
 
         .enhanced-btn-secondary:hover {
             background: #475569;
-        }
-
-        .enhanced-text-center {
-            text-align: center;
-        }
-
-        .enhanced-mt-1 {
-            margin-top: 0.5rem;
         }
 
         @media (max-width: 768px) {
@@ -1622,28 +1515,6 @@ function ensureEnhancedOrderModalExists() {
                     </div>
                 </div>
 
-                <!-- Foto del Pedido -->
-                <div class="enhanced-content-section">
-                    <h3 class="enhanced-section-title">
-                        <span>📷</span>
-                        Foto del Pedido
-                    </h3>
-                    <div class="enhanced-image-container" id="enhancedImageContainer">
-                        <div class="enhanced-no-content">📷 No se adjuntó imagen al pedido</div>
-                    </div>
-                </div>
-
-                <!-- Ubicación -->
-                <div class="enhanced-content-section">
-                    <h3 class="enhanced-section-title">
-                        <span>📍</span>
-                        Ubicación del Pedido
-                    </h3>
-                    <div class="enhanced-location-container" id="enhancedLocationContainer">
-                        <div class="enhanced-no-content">📍 No se registró ubicación para este pedido</div>
-                    </div>
-                </div>
-
                 <!-- Notas -->
                 <div class="enhanced-content-section">
                     <h3 class="enhanced-section-title">
@@ -1674,18 +1545,6 @@ function ensureEnhancedOrderModalExists() {
             </div>
         </div>
     </div>
-
-    <!-- Modal de imagen ampliada -->
-    <div id="enhancedImageModal" class="enhanced-order-modal" style="display: none;">
-        <div style="text-align: center; position: relative;">
-            <button class="enhanced-close-btn" onclick="closeEnhancedImageModal()" 
-                    style="position: absolute; top: 1rem; right: 1rem; z-index: 1001;">
-                &times;
-            </button>
-            <img id="enhancedExpandedImage" src="" alt="Imagen ampliada" 
-                 style="max-width: 95vw; max-height: 95vh; border-radius: 8px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);">
-        </div>
-    </div>
     `;
     
     document.body.insertAdjacentHTML('beforeend', modalHTML);
@@ -1699,7 +1558,6 @@ function ensureEnhancedOrderModalExists() {
 // Función para configurar los eventos del modal mejorado (NUEVA)
 function setupEnhancedModalEvents() {
     const modal = document.getElementById('enhancedOrderModal');
-    const imageModal = document.getElementById('enhancedImageModal');
     
     if (modal) {
         modal.addEventListener('click', function(e) {
@@ -1709,25 +1567,13 @@ function setupEnhancedModalEvents() {
         });
     }
     
-    if (imageModal) {
-        imageModal.addEventListener('click', function(e) {
-            if (e.target === this) {
-                closeEnhancedImageModal();
-            }
-        });
-    }
-    
     // Cerrar con ESC (no interfiere con otros modales)
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
             const enhancedModal = document.getElementById('enhancedOrderModal');
-            const enhancedImageModal = document.getElementById('enhancedImageModal');
             
             if (enhancedModal && enhancedModal.style.display === 'flex') {
                 closeEnhancedOrderModal();
-            }
-            if (enhancedImageModal && enhancedImageModal.style.display === 'flex') {
-                closeEnhancedImageModal();
             }
         }
     });
@@ -1746,7 +1592,7 @@ function showEnhancedOrderModal(order) {
     document.getElementById('enhancedClientEmail').textContent = order.client_info?.email || 'No especificado';
     document.getElementById('enhancedOrderDate').textContent = window.formatDate ? window.formatDate(order.created_at) : order.created_at;
     document.getElementById('enhancedOrderNotes').textContent = order.notes || 'Sin notas adicionales';
-    document.getElementById('enhancedOrderTotal').textContent = window.formatCurrency ? window.formatCurrency(order.total) : `$${order.total}`;
+    document.getElementById('enhancedOrderTotal').textContent = window.formatCurrency ? window.formatCurrency(order.total) : `${order.total}`;
 
     // Status
     const statusElement = document.getElementById('enhancedOrderStatus');
@@ -1765,11 +1611,11 @@ function showEnhancedOrderModal(order) {
                         <div class="enhanced-product-code">${product.code || product.product_code || 'N/A'}</div>
                     </div>
                 </td>
-                <td class="enhanced-price-column">${window.formatCurrency ? window.formatCurrency(product.price) : `$${product.price}`}</td>
+                <td class="enhanced-price-column">${window.formatCurrency ? window.formatCurrency(product.price) : `${product.price}`}</td>
                 <td class="enhanced-text-center">
                     <div class="enhanced-quantity-badge">${product.quantity}</div>
                 </td>
-                <td class="enhanced-price-column enhanced-subtotal">${window.formatCurrency ? window.formatCurrency(product.price * product.quantity) : `$${(product.price * product.quantity).toFixed(2)}`}</td>
+                <td class="enhanced-price-column enhanced-subtotal">${window.formatCurrency ? window.formatCurrency(product.price * product.quantity) : `${(product.price * product.quantity).toFixed(2)}`}</td>
             </tr>
         `).join('');
     } else {
@@ -1779,42 +1625,6 @@ function showEnhancedOrderModal(order) {
                     📦 No hay productos en este pedido
                 </td>
             </tr>
-        `;
-    }
-
-    // Imagen
-    const imageContainer = document.getElementById('enhancedImageContainer');
-    if (order.photo_url) {
-        imageContainer.innerHTML = `
-            <img src="${order.photo_url}" alt="Foto del pedido" class="enhanced-order-image" onclick="openEnhancedImageModal('${order.photo_url}')">
-        `;
-    } else {
-        imageContainer.innerHTML = `
-            <div class="enhanced-no-content">📷 No se adjuntó imagen al pedido</div>
-        `;
-    }
-
-    // Ubicación
-    const locationContainer = document.getElementById('enhancedLocationContainer');
-    if (order.location && order.location.latitude && order.location.longitude) {
-        const mapsUrl = `https://www.google.com/maps?q=${order.location.latitude},${order.location.longitude}`;
-        locationContainer.innerHTML = `
-            <div class="enhanced-location-coordinates">
-                <strong>Latitud:</strong> ${order.location.latitude}, <strong>Longitud:</strong> ${order.location.longitude}
-            </div>
-            <div class="enhanced-mt-1">
-                <strong>Precisión:</strong> ±${order.location.accuracy || 'N/A'} metros
-            </div>
-            <div class="enhanced-mt-1">
-                <a href="${mapsUrl}" target="_blank" class="enhanced-location-btn">
-                    <span>🗺️</span>
-                    Ver en Google Maps
-                </a>
-            </div>
-        `;
-    } else {
-        locationContainer.innerHTML = `
-            <div class="enhanced-no-content">📍 No se registró ubicación para este pedido</div>
         `;
     }
 
@@ -1839,24 +1649,6 @@ function closeEnhancedOrderModal() {
         modal.style.display = 'none';
         document.body.style.overflow = 'auto';
         window.currentEnhancedOrderId = null;
-    }
-}
-
-// Funciones para manejar la imagen (NUEVAS)
-function openEnhancedImageModal(imageSrc) {
-    const expandedImage = document.getElementById('enhancedExpandedImage');
-    const imageModal = document.getElementById('enhancedImageModal');
-    
-    if (expandedImage && imageModal) {
-        expandedImage.src = imageSrc;
-        imageModal.style.display = 'flex';
-    }
-}
-
-function closeEnhancedImageModal() {
-    const imageModal = document.getElementById('enhancedImageModal');
-    if (imageModal) {
-        imageModal.style.display = 'none';
     }
 }
 
@@ -1896,25 +1688,29 @@ function getEnhancedStatusText(status) {
 }
 
 // SOBRESCRIBIR SOLO la función viewOrderDetails original para usar la nueva vista
-// Guardar la función original por si acaso
-const originalViewOrderDetails = window.viewOrderDetails;
+// Guardar la función original por si acaso - SOLO SI NO EXISTE
+if (typeof window.originalViewOrderDetails === 'undefined') {
+    window.originalViewOrderDetails = window.viewOrderDetails;
+}
 
 // Nueva función viewOrderDetails que usa la vista mejorada
-window.viewOrderDetails = function(orderId) {
-    console.log('🔄 Usando vista mejorada para pedido:', orderId);
-    viewOrderDetailsEnhanced(orderId);
-};
+if (!window.viewOrderDetailsEnhanced) {
+    window.viewOrderDetails = function(orderId) {
+        console.log('🔄 Usando vista mejorada para pedido:', orderId);
+        viewOrderDetailsEnhanced(orderId);
+    };
+}
 
 // Hacer las nuevas funciones globales
-window.viewOrderDetailsEnhanced = viewOrderDetailsEnhanced;
-window.ensureEnhancedOrderModalExists = ensureEnhancedOrderModalExists;
-window.showEnhancedOrderModal = showEnhancedOrderModal;
-window.closeEnhancedOrderModal = closeEnhancedOrderModal;
-window.openEnhancedImageModal = openEnhancedImageModal;
-window.closeEnhancedImageModal = closeEnhancedImageModal;
-window.confirmOrderFromEnhancedModal = confirmOrderFromEnhancedModal;
-window.cancelOrderFromEnhancedModal = cancelOrderFromEnhancedModal;
-window.getEnhancedStatusText = getEnhancedStatusText;
+if (!window.viewOrderDetailsEnhanced) {
+    window.viewOrderDetailsEnhanced = viewOrderDetailsEnhanced;
+    window.ensureEnhancedOrderModalExists = ensureEnhancedOrderModalExists;
+    window.showEnhancedOrderModal = showEnhancedOrderModal;
+    window.closeEnhancedOrderModal = closeEnhancedOrderModal;
+    window.confirmOrderFromEnhancedModal = confirmOrderFromEnhancedModal;
+    window.cancelOrderFromEnhancedModal = cancelOrderFromEnhancedModal;
+    window.getEnhancedStatusText = getEnhancedStatusText;
+}
 
 // Inicializar cuando se cargue la página de pedidos
 document.addEventListener('DOMContentLoaded', function() {
@@ -1928,6 +1724,4 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-console.log('✅ Extensiones para vista detallada de pedidos cargadas correctamente');
-
-// ===== FIN DE LAS ADICIONES - NO MODIFICAR NADA MÁS =====
+console.log('✅ Admin.js completo cargado correctamente');

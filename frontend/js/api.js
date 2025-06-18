@@ -1,4 +1,4 @@
-// Funciones para interactuar con la API - CORREGIDO PARA CONFIRMACIÓN DE PEDIDOS
+// Funciones para interactuar con la API - VERSIÓN CORREGIDA SIN DUPLICACIONES
 
 console.log('🔗 API Base URL (api.js):', window.API_BASE_URL);
 
@@ -367,7 +367,7 @@ function handlePhotoUpload(file) {
     });
 }
 
-// Función para mostrar notificaciones
+// Función para mostrar notificaciones - VERSIÓN CORREGIDA
 function showNotification(message, type = 'success') {
     console.log(`📢 Notification [${type}]:`, message);
     
@@ -426,32 +426,35 @@ function showNotification(message, type = 'success') {
     }, timeout);
 }
 
-// CSS para animaciones de notificación
-const notificationStyles = document.createElement('style');
-notificationStyles.textContent = `
-    @keyframes slideIn {
-        from {
-            transform: translateX(100%);
-            opacity: 0;
+// CSS para animaciones de notificación - SOLO SI NO EXISTE
+if (!document.getElementById('notification-styles')) {
+    const notificationStylesElement = document.createElement('style');
+    notificationStylesElement.id = 'notification-styles';
+    notificationStylesElement.textContent = `
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
         }
-        to {
-            transform: translateX(0);
-            opacity: 1;
+        
+        @keyframes slideOut {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(100%);
+                opacity: 0;
+            }
         }
-    }
-    
-    @keyframes slideOut {
-        from {
-            transform: translateX(0);
-            opacity: 1;
-        }
-        to {
-            transform: translateX(100%);
-            opacity: 0;
-        }
-    }
-`;
-document.head.appendChild(notificationStyles);
+    `;
+    document.head.appendChild(notificationStylesElement);
+}
 
 // Verificar estado de la API al cargar
 document.addEventListener('DOMContentLoaded', async function() {
@@ -479,21 +482,23 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 });
 
-// Hacer las funciones globales para que estén disponibles en admin.js
-window.getProducts = getProducts;
-window.getEmployees = getEmployees;
-window.getOrders = getOrders;
-window.getSales = getSales;
-window.createProduct = createProduct;
-window.updateProduct = updateProduct;
-window.deleteProduct = deleteProduct;
-window.createOrder = createOrder;
-window.confirmOrder = confirmOrder; // ✅ FUNCIÓN CORREGIDA
-window.cancelOrder = cancelOrder; // ✅ FUNCIÓN CORREGIDA
-window.getOrderDetails = getOrderDetails;
-window.getSalesByEmployee = getSalesByEmployee;
-window.getInventoryReport = getInventoryReport;
-window.formatCurrency = formatCurrency;
-window.formatDate = formatDate;
-window.showNotification = showNotification;
-window.debugApiEndpoints = debugApiEndpoints; // Para debugging manual
+// Hacer las funciones globales para que estén disponibles en admin.js - SOLO SI NO EXISTEN
+if (!window.getProducts) {
+    window.getProducts = getProducts;
+    window.getEmployees = getEmployees;
+    window.getOrders = getOrders;
+    window.getSales = getSales;
+    window.createProduct = createProduct;
+    window.updateProduct = updateProduct;
+    window.deleteProduct = deleteProduct;
+    window.createOrder = createOrder;
+    window.confirmOrder = confirmOrder;
+    window.cancelOrder = cancelOrder;
+    window.getOrderDetails = getOrderDetails;
+    window.getSalesByEmployee = getSalesByEmployee;
+    window.getInventoryReport = getInventoryReport;
+    window.formatCurrency = formatCurrency;
+    window.formatDate = formatDate;
+    window.showNotification = showNotification;
+    window.debugApiEndpoints = debugApiEndpoints;
+}
