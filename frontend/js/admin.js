@@ -806,27 +806,86 @@ async function loadEmployeesPage() {
 
 function displayEmployees() {
     const tbody = document.querySelector('#employees-table tbody');
-    if (!tbody) return;
+    if (!tbody) {
+        console.error('Tabla de empleados no encontrada');
+        return;
+    }
+    
+    console.log('📋 Mostrando empleados:', employees.length);
+    
+    if (employees.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="7" style="text-align: center; padding: 2rem; color: #64748b;">
+                    👥 No hay empleados registrados
+                </td>
+            </tr>
+        `;
+        return;
+    }
     
     tbody.innerHTML = employees.map(employee => `
         <tr>
             <td>${employee.employee_code}</td>
             <td>${employee.name}</td>
-            <td>${employee.role}</td>
-            <td>${employee.routes?.join(', ') || 'Sin rutas'}</td>
+            <td>
+                <span class="role-badge role-${employee.role}">
+                    ${employee.role === 'admin' ? '👑 Admin' : '👤 Empleado'}
+                </span>
+            </td>
+            <td>${Array.isArray(employee.routes) ? employee.routes.join(', ') : (employee.routes || 'Sin rutas')}</td>
             <td>${(employee.commission_rate * 100).toFixed(1)}%</td>
             <td>${window.formatDate ? window.formatDate(employee.created_at) : employee.created_at}</td>
             <td>
                 <div class="action-buttons">
-                    <button class="btn btn-sm btn-edit" onclick="editEmployee(${employee.id})">
+                    <button class="btn btn-sm btn-edit" onclick="editEmployee(${employee.id})" title="Editar empleado">
                         ✏️ Editar
                     </button>
+                    ${employee.role !== 'admin' ? `
+                        <button class="btn btn-sm btn-danger" onclick="deleteEmployeeConfirm(${employee.id})" title="Eliminar empleado">
+                            🗑️ Eliminar
+                        </button>
+                    ` : ''}
                 </div>
             </td>
         </tr>
     `).join('');
 }
 
+async function deleteEmployeeConfirm(employeeId) {
+    const employee = employees.find(e => e.id === employeeId);
+    
+    if (!employee) {
+        if (window.showNotification) {
+            window.showNotification('Empleado no encontrado', 'error');
+        }
+        return;
+    }
+    
+    if (employee.role === 'admin') {
+        if (window.showNotification) {
+            window.showNotification('No se puede eliminar un administrador', 'warning');
+        }
+        return;
+    }
+    
+    if (confirm(`¿Estás seguro de eliminar al empleado "${employee.name}"?\n\nEsta acción no se puede deshacer.`)) {
+        try {
+            console.log('🗑️ Eliminando empleado:', employeeId);
+            
+            // Aquí iría la implementación de deleteEmployee si la necesitas
+            if (window.showNotification) {
+                window.showNotification('Función de eliminación pendiente de implementar', 'info');
+            }
+            
+        } catch (error) {
+            console.error('❌ Error eliminando empleado:', error);
+            if (window.showNotification) {
+                window.showNotification('Error eliminando empleado: ' + error.message, 'error');
+            }
+        }
+    }
+}
 // ===== PEDIDOS (CORREGIDO) =====
 async function loadOrdersPage() {
     try {
@@ -945,8 +1004,57 @@ function displayInventoryReport(inventoryData) {
 }
 
 // Funciones que pueden ser llamadas desde los modales
-function openEmployeeModal() {
-    console.log('Abrir modal de empleado');
+function openEmployeeModal(employeeId = null) {
+    console.log('🔄 Abriendo modal de empleado:', employeeId);
+    
+    const modal = document.getElementById('employee-modal');
+    const title = modal.querySelector('.modal-header h3');
+    const form = document.getElementById('employee-form');
+    
+    if (!modal || !form) {
+        console.error('Modal o formulario de empleado no encontrado');
+        if (window.showNotification) {
+            window.showNotification('Error: Modal no encontrado', 'error');
+        }
+        return;
+    }
+    
+    if (employeeId) {
+        // Modo edición
+        const employee = employees.find(e => e.id === employeeId);
+        if (!employee) {
+            if (window.showNotification) {
+                window.showNotification('Empleado no encontrado', 'error');
+            }
+            return;
+        }
+        
+        title.textContent = 'Editar Empleado';
+        fillEmployeeForm(employee);
+        window.currentEditingEmployee = employeeId;
+        
+        // Deshabilitar el campo de código en modo edición
+        const codeField = document.getElementById('employee-code');
+        if (codeField) codeField.disabled = true;
+        
+    } else {
+        // Modo creación
+        title.textContent = 'Nuevo Empleado';
+        form.reset();
+        window.currentEditingEmployee = null;
+        
+        // Habilitar el campo de código
+        const codeField = document.getElementById('employee-code');
+        if (codeField) codeField.disabled = false;
+        
+        // Valores por defecto
+        const roleField = document.getElementById('employee-role');
+        const commissionField = document.getElementById('employee-commission');
+        if (roleField) roleField.value = 'employee';
+        if (commissionField) commissionField.value = '5';
+    }
+    
+    modal.style.display = 'block';
 }
 
 function closeEmployeeModal() {
@@ -954,12 +1062,66 @@ function closeEmployeeModal() {
     if (modal) {
         modal.style.display = 'none';
     }
+    window.currentEditingEmployee = null;
+    
+    // Re-habilitar el campo de código
+    const codeField = document.getElementById('employee-code');
+    if (codeField) codeField.disabled = false;
+}
+
+function fillEmployeeForm(employee) {
+    console.log('📝 Llenando formulario con datos:', employee);
+    
+    const fields = {
+        'employee-code': employee.employee_code,
+        'employee-name': employee.name,
+        'employee-role': employee.role,
+        'employee-commission': (employee.commission_rate * 100).toString(),
+        'employee-routes': Array.isArray(employee.routes) ? employee.routes.join(', ') : (employee.routes || '')
+    };
+    
+    Object.entries(fields).forEach(([fieldId, value]) => {
+        const field = document.getElementById(fieldId);
+        if (field) {
+            field.value = value || '';
+        } else {
+            console.warn('Campo no encontrado:', fieldId);
+        }
+    });
+    
+    // No llenar la contraseña por seguridad
+    const passwordField = document.getElementById('employee-password');
+    if (passwordField) {
+        passwordField.value = '';
+        passwordField.placeholder = 'Dejar vacío para mantener contraseña actual';
+        passwordField.required = false;
+    }
 }
 
 function editEmployee(employeeId) {
-    console.log('Editar empleado:', employeeId);
+    console.log('✏️ Editando empleado:', employeeId);
+    openEmployeeModal(employeeId);
 }
 
+// Crear empleado
+async function createEmployee(employeeData) {
+    if (!window.createEmployeeAPI) {
+        console.error('Función createEmployeeAPI no disponible');
+        throw new Error('API de empleados no disponible');
+    }
+    
+    return await window.createEmployeeAPI(employeeData);
+}
+
+// Actualizar empleado
+async function updateEmployee(id, employeeData) {
+    if (!window.updateEmployeeAPI) {
+        console.error('Función updateEmployeeAPI no disponible');
+        throw new Error('API de empleados no disponible');
+    }
+    
+    return await window.updateEmployeeAPI(id, employeeData);
+}
 function filterOrders() {
     console.log('Filtrar pedidos');
 }
@@ -1721,6 +1883,103 @@ document.addEventListener('DOMContentLoaded', function() {
             ensureEnhancedOrderModalExists();
             console.log('✅ Vista detallada de pedidos inicializada correctamente');
         }, 2000);
+    }
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Event listener para el formulario de empleados
+    const employeeForm = document.getElementById('employee-form');
+    if (employeeForm) {
+        employeeForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            console.log('📝 Procesando formulario de empleado...');
+            
+            // Obtener datos del formulario
+            const formData = {
+                employee_code: document.getElementById('employee-code').value.trim(),
+                name: document.getElementById('employee-name').value.trim(),
+                role: document.getElementById('employee-role').value,
+                commission_rate: parseFloat(document.getElementById('employee-commission').value) / 100,
+                routes: document.getElementById('employee-routes').value
+                    .split(',')
+                    .map(route => route.trim())
+                    .filter(route => route.length > 0)
+            };
+            
+            // Agregar contraseña solo si se proporcionó
+            const password = document.getElementById('employee-password').value.trim();
+            if (password) {
+                formData.password = password;
+            }
+            
+            // Validaciones
+            if (!formData.employee_code || !formData.name) {
+                if (window.showNotification) {
+                    window.showNotification('Código y nombre son requeridos', 'warning');
+                }
+                return;
+            }
+            
+            if (formData.commission_rate < 0 || formData.commission_rate > 1) {
+                if (window.showNotification) {
+                    window.showNotification('La comisión debe estar entre 0% y 100%', 'warning');
+                }
+                return;
+            }
+            
+            // Deshabilitar botón mientras se procesa
+            const submitBtn = employeeForm.querySelector('button[type="submit"]');
+            const originalText = submitBtn.textContent;
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Procesando...';
+            
+            try {
+                let result;
+                
+                if (window.currentEditingEmployee) {
+                    console.log('📝 Actualizando empleado existente...');
+                    result = await updateEmployee(window.currentEditingEmployee, formData);
+                    
+                    if (window.showNotification) {
+                        window.showNotification('Empleado actualizado exitosamente', 'success');
+                    }
+                } else {
+                    console.log('📝 Creando nuevo empleado...');
+                    
+                    // Para crear, la contraseña es requerida
+                    if (!password) {
+                        if (window.showNotification) {
+                            window.showNotification('La contraseña es requerida para nuevos empleados', 'warning');
+                        }
+                        return;
+                    }
+                    
+                    result = await createEmployee(formData);
+                    
+                    if (window.showNotification) {
+                        window.showNotification('Empleado creado exitosamente', 'success');
+                    }
+                }
+                
+                console.log('✅ Empleado procesado:', result);
+                
+                // Cerrar modal y recargar lista
+                closeEmployeeModal();
+                await loadEmployeesPage();
+                
+            } catch (error) {
+                console.error('❌ Error procesando empleado:', error);
+                
+                if (window.showNotification) {
+                    window.showNotification('Error: ' + error.message, 'error');
+                }
+            } finally {
+                // Re-habilitar botón
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalText;
+            }
+        });
     }
 });
 

@@ -1549,6 +1549,114 @@ app.get("/admin/employees.html", (req, res) => {
   res.sendFile(path.join(__dirname, 'frontend', 'admin', 'employees.html'));
 });
 
+app.post("/api/employees", auth, adminOnly, async (req, res) => {
+  try {
+    console.log('🔄 POST /api/employees - Creando empleado:', req.body);
+    
+    const employeeData = {
+      ...req.body,
+      created_at: new Date().toISOString()
+    };
+    
+    // Verificar que el código de empleado no exista
+    const existingEmployee = await getEmployeeByCode(employeeData.employee_code);
+    if (existingEmployee) {
+      return res.status(400).json({ 
+        message: 'El código de empleado ya existe' 
+      });
+    }
+    
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('employees')
+          .insert([employeeData])
+          .select()
+          .single();
+        
+        if (error) throw error;
+        
+        // No devolver la contraseña
+        const { password, ...safeEmployee } = data;
+        res.json(safeEmployee);
+        return;
+      } catch (error) {
+        console.error('Error creating employee in Supabase:', error);
+        // Continuar con fallback
+      }
+    }
+    
+    // Fallback: crear en memoria
+    const newEmployee = {
+      id: fallbackDatabase.employees.length + 1,
+      ...employeeData
+    };
+    
+    fallbackDatabase.employees.push(newEmployee);
+    
+    // No devolver la contraseña
+    const { password, ...safeEmployee } = newEmployee;
+    res.json(safeEmployee);
+    
+  } catch (error) {
+    console.error('Error in POST /api/employees:', error);
+    res.status(500).json({ 
+      message: 'Error creando empleado', 
+      error: error.message 
+    });
+  }
+});
+
+app.put("/api/employees/:id", auth, adminOnly, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    console.log('🔄 PUT /api/employees/:id - Actualizando empleado:', id, req.body);
+    
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('employees')
+          .update(req.body)
+          .eq('id', id)
+          .select()
+          .single();
+        
+        if (error) throw error;
+        
+        // No devolver la contraseña
+        const { password, ...safeEmployee } = data;
+        res.json(safeEmployee);
+        return;
+      } catch (error) {
+        console.error('Error updating employee in Supabase:', error);
+        // Continuar con fallback
+      }
+    }
+    
+    // Fallback: actualizar en memoria
+    const index = fallbackDatabase.employees.findIndex(e => e.id === id);
+    if (index === -1) {
+      return res.status(404).json({ message: 'Empleado no encontrado' });
+    }
+    
+    fallbackDatabase.employees[index] = {
+      ...fallbackDatabase.employees[index],
+      ...req.body
+    };
+    
+    // No devolver la contraseña
+    const { password, ...safeEmployee } = fallbackDatabase.employees[index];
+    res.json(safeEmployee);
+    
+  } catch (error) {
+    console.error('Error in PUT /api/employees/:id:', error);
+    res.status(500).json({ 
+      message: 'Error actualizando empleado', 
+      error: error.message 
+    });
+  }
+});
+
 app.get("/admin/orders.html", (req, res) => {
   res.sendFile(path.join(__dirname, 'frontend', 'admin', 'orders.html'));
 });

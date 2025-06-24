@@ -481,6 +481,29 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     }
 });
+async function createEmployeeAPI(employeeData) {
+    console.log('📤 Creando empleado:', employeeData);
+    
+    return await apiRequest('/api/employees', {
+        method: 'POST',
+        body: JSON.stringify(employeeData)
+    });
+}
+
+async function updateEmployeeAPI(id, employeeData) {
+    console.log('📤 Actualizando empleado:', id, employeeData);
+    
+    return await apiRequest(`/api/employees/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(employeeData)
+    });
+}
+
+// Hacer las funciones globales
+if (!window.createEmployeeAPI) {
+    window.createEmployeeAPI = createEmployeeAPI;
+    window.updateEmployeeAPI = updateEmployeeAPI;
+}
 
 // Hacer las funciones globales para que estén disponibles en admin.js - SOLO SI NO EXISTEN
 if (!window.getProducts) {
