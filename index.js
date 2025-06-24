@@ -1349,6 +1349,484 @@ app.post("/api/inventory/adjust", auth, adminOnly, async (req, res) => {
   }
 });
 
+
+async function getTrips(status = null, employeeId = null) {
+  if (supabase) {
+    try {
+      let query = supabase.from('trips').select(`
+        *,
+        substore_inventory (
+          id, product_id, product_code, product_name, 
+          initial_quantity, current_quantity, sold_quantity, 
+          returned_quantity, price
+        )
+      `);
+      
+      if (status) query = query.eq('status', status);
+      if (employeeId) query = query.eq('employee_id', employeeId);
+      
+      const { data, error } = await query.order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error getting trips from Supabase:', error);
+      return fallbackDatabase.trips || [];
+    }
+  }
+  return fallbackDatabase.trips || [];
+}
+
+// Crear viaje
+async function createTrip(tripData) {
+  console.log('🚛 Creando nuevo viaje:', tripData);
+  
+  if (supabase) {
+    try {
+      const { data: trip, error: tripError } = await supabase
+        .from('trips')
+        .insert([{
+          trip_number: tripData.trip_number,
+          employee_id: tripData.employee_id,
+          employee_code: tripData.employee_code,
+          employee_name: tripData.employee_name,
+          status: 'active',
+          notes: tripData.notes || ''
+        }])
+        .select()
+        .single();
+      
+      if (tripError) throw tripError;
+      
+      console.log('✅ Viaje creado:', trip.trip_number);
+      return trip;
+    } catch (error) {
+      console.error('Error creating trip in Supabase:', error);
+      throw error;
+    }
+  } else {
+    // Fallback
+    const newTrip = {
+      id: (fallbackDatabase.trips?.length || 0) + 1,
+      trip_number: tripData.trip_number,
+      employee_id: tripData.employee_id,
+      employee_code: tripData.employee_code,
+      employee_name: tripData.employee_name,
+      status: 'active',
+      notes: tripData.notes || '',
+      created_at: new Date().toISOString()
+    };
+    
+    if (!fallbackDatabase.trips) fallbackDatabase.trips = [];
+    fallbackDatabase.trips.push(newTrip);
+    return newTrip;
+  }
+}
+
+// Cargar productos al subalmacén
+async function loadProductsToSubstore(tripId, products) {
+  console.log('📦 Cargando productos al subalmacén:', { tripId, products });
+  
+  const loadedProducts = [];
+  const movements = [];
+  
+  if (supabase) {
+    try {
+      // Iniciar transacción manual
+      for (const product of products) {
+        const { product_id, quantity, price } = product;
+        
+        // 1. Verificar stock disponible
+        const { data: mainProduct, error: getError } = await supabase
+          .from('products')
+          .select('id, code, name, stock')
+          .eq('id', product_id)
+          .single();
+        
+        if (getError || !mainProduct) {
+          throw new Error(`Producto ${product_id} no encontrado`);
+        }
+        
+        if (mainProduct.stock < quantity) {
+          throw new Error(`Stock insuficiente para ${mainProduct.name}. Disponible: ${mainProduct.stock}, solicitado: ${quantity}`);
+        }
+        
+        // 2. Reducir stock del almacén principal
+        const { error: updateError } = await supabase
+          .from('products')
+          .update({ stock: mainProduct.stock - quantity })
+          .eq('id', product_id);
+        
+        if (updateError) throw updateError;
+        
+        // 3. Agregar al subalmacén
+        const { data: substoreItem, error: substoreError } = await supabase
+          .from('substore_inventory')
+          .insert([{
+            trip_id: tripId,
+            product_id: product_id,
+            product_code: mainProduct.code,
+            product_name: mainProduct.name,
+            initial_quantity: quantity,
+            current_quantity: quantity,
+            sold_quantity: 0,
+            returned_quantity: 0,
+            price: price || 0
+          }])
+          .select()
+          .single();
+        
+        if (substoreError) throw substoreError;
+        
+        // 4. Registrar movimiento del almacén principal
+        await supabase
+          .from('inventory_movements')
+          .insert([{
+            product_id: product_id,
+            product_code: mainProduct.code,
+            product_name: mainProduct.name,
+            movement_type: 'out',
+            quantity: quantity,
+            previous_stock: mainProduct.stock,
+            new_stock: mainProduct.stock - quantity,
+            reason: 'substore_load',
+            notes: `Carga a viaje ${tripId}`
+          }]);
+        
+        // 5. Registrar movimiento del subalmacén
+        await supabase
+          .from('substore_movements')
+          .insert([{
+            trip_id: tripId,
+            product_id: product_id,
+            product_code: mainProduct.code,
+            product_name: mainProduct.name,
+            movement_type: 'load',
+            quantity: quantity,
+            previous_quantity: 0,
+            new_quantity: quantity,
+            notes: 'Carga inicial al subalmacén'
+          }]);
+        
+        loadedProducts.push(substoreItem);
+        console.log(`✅ Producto ${mainProduct.name} cargado al subalmacén`);
+      }
+      
+      return { success: true, products: loadedProducts, movements };
+      
+    } catch (error) {
+      console.error('❌ Error cargando productos al subalmacén:', error);
+      throw error;
+    }
+  } else {
+    // Fallback - implementación en memoria
+    for (const product of products) {
+      const { product_id, quantity, price } = product;
+      
+      const mainProduct = fallbackDatabase.products.find(p => p.id === product_id);
+      if (!mainProduct) {
+        throw new Error(`Producto ${product_id} no encontrado`);
+      }
+      
+      if (mainProduct.stock < quantity) {
+        throw new Error(`Stock insuficiente para ${mainProduct.name}`);
+      }
+      
+      // Reducir stock principal
+      mainProduct.stock -= quantity;
+      
+      // Agregar al subalmacén
+      if (!fallbackDatabase.substore_inventory) {
+        fallbackDatabase.substore_inventory = [];
+      }
+      
+      const substoreItem = {
+        id: fallbackDatabase.substore_inventory.length + 1,
+        trip_id: tripId,
+        product_id: product_id,
+        product_code: mainProduct.code,
+        product_name: mainProduct.name,
+        initial_quantity: quantity,
+        current_quantity: quantity,
+        sold_quantity: 0,
+        returned_quantity: 0,
+        price: price || 0,
+        created_at: new Date().toISOString()
+      };
+      
+      fallbackDatabase.substore_inventory.push(substoreItem);
+      loadedProducts.push(substoreItem);
+    }
+    
+    return { success: true, products: loadedProducts, movements };
+  }
+}
+
+// Obtener inventario de subalmacén
+async function getSubstoreInventory(tripId) {
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('substore_inventory')
+        .select('*')
+        .eq('trip_id', tripId)
+        .order('product_code');
+      
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error getting substore inventory:', error);
+      return [];
+    }
+  } else {
+    return (fallbackDatabase.substore_inventory || [])
+      .filter(item => item.trip_id === tripId);
+  }
+}
+
+// Vender producto del subalmacén
+async function sellFromSubstore(tripId, productId, quantity, saleData) {
+  console.log('💰 Venta desde subalmacén:', { tripId, productId, quantity });
+  
+  if (supabase) {
+    try {
+      // 1. Obtener item del subalmacén
+      const { data: substoreItem, error: getError } = await supabase
+        .from('substore_inventory')
+        .select('*')
+        .eq('trip_id', tripId)
+        .eq('product_id', productId)
+        .single();
+      
+      if (getError || !substoreItem) {
+        throw new Error('Producto no encontrado en subalmacén');
+      }
+      
+      if (substoreItem.current_quantity < quantity) {
+        throw new Error(`Stock insuficiente en subalmacén. Disponible: ${substoreItem.current_quantity}`);
+      }
+      
+      // 2. Actualizar inventario del subalmacén
+      const newCurrentQuantity = substoreItem.current_quantity - quantity;
+      const newSoldQuantity = substoreItem.sold_quantity + quantity;
+      
+      const { error: updateError } = await supabase
+        .from('substore_inventory')
+        .update({
+          current_quantity: newCurrentQuantity,
+          sold_quantity: newSoldQuantity
+        })
+        .eq('id', substoreItem.id);
+      
+      if (updateError) throw updateError;
+      
+      // 3. Registrar movimiento del subalmacén
+      await supabase
+        .from('substore_movements')
+        .insert([{
+          trip_id: tripId,
+          product_id: productId,
+          product_code: substoreItem.product_code,
+          product_name: substoreItem.product_name,
+          movement_type: 'sale',
+          quantity: quantity,
+          previous_quantity: substoreItem.current_quantity,
+          new_quantity: newCurrentQuantity,
+          reference_id: saleData?.order_id || null,
+          reference_type: 'sale',
+          notes: `Venta - ${saleData?.client_info?.name || 'Cliente'}`
+        }]);
+      
+      console.log(`✅ Venta registrada en subalmacén`);
+      return { success: true };
+      
+    } catch (error) {
+      console.error('❌ Error en venta desde subalmacén:', error);
+      throw error;
+    }
+  } else {
+    // Fallback
+    const substoreItem = (fallbackDatabase.substore_inventory || [])
+      .find(item => item.trip_id === tripId && item.product_id === productId);
+    
+    if (!substoreItem) {
+      throw new Error('Producto no encontrado en subalmacén');
+    }
+    
+    if (substoreItem.current_quantity < quantity) {
+      throw new Error(`Stock insuficiente en subalmacén`);
+    }
+    
+    substoreItem.current_quantity -= quantity;
+    substoreItem.sold_quantity += quantity;
+    
+    return { success: true };
+  }
+}
+
+// Devolver productos al almacén principal
+async function returnToMainStore(tripId, products) {
+  console.log('🔄 Devolviendo productos al almacén principal:', { tripId, products });
+  
+  if (supabase) {
+    try {
+      for (const returnItem of products) {
+        const { product_id, quantity } = returnItem;
+        
+        // 1. Obtener item del subalmacén
+        const { data: substoreItem, error: getError } = await supabase
+          .from('substore_inventory')
+          .select('*')
+          .eq('trip_id', tripId)
+          .eq('product_id', product_id)
+          .single();
+        
+        if (getError || !substoreItem) {
+          throw new Error(`Producto ${product_id} no encontrado en subalmacén`);
+        }
+        
+        if (substoreItem.current_quantity < quantity) {
+          throw new Error(`Cantidad a devolver mayor que disponible en subalmacén`);
+        }
+        
+        // 2. Actualizar subalmacén
+        const { error: updateSubstoreError } = await supabase
+          .from('substore_inventory')
+          .update({
+            current_quantity: substoreItem.current_quantity - quantity,
+            returned_quantity: substoreItem.returned_quantity + quantity
+          })
+          .eq('id', substoreItem.id);
+        
+        if (updateSubstoreError) throw updateSubstoreError;
+        
+        // 3. Actualizar almacén principal
+        const { data: mainProduct, error: getMainError } = await supabase
+          .from('products')
+          .select('stock')
+          .eq('id', product_id)
+          .single();
+        
+        if (getMainError) throw getMainError;
+        
+        const { error: updateMainError } = await supabase
+          .from('products')
+          .update({ stock: mainProduct.stock + quantity })
+          .eq('id', product_id);
+        
+        if (updateMainError) throw updateMainError;
+        
+        // 4. Registrar movimientos
+        await supabase
+          .from('substore_movements')
+          .insert([{
+            trip_id: tripId,
+            product_id: product_id,
+            product_code: substoreItem.product_code,
+            product_name: substoreItem.product_name,
+            movement_type: 'return',
+            quantity: quantity,
+            previous_quantity: substoreItem.current_quantity,
+            new_quantity: substoreItem.current_quantity - quantity,
+            notes: 'Devolución a almacén principal'
+          }]);
+        
+        await supabase
+          .from('inventory_movements')
+          .insert([{
+            product_id: product_id,
+            product_code: substoreItem.product_code,
+            product_name: substoreItem.product_name,
+            movement_type: 'in',
+            quantity: quantity,
+            previous_stock: mainProduct.stock,
+            new_stock: mainProduct.stock + quantity,
+            reason: 'substore_return',
+            notes: `Devolución desde viaje ${tripId}`
+          }]);
+        
+        console.log(`✅ Producto ${substoreItem.product_name} devuelto al almacén principal`);
+      }
+      
+      return { success: true };
+      
+    } catch (error) {
+      console.error('❌ Error devolviendo productos:', error);
+      throw error;
+    }
+  } else {
+    // Fallback
+    for (const returnItem of products) {
+      const { product_id, quantity } = returnItem;
+      
+      const substoreItem = (fallbackDatabase.substore_inventory || [])
+        .find(item => item.trip_id === tripId && item.product_id === product_id);
+      
+      const mainProduct = fallbackDatabase.products.find(p => p.id === product_id);
+      
+      if (!substoreItem || !mainProduct) {
+        throw new Error(`Producto ${product_id} no encontrado`);
+      }
+      
+      if (substoreItem.current_quantity < quantity) {
+        throw new Error(`Cantidad a devolver mayor que disponible`);
+      }
+      
+      substoreItem.current_quantity -= quantity;
+      substoreItem.returned_quantity += quantity;
+      mainProduct.stock += quantity;
+    }
+    
+    return { success: true };
+  }
+}
+
+// Finalizar viaje
+async function completeTrip(tripId, returnProducts = []) {
+  console.log('🏁 Finalizando viaje:', tripId);
+  
+  try {
+    // 1. Devolver productos si los hay
+    if (returnProducts.length > 0) {
+      await returnToMainStore(tripId, returnProducts);
+    }
+    
+    // 2. Actualizar estado del viaje
+    if (supabase) {
+      const { error } = await supabase
+        .from('trips')
+        .update({
+          status: 'completed',
+          end_date: new Date().toISOString()
+        })
+        .eq('id', tripId);
+      
+      if (error) throw error;
+    } else {
+      const trip = (fallbackDatabase.trips || []).find(t => t.id === tripId);
+      if (trip) {
+        trip.status = 'completed';
+        trip.end_date = new Date().toISOString();
+      }
+    }
+    
+    console.log('✅ Viaje finalizado exitosamente');
+    return { success: true };
+    
+  } catch (error) {
+    console.error('❌ Error finalizando viaje:', error);
+    throw error;
+  }
+}
+
+// Agregar al final de index.js, antes de las rutas de API:
+// Inicializar base de datos fallback con tablas de subalmacenes
+if (!fallbackDatabase.trips) {
+  fallbackDatabase.trips = [];
+  fallbackDatabase.substore_inventory = [];
+  fallbackDatabase.substore_movements = [];
+}
+
 // ===== DEBUG ENDPOINTS =====
 app.get("/api/orders/:id/debug", auth, async (req, res) => {
   try {
@@ -1702,6 +2180,552 @@ app.get("*", (req, res) => {
       </div>
     </div>
   `);
+});
+
+// ===== RUTAS DE API PARA SUBALMACENES =====
+// Agregar estas rutas al archivo index.js después de las rutas existentes
+
+// ========== ROUTES - TRIPS/VIAJES ==========
+
+// GET - Obtener todos los viajes
+app.get("/api/trips", auth, async (req, res) => {
+  try {
+    console.log('🔍 GET /api/trips - User:', req.user?.role);
+    
+    const { status, employee_id } = req.query;
+    
+    // Si no es admin, solo puede ver sus propios viajes
+    const employeeFilter = req.user.role === 'admin' 
+      ? employee_id 
+      : req.user.id;
+    
+    const trips = await getTrips(status, employeeFilter);
+    res.json(trips);
+    
+  } catch (error) {
+    console.error('Error in GET /api/trips:', error);
+    res.status(500).json({ 
+      message: 'Error obteniendo viajes', 
+      error: error.message 
+    });
+  }
+});
+
+// GET - Obtener viaje específico
+app.get("/api/trips/:id", auth, async (req, res) => {
+  try {
+    const tripId = parseInt(req.params.id);
+    console.log('🔍 GET /api/trips/:id - Trip:', tripId);
+    
+    if (supabase) {
+      const { data: trip, error } = await supabase
+        .from('trips')
+        .select(`
+          *,
+          substore_inventory (*)
+        `)
+        .eq('id', tripId)
+        .single();
+      
+      if (error && error.code !== 'PGRST116') throw error;
+      
+      if (trip) {
+        // Verificar permisos
+        if (req.user.role !== 'admin' && trip.employee_id !== req.user.id) {
+          return res.status(403).json({ message: 'No tienes permisos para ver este viaje' });
+        }
+        return res.json(trip);
+      }
+    }
+    
+    // Fallback
+    const trip = (fallbackDatabase.trips || []).find(t => t.id === tripId);
+    if (!trip) {
+      return res.status(404).json({ message: 'Viaje no encontrado' });
+    }
+    
+    if (req.user.role !== 'admin' && trip.employee_id !== req.user.id) {
+      return res.status(403).json({ message: 'No tienes permisos para ver este viaje' });
+    }
+    
+    // Agregar inventario del subalmacén
+    trip.substore_inventory = (fallbackDatabase.substore_inventory || [])
+      .filter(item => item.trip_id === tripId);
+    
+    res.json(trip);
+    
+  } catch (error) {
+    console.error('Error in GET /api/trips/:id:', error);
+    res.status(500).json({ 
+      message: 'Error obteniendo viaje', 
+      error: error.message 
+    });
+  }
+});
+
+// POST - Crear nuevo viaje
+app.post("/api/trips", auth, adminOnly, async (req, res) => {
+  try {
+    console.log('🔄 POST /api/trips - Creating trip:', req.body);
+    
+    const { employee_id, products, notes } = req.body;
+    
+    // Validaciones
+    if (!employee_id) {
+      return res.status(400).json({ 
+        message: 'employee_id es requerido' 
+      });
+    }
+    
+    if (!products || !Array.isArray(products) || products.length === 0) {
+      return res.status(400).json({ 
+        message: 'Debe incluir al menos un producto en el viaje' 
+      });
+    }
+    
+    // Validar stock disponible ANTES de crear el viaje
+    console.log('🔍 Validando stock disponible...');
+    for (const product of products) {
+      if (!product.product_id || !product.quantity || product.quantity <= 0) {
+        return res.status(400).json({ 
+          message: 'Todos los productos deben tener product_id y quantity válidos' 
+        });
+      }
+    }
+    
+    const stockValidation = await validateStockAvailability(products);
+    if (!stockValidation.valid) {
+      return res.status(400).json({
+        message: 'Stock insuficiente para algunos productos',
+        error: 'insufficient_stock',
+        stock_issues: stockValidation.issues
+      });
+    }
+    
+    // Obtener información del empleado
+    const employee = await getEmployeeByCode(req.body.employee_code) || 
+                    (await getEmployees()).find(e => e.id === employee_id);
+    
+    if (!employee) {
+      return res.status(404).json({ message: 'Empleado no encontrado' });
+    }
+    
+    // Crear datos del viaje
+    const tripData = {
+      trip_number: `TRIP-${Date.now()}`,
+      employee_id: employee_id,
+      employee_code: employee.employee_code,
+      employee_name: employee.name,
+      notes: notes || ''
+    };
+    
+    // Crear el viaje
+    const newTrip = await createTrip(tripData);
+    
+    // Cargar productos al subalmacén
+    const loadResult = await loadProductsToSubstore(newTrip.id, products);
+    
+    console.log('✅ Viaje creado exitosamente:', newTrip.trip_number);
+    
+    res.json({
+      message: 'Viaje creado exitosamente',
+      trip: newTrip,
+      loaded_products: loadResult.products,
+      inventory_update: loadResult
+    });
+    
+  } catch (error) {
+    console.error('❌ Error creating trip:', error);
+    res.status(500).json({ 
+      message: 'Error creando viaje', 
+      error: error.message 
+    });
+  }
+});
+
+// PUT - Finalizar viaje
+app.put("/api/trips/:id/complete", auth, adminOnly, async (req, res) => {
+  try {
+    const tripId = parseInt(req.params.id);
+    const { return_products } = req.body;
+    
+    console.log('🏁 Finalizando viaje:', tripId);
+    
+    const result = await completeTrip(tripId, return_products || []);
+    
+    res.json({
+      message: 'Viaje finalizado exitosamente',
+      trip_id: tripId,
+      returned_products: return_products?.length || 0
+    });
+    
+  } catch (error) {
+    console.error('❌ Error completing trip:', error);
+    res.status(500).json({ 
+      message: 'Error finalizando viaje', 
+      error: error.message 
+    });
+  }
+});
+
+// POST - Devolver productos al almacén principal
+app.post("/api/trips/:id/return", auth, adminOnly, async (req, res) => {
+  try {
+    const tripId = parseInt(req.params.id);
+    const { products } = req.body;
+    
+    console.log('🔄 Devolviendo productos del viaje:', tripId);
+    
+    if (!products || !Array.isArray(products) || products.length === 0) {
+      return res.status(400).json({ 
+        message: 'Debe especificar productos a devolver' 
+      });
+    }
+    
+    const result = await returnToMainStore(tripId, products);
+    
+    res.json({
+      message: 'Productos devueltos exitosamente',
+      trip_id: tripId,
+      returned_products: products.length
+    });
+    
+  } catch (error) {
+    console.error('❌ Error returning products:', error);
+    res.status(500).json({ 
+      message: 'Error devolviendo productos', 
+      error: error.message 
+    });
+  }
+});
+
+// ========== ROUTES - SUBSTORE INVENTORY ==========
+
+// GET - Obtener inventario de subalmacén por viaje
+app.get("/api/trips/:id/inventory", auth, async (req, res) => {
+  try {
+    const tripId = parseInt(req.params.id);
+    console.log('🔍 GET substore inventory for trip:', tripId);
+    
+    // Verificar permisos del viaje
+    const trip = await getTrips(null, null);
+    const userTrip = trip.find(t => t.id === tripId);
+    
+    if (!userTrip) {
+      return res.status(404).json({ message: 'Viaje no encontrado' });
+    }
+    
+    if (req.user.role !== 'admin' && userTrip.employee_id !== req.user.id) {
+      return res.status(403).json({ message: 'No tienes permisos para ver este inventario' });
+    }
+    
+    const inventory = await getSubstoreInventory(tripId);
+    res.json(inventory);
+    
+  } catch (error) {
+    console.error('Error getting substore inventory:', error);
+    res.status(500).json({ 
+      message: 'Error obteniendo inventario', 
+      error: error.message 
+    });
+  }
+});
+
+// GET - Obtener movimientos de subalmacén
+app.get("/api/trips/:id/movements", auth, async (req, res) => {
+  try {
+    const tripId = parseInt(req.params.id);
+    console.log('🔍 GET substore movements for trip:', tripId);
+    
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('substore_movements')
+        .select('*')
+        .eq('trip_id', tripId)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      res.json(data || []);
+    } else {
+      const movements = (fallbackDatabase.substore_movements || [])
+        .filter(m => m.trip_id === tripId)
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      
+      res.json(movements);
+    }
+    
+  } catch (error) {
+    console.error('Error getting substore movements:', error);
+    res.status(500).json({ 
+      message: 'Error obteniendo movimientos', 
+      error: error.message 
+    });
+  }
+});
+
+// ========== ACTUALIZAR CONFIRMACIÓN DE PEDIDOS PARA SUBALMACENES ==========
+
+// Modificar la ruta existente de confirmación de pedidos
+// (Agregar esta lógica a la función confirmOrder existente)
+
+// NUEVA función para confirmar pedido desde subalmacén
+async function confirmOrderFromSubstore(orderId, tripId, paymentInfo) {
+  console.log('🔄 Confirmando pedido desde subalmacén:', { orderId, tripId });
+  
+  try {
+    // 1. Obtener el pedido
+    let order;
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('id', orderId)
+        .single();
+      
+      if (error || !data) {
+        throw new Error('Pedido no encontrado');
+      }
+      order = data;
+    } else {
+      order = fallbackDatabase.orders.find(o => o.id === orderId);
+      if (!order) {
+        throw new Error('Pedido no encontrado');
+      }
+    }
+    
+    if (order.status === 'confirmed') {
+      throw new Error('El pedido ya está confirmado');
+    }
+    
+    // 2. Validar stock en subalmacén y procesar venta
+    if (order.products && Array.isArray(order.products)) {
+      for (const orderProduct of order.products) {
+        await sellFromSubstore(tripId, orderProduct.product_id, orderProduct.quantity, {
+          order_id: orderId,
+          client_info: order.client_info
+        });
+      }
+    }
+    
+    // 3. Actualizar pedido
+    if (supabase) {
+      const { data: updatedOrder, error: updateError } = await supabase
+        .from('orders')
+        .update({
+          status: 'confirmed',
+          trip_id: tripId,
+          confirmed_at: new Date().toISOString(),
+          payment_info: paymentInfo
+        })
+        .eq('id', orderId)
+        .select()
+        .single();
+      
+      if (updateError) throw updateError;
+      order = updatedOrder;
+    } else {
+      const orderIndex = fallbackDatabase.orders.findIndex(o => o.id === orderId);
+      fallbackDatabase.orders[orderIndex] = {
+        ...order,
+        status: 'confirmed',
+        trip_id: tripId,
+        confirmed_at: new Date().toISOString(),
+        payment_info: paymentInfo
+      };
+      order = fallbackDatabase.orders[orderIndex];
+    }
+    
+    // 4. Crear venta
+    const saleData = {
+      order_id: orderId,
+      trip_id: tripId,
+      sale_number: `SALE-${Date.now()}`,
+      employee_id: order.employee_id,
+      employee_code: order.employee_code,
+      client_info: order.client_info,
+      products: order.products,
+      total: order.total,
+      payment_info: paymentInfo,
+      location: order.location,
+      notes: order.notes,
+      created_at: new Date().toISOString()
+    };
+    
+    if (supabase) {
+      const { data: newSale, error: saleError } = await supabase
+        .from('sales')
+        .insert([saleData])
+        .select()
+        .single();
+      
+      if (saleError) {
+        console.warn('⚠️ Error creando venta:', saleError);
+      }
+      
+      return { order, sale: newSale };
+    } else {
+      const newSale = {
+        id: fallbackDatabase.sales.length + 1,
+        ...saleData
+      };
+      fallbackDatabase.sales.push(newSale);
+      return { order, sale: newSale };
+    }
+    
+  } catch (error) {
+    console.error('❌ Error confirmando pedido desde subalmacén:', error);
+    throw error;
+  }
+}
+
+// RUTA para confirmar pedido desde subalmacén
+app.put("/api/orders/:id/confirm-substore", auth, async (req, res) => {
+  try {
+    const orderId = parseInt(req.params.id);
+    const { trip_id, payment_info } = req.body;
+    
+    console.log('🔄 Confirmando pedido desde subalmacén:', { orderId, trip_id });
+    
+    if (!trip_id) {
+      return res.status(400).json({ 
+        message: 'trip_id es requerido para confirmar desde subalmacén' 
+      });
+    }
+    
+    if (!payment_info || !payment_info.method) {
+      return res.status(400).json({ 
+        message: 'Información de pago requerida' 
+      });
+    }
+    
+    // Verificar permisos del viaje
+    const trips = await getTrips('active');
+    const trip = trips.find(t => t.id === trip_id);
+    
+    if (!trip) {
+      return res.status(404).json({ message: 'Viaje no encontrado o no activo' });
+    }
+    
+    if (req.user.role !== 'admin' && trip.employee_id !== req.user.id) {
+      return res.status(403).json({ 
+        message: 'No tienes permisos para confirmar pedidos en este viaje' 
+      });
+    }
+    
+    const result = await confirmOrderFromSubstore(orderId, trip_id, payment_info);
+    
+    res.json({
+      message: 'Pedido confirmado desde subalmacén exitosamente',
+      order: result.order,
+      sale: result.sale,
+      trip_id: trip_id
+    });
+    
+  } catch (error) {
+    console.error('❌ Error confirmando pedido desde subalmacén:', error);
+    res.status(500).json({ 
+      message: 'Error confirmando pedido desde subalmacén', 
+      error: error.message 
+    });
+  }
+});
+
+// ========== ROUTES - REPORTES DE SUBALMACENES ==========
+
+// GET - Resumen de viajes activos
+app.get("/api/reports/active-trips", auth, adminOnly, async (req, res) => {
+  try {
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('active_trips_summary')
+        .select('*');
+      
+      if (error) throw error;
+      res.json(data || []);
+    } else {
+      // Fallback: calcular resumen manualmente
+      const activeTrips = (fallbackDatabase.trips || [])
+        .filter(t => t.status === 'active');
+      
+      const summary = activeTrips.map(trip => {
+        const inventory = (fallbackDatabase.substore_inventory || [])
+          .filter(item => item.trip_id === trip.id);
+        
+        return {
+          ...trip,
+          total_products: inventory.length,
+          total_initial_quantity: inventory.reduce((sum, item) => sum + item.initial_quantity, 0),
+          total_current_quantity: inventory.reduce((sum, item) => sum + item.current_quantity, 0),
+          total_sold_quantity: inventory.reduce((sum, item) => sum + item.sold_quantity, 0),
+          total_initial_value: inventory.reduce((sum, item) => sum + (item.initial_quantity * item.price), 0),
+          total_current_value: inventory.reduce((sum, item) => sum + (item.current_quantity * item.price), 0),
+          total_sold_value: inventory.reduce((sum, item) => sum + (item.sold_quantity * item.price), 0)
+        };
+      });
+      
+      res.json(summary);
+    }
+    
+  } catch (error) {
+    console.error('Error getting active trips summary:', error);
+    res.status(500).json({ 
+      message: 'Error obteniendo resumen de viajes', 
+      error: error.message 
+    });
+  }
+});
+
+// GET - Reporte detallado de inventario por viajes
+app.get("/api/reports/trip-inventory", auth, adminOnly, async (req, res) => {
+  try {
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('trip_inventory_detail')
+        .select('*');
+      
+      if (error) throw error;
+      res.json(data || []);
+    } else {
+      // Fallback: construir reporte manualmente
+      const trips = fallbackDatabase.trips || [];
+      const inventory = fallbackDatabase.substore_inventory || [];
+      const products = fallbackDatabase.products || [];
+      
+      const report = inventory.map(item => {
+        const trip = trips.find(t => t.id === item.trip_id);
+        const product = products.find(p => p.id === item.product_id);
+        
+        return {
+          trip_id: item.trip_id,
+          trip_number: trip?.trip_number || 'N/A',
+          employee_code: trip?.employee_code || 'N/A',
+          employee_name: trip?.employee_name || 'N/A',
+          trip_status: trip?.status || 'N/A',
+          inventory_id: item.id,
+          product_id: item.product_id,
+          product_code: item.product_code,
+          product_name: item.product_name,
+          initial_quantity: item.initial_quantity,
+          current_quantity: item.current_quantity,
+          sold_quantity: item.sold_quantity,
+          returned_quantity: item.returned_quantity,
+          price: item.price,
+          current_value: item.current_quantity * item.price,
+          sold_value: item.sold_quantity * item.price,
+          main_store_stock: product?.stock || 0
+        };
+      });
+      
+      res.json(report);
+    }
+    
+  } catch (error) {
+    console.error('Error getting trip inventory report:', error);
+    res.status(500).json({ 
+      message: 'Error obteniendo reporte de inventario', 
+      error: error.message 
+    });
+  }
 });
 
 // Manejo de errores

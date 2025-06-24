@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Empleados - Sistema de Aceites</title>
+    <title>Vendedores - Sistema de Aceites</title>
     <link rel="stylesheet" href="../css/style.css">
     <link rel="stylesheet" href="../css/admin.css">
 </head>
@@ -17,8 +17,9 @@
             <ul class="nav-menu">
                 <li><a href="dashboard.html">Dashboard</a></li>
                 <li><a href="products.html">Productos</a></li>
-                <li><a href="employees.html" class="active">Empleados</a></li>
+                <li><a href="employees.html" class="active">Vendedores</a></li>
                 <li><a href="orders.html">Pedidos</a></li>
+                <li><a href="subalmacenes.html">Subalmacenes</a></li>
                 <li><a href="reports.html">Reportes</a></li>
                 <li><a href="#" onclick="logout()">Cerrar Sesión</a></li>
             </ul>
@@ -26,9 +27,9 @@
 
         <main class="main-content">
             <header class="content-header">
-                <h1>Gestión de Empleados</h1>
+                <h1>Gestión de Vendedores</h1>
                 <button class="btn btn-primary" onclick="openEmployeeModal()">
-                    ➕ Nuevo Empleado
+                    ➕ Nuevo vendedor
                 </button>
             </header>
 
@@ -55,13 +56,13 @@
     <div id="employee-modal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h3>Nuevo Empleado</h3>
+                <h3>Nuevo vendedor</h3>
                 <span class="close" onclick="closeEmployeeModal()">&times;</span>
             </div>
             <form id="employee-form">
                 <div class="form-grid">
                     <div class="form-group">
-                        <label for="employee-code">Código de Empleado:</label>
+                        <label for="employee-code">Código de vendedor:</label>
                         <input type="text" id="employee-code" required>
                     </div>
                     <div class="form-group">
@@ -93,7 +94,7 @@
                         Cancelar
                     </button>
                     <button type="submit" class="btn btn-primary">
-                        Crear Empleado
+                        Crear vendedor
                     </button>
                 </div>
             </form>

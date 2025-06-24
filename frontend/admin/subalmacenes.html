@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Subalmacenes - Sistema de Aceites</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="../css/admin.css">
+    <style>
+        /* Estilos específicos para subalmacenes */
+        .substore-container {
+            background: white;
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+            overflow: hidden;
+            margin-bottom: 2rem;
+        }
+
+        .trip-card {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            box-shadow: var(--shadow);
+            border-left: 4px solid var(--primary-color);
+        }
+
+        .trip-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .trip-info h3 {
+            margin: 0;
+            color: var(--primary-color);
+            font-size: 1.25rem;
+        }
+
+        .trip-meta {
+            font-size: 0.875rem;
+            color: var(--secondary-color);
+            margin-top: 0.25rem;
+        }
+
+        .trip-status {
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .status-active {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .status-completed {
+            background: #e0e7ff;
+            color: #3730a3;
+        }
+
+        .trip-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 1rem;
+            background: #f8fafc;
+            border-radius: 6px;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary-color);
+            display: block;
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--secondary-color);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .inventory-table {
+            width: 100%;
+            margin-top: 1rem;
+        }
+
+        .inventory-table th {
+            background: #f8fafc;
+            color: var(--text-color);
+            font-size: 0.875rem;
+        }
+
+        .inventory-table td {
+            font-size: 0.875rem;
+        }
+
+        .quantity-warning {
+            color: var(--warning-color);
+            font-weight: 600;
+        }
+
+        .quantity-danger {
+            color: var(--danger-color);
+            font-weight: 600;
+        }
+
+        .trip-actions {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 800px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: var(--shadow);
+        }
+
+        .modal-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-body {
+            padding: 1.5rem;
+        }
+
+        .modal-footer {
+            padding: 1.5rem;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: flex-end;
+            gap: 1rem;
+        }
+
+        .product-selector {
+            border: 2px dashed var(--border-color);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .product-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            margin-bottom: 0.5rem;
+            background: #f8fafc;
+        }
+
+        .product-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .product-info {
+            flex: 1;
+        }
+
+        .product-controls {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .quantity-control {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .quantity-input {
+            width: 80px;
+            padding: 0.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            text-align: center;
+        }
+
+        @media (max-width: 768px) {
+            .trip-header {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 1rem;
+            }
+
+            .trip-stats {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .trip-actions {
+                justify-content: center;
+            }
+
+            .modal-content {
+                width: 95%;
+                margin: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-container">
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <h2>Admin Panel</h2>
+                <span id="user-name"></span>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="dashboard.html">Dashboard</a></li>
+                <li><a href="products.html">Productos</a></li>
+                <li><a href="employees.html">Empleados</a></li>
+                <li><a href="orders.html">Pedidos</a></li>
+                <li><a href="subalmacenes.html" class="active">Subalmacenes</a></li>
+                <li><a href="reports.html">Reportes</a></li>
+                <li><a href="#" onclick="logout()">Cerrar Sesión</a></li>
+            </ul>
+        </nav>
+
+        <main class="main-content">
+            <header class="content-header">
+                <h1>Gestión de Subalmacenes</h1>
+                <div class="header-actions">
+                    <button class="btn btn-primary" onclick="openNewTripModal()">
+                        🚛 Nuevo Viaje
+                    </button>
+                    <button class="btn btn-secondary" onclick="loadTrips()">
+                        🔄 Actualizar
+                    </button>
+                </div>
+            </header>
+
+            <!-- Filtros -->
+            <div class="substore-container">
+                <div style="padding: 1rem; border-bottom: 1px solid var(--border-color);">
+                    <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+                        <div>
+                            <label for="status-filter" style="margin-right: 0.5rem;">Estado:</label>
+                            <select id="status-filter" onchange="filterTrips()">
+                                <option value="">Todos</option>
+                                <option value="active">Activos</option>
+                                <option value="completed">Completados</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="employee-filter" style="margin-right: 0.5rem;">Empleado:</label>
+                            <select id="employee-filter" onchange="filterTrips()">
+                                <option value="">Todos</option>
+                                <!-- Se llena dinámicamente -->
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Lista de Viajes -->
+            <div id="trips-container">
+                <div style="text-align: center; padding: 2rem; color: var(--secondary-color);">
+                    🔄 Cargando viajes...
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal para Nuevo Viaje -->
+    <div id="new-trip-modal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>🚛 Crear Nuevo Viaje</h3>
+                <button onclick="closeNewTripModal()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="new-trip-form">
+                    <div class="form-group">
+                        <label for="trip-employee">Empleado:</label>
+                        <select id="trip-employee" required>
+                            <option value="">Seleccionar empleado...</option>
+                            <!-- Se llena dinámicamente -->
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="trip-notes">Notas del viaje:</label>
+                        <textarea id="trip-notes" rows="3" placeholder="Ruta, destinos, observaciones..."></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Productos a cargar:</label>
+                        <div class="product-selector">
+                            <div style="margin-bottom: 1rem;">
+                                <select id="product-select">
+                                    <option value="">Seleccionar producto...</option>
+                                    <!-- Se llena dinámicamente -->
+                                </select>
+                                <button type="button" onclick="addProductToTrip()" class="btn btn-sm btn-primary" style="margin-left: 0.5rem;">
+                                    ➕ Agregar
+                                </button>
+                            </div>
+                            <div id="selected-products">
+                                <div style="text-align: center; color: var(--secondary-color); font-style: italic;">
+                                    No hay productos seleccionados
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeNewTripModal()">
+                    Cancelar
+                </button>
+                <button type="button" class="btn btn-primary" onclick="createTrip()">
+                    🚛 Crear Viaje
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para Finalizar Viaje -->
+    <div id="complete-trip-modal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>🏁 Finalizar Viaje</h3>
+                <button onclick="closeCompleteTripModal()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="complete-trip-content">
+                    <!-- Se llena dinámicamente -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeCompleteTripModal()">
+                    Cancelar
+                </button>
+                <button type="button" class="btn btn-primary" onclick="confirmCompleteTrip()">
+                    🏁 Finalizar Viaje
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="../js/config.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/api.js"></script>
+    <script src="../js/admin.js"></script>
+    <script src="../js/subalmacenes.js"></script>
+</body>
+</html>
