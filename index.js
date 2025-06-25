@@ -2027,6 +2027,10 @@ app.get("/admin/employees.html", (req, res) => {
   res.sendFile(path.join(__dirname, 'frontend', 'admin', 'employees.html'));
 });
 
+app.get("/admin/subalmacenes.html", (req, res) => {
+  res.sendFile(path.join(__dirname, 'frontend', 'admin', 'subalmacenes.html'));
+});
+
 app.post("/api/employees", auth, adminOnly, async (req, res) => {
   try {
     console.log('🔄 POST /api/employees - Creando empleado:', req.body);
@@ -2727,6 +2731,12 @@ app.get("/api/reports/trip-inventory", auth, adminOnly, async (req, res) => {
     });
   }
 });
+
+if (!fallbackDatabase.trips) {
+  fallbackDatabase.trips = [];
+  fallbackDatabase.substore_inventory = [];
+  fallbackDatabase.substore_movements = [];
+}
 
 // Manejo de errores
 app.use((err, req, res, next) => {
