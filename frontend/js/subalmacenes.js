@@ -38,24 +38,50 @@ document.addEventListener('DOMContentLoaded', function() {
 
 async function initializeSubalmacenes() {
     try {
-        console.log('🔄 Cargando datos iniciales...');
+        console.log('🔄 Cargando datos iniciales de subalmacenes...');
         
-        // Cargar datos en paralelo
-        const [tripsData, employeesData, productsData] = await Promise.all([
-            getTrips(),
-            getEmployees(),
-            getProducts()
+        // Primero verificar conectividad básica
+        console.log('🔍 Verificando conectividad...');
+        await debugApiEndpoints();
+        
+        console.log('📦 Iniciando carga de datos...');
+        
+        // Cargar datos en paralelo con manejo de errores individual
+        const results = await Promise.allSettled([
+            getTrips().catch(error => {
+                console.error('❌ Error cargando trips:', error);
+                return [];
+            }),
+            getEmployees().catch(error => {
+                console.error('❌ Error cargando employees:', error);
+                return [];
+            }),
+            getProducts().catch(error => {
+                console.error('❌ Error cargando products:', error);
+                return [];
+            })
         ]);
         
-        allTrips = tripsData || [];
-        allEmployees = employeesData || [];
-        allProducts = productsData || [];
+        // Procesar resultados
+        const [tripsResult, employeesResult, productsResult] = results;
+        
+        allTrips = tripsResult.status === 'fulfilled' ? tripsResult.value : [];
+        allEmployees = employeesResult.status === 'fulfilled' ? employeesResult.value : [];
+        allProducts = productsResult.status === 'fulfilled' ? productsResult.value : [];
         
         console.log('✅ Datos cargados:', {
             trips: allTrips.length,
             employees: allEmployees.length,
             products: allProducts.length
         });
+        
+        // Verificar si hay datos
+        if (allEmployees.length === 0) {
+            console.warn('⚠️ No se encontraron empleados');
+        }
+        if (allProducts.length === 0) {
+            console.warn('⚠️ No se encontraron productos');
+        }
         
         // Llenar selectores
         populateEmployeeSelectors();
@@ -68,16 +94,34 @@ async function initializeSubalmacenes() {
             window.showNotification('Subalmacenes cargados correctamente', 'success');
         }
         
-    } catch (error) {
-        console.error('❌ Error cargando subalmacenes:', error);
+        console.log('✅ Subalmacenes inicializados correctamente');
         
+    } catch (error) {
+        console.error('❌ Error crítico cargando subalmacenes:', error);
+        
+        // Mostrar error detallado
         document.getElementById('trips-container').innerHTML = `
             <div style="text-align: center; padding: 2rem; color: var(--danger-color);">
                 <h3>❌ Error al cargar datos</h3>
-                <p>${error.message}</p>
-                <button onclick="initializeSubalmacenes()" class="btn btn-primary">
-                    🔄 Reintentar
-                </button>
+                <p><strong>Error:</strong> ${error.message}</p>
+                <div style="margin: 1rem 0; padding: 1rem; background: #f8f9fa; border-radius: 6px; text-align: left;">
+                    <strong>Información de debugging:</strong><br>
+                    • API URL: ${window.API_BASE_URL}<br>
+                    • Token: ${localStorage.getItem('token') ? 'Presente' : 'Ausente'}<br>
+                    • Usuario: ${JSON.parse(localStorage.getItem('user') || '{}')?.name || 'Desconocido'}<br>
+                    • Página: ${window.location.pathname}
+                </div>
+                <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+                    <button onclick="initializeSubalmacenes()" class="btn btn-primary">
+                        🔄 Reintentar
+                    </button>
+                    <button onclick="debugApiEndpoints()" class="btn btn-secondary">
+                        🔍 Debug API
+                    </button>
+                    <button onclick="testBasicConnectivity()" class="btn btn-warning">
+                        🌐 Test Conexión
+                    </button>
+                </div>
             </div>
         `;
         
@@ -89,6 +133,8 @@ async function initializeSubalmacenes() {
 
 // ===== FUNCIONES DE API PARA SUBALMACENES =====
 async function getTrips(status = null, employeeId = null) {
+    console.log('🔍 getTrips llamado con:', { status, employeeId });
+    
     try {
         let url = `${window.API_BASE_URL}/api/trips`;
         const params = new URLSearchParams();
@@ -100,52 +146,98 @@ async function getTrips(status = null, employeeId = null) {
             url += '?' + params.toString();
         }
         
+        console.log('📡 Haciendo petición a:', url);
+        
         const response = await fetch(url, {
+            method: 'GET',
             headers: {
+                'Accept': 'application/json',
                 'Authorization': `Bearer ${localStorage.getItem('token')}`
             }
         });
         
+        console.log('📡 Respuesta recibida:', response.status, response.statusText);
+        
         if (!response.ok) {
-            throw new Error(`Error ${response.status}: ${response.statusText}`);
+            let errorData;
+            try {
+                errorData = await response.json();
+                console.error('❌ Error data:', errorData);
+            } catch (e) {
+                console.error('❌ No se pudo parsear error JSON');
+            }
+            throw new Error(errorData?.message || `HTTP ${response.status}: ${response.statusText}`);
         }
         
-        return await response.json();
+        const data = await response.json();
+        console.log('✅ Datos recibidos:', data);
+        return data;
+        
     } catch (error) {
-        console.error('Error obteniendo viajes:', error);
+        console.error('❌ Error en getTrips:', error);
+        
+        // Información de debugging adicional
+        console.error('🔍 Debug info:');
+        console.error('- API_BASE_URL:', window.API_BASE_URL);
+        console.error('- Token exists:', !!localStorage.getItem('token'));
+        console.error('- User data:', localStorage.getItem('user'));
+        
         throw error;
     }
 }
 
 async function createTripAPI(tripData) {
+    console.log('🚛 createTripAPI llamado con:', tripData);
+    
     try {
-        const response = await fetch(`${window.API_BASE_URL}/api/trips`, {
+        const url = `${window.API_BASE_URL}/api/trips`;
+        console.log('📡 POST a:', url);
+        
+        const response = await fetch(url, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'Accept': 'application/json',
                 'Authorization': `Bearer ${localStorage.getItem('token')}`
             },
             body: JSON.stringify(tripData)
         });
         
+        console.log('📡 Respuesta createTrip:', response.status, response.statusText);
+        
         if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.message || `Error ${response.status}`);
+            let errorData;
+            try {
+                errorData = await response.json();
+                console.error('❌ Error data:', errorData);
+            } catch (e) {
+                console.error('❌ No se pudo parsear error JSON');
+            }
+            throw new Error(errorData?.message || `HTTP ${response.status}: ${response.statusText}`);
         }
         
-        return await response.json();
+        const result = await response.json();
+        console.log('✅ Trip creado:', result);
+        return result;
+        
     } catch (error) {
-        console.error('Error creando viaje:', error);
+        console.error('❌ Error creating trip:', error);
         throw error;
     }
 }
 
 async function completeTripAPI(tripId, returnProducts = []) {
+    console.log('🏁 completeTripAPI llamado con:', { tripId, returnProducts });
+    
     try {
-        const response = await fetch(`${window.API_BASE_URL}/api/trips/${tripId}/complete`, {
+        const url = `${window.API_BASE_URL}/api/trips/${tripId}/complete`;
+        console.log('📡 PUT a:', url);
+        
+        const response = await fetch(url, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
+                'Accept': 'application/json',
                 'Authorization': `Bearer ${localStorage.getItem('token')}`
             },
             body: JSON.stringify({
@@ -153,33 +245,63 @@ async function completeTripAPI(tripId, returnProducts = []) {
             })
         });
         
+        console.log('📡 Respuesta completeTrip:', response.status, response.statusText);
+        
         if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.message || `Error ${response.status}`);
+            let errorData;
+            try {
+                errorData = await response.json();
+                console.error('❌ Error data:', errorData);
+            } catch (e) {
+                console.error('❌ No se pudo parsear error JSON');
+            }
+            throw new Error(errorData?.message || `HTTP ${response.status}: ${response.statusText}`);
         }
         
-        return await response.json();
+        const result = await response.json();
+        console.log('✅ Trip completado:', result);
+        return result;
+        
     } catch (error) {
-        console.error('Error completando viaje:', error);
+        console.error('❌ Error completing trip:', error);
         throw error;
     }
 }
 
 async function getTripInventory(tripId) {
+    console.log('📦 getTripInventory llamado con:', tripId);
+    
     try {
-        const response = await fetch(`${window.API_BASE_URL}/api/trips/${tripId}/inventory`, {
+        const url = `${window.API_BASE_URL}/api/trips/${tripId}/inventory`;
+        console.log('📡 GET a:', url);
+        
+        const response = await fetch(url, {
+            method: 'GET',
             headers: {
+                'Accept': 'application/json',
                 'Authorization': `Bearer ${localStorage.getItem('token')}`
             }
         });
         
+        console.log('📡 Respuesta inventory:', response.status, response.statusText);
+        
         if (!response.ok) {
-            throw new Error(`Error ${response.status}: ${response.statusText}`);
+            let errorData;
+            try {
+                errorData = await response.json();
+                console.error('❌ Error data:', errorData);
+            } catch (e) {
+                console.error('❌ No se pudo parsear error JSON');
+            }
+            throw new Error(errorData?.message || `HTTP ${response.status}: ${response.statusText}`);
         }
         
-        return await response.json();
+        const result = await response.json();
+        console.log('✅ Inventory obtenido:', result);
+        return result;
+        
     } catch (error) {
-        console.error('Error obteniendo inventario del viaje:', error);
+        console.error('❌ Error getting trip inventory:', error);
         throw error;
     }
 }
@@ -339,29 +461,69 @@ function getQuantityClass(current, initial) {
 
 // ===== FILTROS =====
 function populateEmployeeSelectors() {
+    console.log('👥 Poblando selectores de empleados...');
+    
     const employeeFilter = document.getElementById('employee-filter');
     const tripEmployee = document.getElementById('trip-employee');
     
-    const employeeOptions = allEmployees
-        .filter(emp => emp.role === 'employee')
+    // Filtrar solo empleados (no admins)
+    const employees = allEmployees.filter(emp => emp.role === 'employee');
+    
+    console.log('👥 Empleados encontrados:', employees.length);
+    
+    if (employees.length === 0) {
+        console.warn('⚠️ No hay empleados disponibles');
+        
+        // Mostrar mensaje en los selectores
+        const noEmployeesOption = '<option value="">No hay empleados disponibles</option>';
+        
+        if (employeeFilter) {
+            employeeFilter.innerHTML = '<option value="">Todos</option>' + noEmployeesOption;
+        }
+        
+        if (tripEmployee) {
+            tripEmployee.innerHTML = noEmployeesOption;
+        }
+        
+        return;
+    }
+    
+    const employeeOptions = employees
         .map(emp => `<option value="${emp.id}">${emp.name} (${emp.employee_code})</option>`)
         .join('');
     
     if (employeeFilter) {
         employeeFilter.innerHTML = '<option value="">Todos</option>' + employeeOptions;
+        console.log('✅ Employee filter poblado');
     }
     
     if (tripEmployee) {
         tripEmployee.innerHTML = '<option value="">Seleccionar empleado...</option>' + employeeOptions;
+        console.log('✅ Trip employee selector poblado');
     }
 }
 
 function populateProductSelector() {
-    const productSelect = document.getElementById('product-select');
-    if (!productSelect) return;
+    console.log('📦 Poblando selector de productos...');
     
-    const productOptions = allProducts
-        .filter(product => product.stock > 0)
+    const productSelect = document.getElementById('product-select');
+    if (!productSelect) {
+        console.warn('⚠️ Selector de productos no encontrado');
+        return;
+    }
+    
+    // Filtrar productos con stock
+    const productsWithStock = allProducts.filter(product => product.stock > 0);
+    
+    console.log('📦 Productos con stock:', productsWithStock.length, 'de', allProducts.length);
+    
+    if (productsWithStock.length === 0) {
+        productSelect.innerHTML = '<option value="">No hay productos con stock disponible</option>';
+        console.warn('⚠️ No hay productos con stock');
+        return;
+    }
+    
+    const productOptions = productsWithStock
         .map(product => `
             <option value="${product.id}" data-code="${product.code}" data-name="${product.name}" data-stock="${product.stock}" data-price="${product.price}">
                 ${product.code} - ${product.name} (Stock: ${product.stock})
@@ -370,7 +532,9 @@ function populateProductSelector() {
         .join('');
     
     productSelect.innerHTML = '<option value="">Seleccionar producto...</option>' + productOptions;
+    console.log('✅ Product selector poblado');
 }
+
 
 function filterTripsData() {
     const statusFilter = document.getElementById('status-filter')?.value;
@@ -913,6 +1077,119 @@ function formatDate(dateString) {
     }
 }
 
+async function debugApiEndpoints() {
+    console.log('🔍 Iniciando debug de API de subalmacenes...');
+    
+    const endpoints = [
+        { method: 'GET', path: '/api/trips', description: 'Obtener viajes' },
+        { method: 'GET', path: '/api/products', description: 'Obtener productos' },
+        { method: 'GET', path: '/api/employees', description: 'Obtener empleados' },
+        { method: 'GET', path: '/test', description: 'Test básico' }
+    ];
+    
+    for (const endpoint of endpoints) {
+        try {
+            console.log(`🔄 Probando ${endpoint.method} ${endpoint.path}...`);
+            
+            const response = await fetch(`${window.API_BASE_URL}${endpoint.path}`, {
+                method: 'HEAD', // Solo verificar si existe
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
+            });
+            
+            if (response.status === 404) {
+                console.log(`❌ ${endpoint.description}: Endpoint no encontrado (404)`);
+            } else if (response.status === 401) {
+                console.log(`🔐 ${endpoint.description}: No autorizado (401)`);
+            } else if (response.status === 403) {
+                console.log(`⛔ ${endpoint.description}: Prohibido (403)`);
+            } else {
+                console.log(`✅ ${endpoint.description}: Disponible (${response.status})`);
+            }
+            
+        } catch (error) {
+            console.log(`❌ ${endpoint.description}: Error - ${error.message}`);
+        }
+    }
+    
+    console.log('🔍 Debug de endpoints completado');
+    
+    // Información adicional de debugging
+    console.log('🔍 Información de debugging adicional:');
+    console.log('- API_BASE_URL:', window.API_BASE_URL);
+    console.log('- Token length:', localStorage.getItem('token')?.length || 0);
+    console.log('- User role:', JSON.parse(localStorage.getItem('user') || '{}')?.role);
+    console.log('- Current URL:', window.location.href);
+}
+
+async function testBasicConnectivity() {
+    console.log('🌐 Testeando conectividad básica...');
+    
+    try {
+        // Test 1: Verificar API base
+        console.log('🔄 Test 1: API base...');
+        const testResponse = await fetch(`${window.API_BASE_URL}/test`, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json'
+            }
+        });
+        
+        if (testResponse.ok) {
+            const testData = await testResponse.json();
+            console.log('✅ Test 1 exitoso:', testData.message);
+        } else {
+            console.log('❌ Test 1 falló:', testResponse.status, testResponse.statusText);
+        }
+        
+        // Test 2: Verificar autenticación
+        console.log('🔄 Test 2: Autenticación...');
+        const authResponse = await fetch(`${window.API_BASE_URL}/api/products`, {
+            method: 'HEAD',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+        });
+        
+        if (authResponse.status === 401) {
+            console.log('❌ Test 2: Token inválido o expirado');
+            if (confirm('Tu sesión ha expirado. ¿Quieres ir al login?')) {
+                window.location.href = '/';
+            }
+        } else if (authResponse.ok || authResponse.status === 200) {
+            console.log('✅ Test 2: Autenticación válida');
+        } else {
+            console.log('⚠️ Test 2: Respuesta inesperada:', authResponse.status);
+        }
+        
+        // Test 3: Verificar endpoint específico de trips
+        console.log('🔄 Test 3: Endpoint de trips...');
+        const tripsResponse = await fetch(`${window.API_BASE_URL}/api/trips`, {
+            method: 'HEAD',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+        });
+        
+        if (tripsResponse.status === 404) {
+            console.log('❌ Test 3: Endpoint /api/trips no existe');
+            alert('❌ ERROR CRÍTICO:\n\nEl endpoint /api/trips no existe en el servidor.\n\nEsto indica que las rutas de subalmacenes no están configuradas correctamente en index.js.\n\nContacta al administrador del sistema.');
+        } else if (tripsResponse.ok || tripsResponse.status === 200) {
+            console.log('✅ Test 3: Endpoint de trips disponible');
+        } else {
+            console.log('⚠️ Test 3: Respuesta inesperada:', tripsResponse.status);
+        }
+        
+        console.log('🌐 Test de conectividad completado');
+        
+    } catch (error) {
+        console.error('❌ Error en test de conectividad:', error);
+        alert(`❌ ERROR DE CONECTIVIDAD:\n\n${error.message}\n\nVerifica:\n1. Que el servidor esté funcionando\n2. Tu conexión a internet\n3. La configuración de la aplicación`);
+    }
+}
+
+
 // ===== EXPORTAR FUNCIONES GLOBALES =====
 window.openNewTripModal = openNewTripModal;
 window.closeNewTripModal = closeNewTripModal;
@@ -930,3 +1207,5 @@ window.filterTrips = filterTrips;
 window.clearFilters = clearFilters;
 
 console.log('✅ Subalmacenes.js inicializado correctamente');
+window.debugApiEndpoints = debugApiEndpoints;
+window.testBasicConnectivity = testBasicConnectivity;

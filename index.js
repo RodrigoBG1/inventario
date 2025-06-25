@@ -107,6 +107,7 @@ const fallbackDatabase = {
   inventory_movements: []
 };
 
+
 // ===== NUEVA FUNCIÓN: ACTUALIZAR INVENTARIO =====
 async function updateInventoryStock(products, operation = 'subtract', notes = '') {
   console.log(`📦 Actualizando inventario (${operation}):`, products);
@@ -2139,56 +2140,6 @@ app.put("/api/employees/:id", auth, adminOnly, async (req, res) => {
   }
 });
 
-app.get("/admin/orders.html", (req, res) => {
-  res.sendFile(path.join(__dirname, 'frontend', 'admin', 'orders.html'));
-});
-
-app.get("/admin/reports.html", (req, res) => {
-  res.sendFile(path.join(__dirname, 'frontend', 'admin', 'reports.html'));
-});
-
-app.get("/employee/dashboard.html", (req, res) => {
-  res.sendFile(path.join(__dirname, 'frontend', 'employee', 'dashboard.html'));
-});
-
-app.get("/employee/orders.html", (req, res) => {
-  res.sendFile(path.join(__dirname, 'frontend', 'employee', 'orders.html'));
-});
-
-app.get("/employee/sales.html", (req, res) => {
-  res.sendFile(path.join(__dirname, 'frontend', 'employee', 'sales.html'));
-});
-
-// Redirects
-app.get("/admin", (req, res) => res.redirect("/admin/dashboard.html"));
-app.get("/employee", (req, res) => res.redirect("/employee/dashboard.html"));
-
-// Diagnóstico
-app.get("/diagnostic", (req, res) => {
-  res.sendFile(path.join(__dirname, 'diagnostic.html'));
-});
-
-// Catch-all para archivos no encontrados
-app.get("*", (req, res) => {
-  res.status(404).send(`
-    <div style="font-family: Arial; max-width: 600px; margin: 50px auto; text-align: center;">
-      <h1>404 - Página no encontrada</h1>
-      <p><strong>Ruta solicitada:</strong> ${req.path}</p>
-      <div style="margin: 20px 0;">
-        <a href="/" style="background: #2563eb; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin: 5px;">
-          Inicio
-        </a>
-        <a href="/diagnostic" style="background: #059669; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin: 5px;">
-          Diagnóstico
-        </a>
-      </div>
-    </div>
-  `);
-});
-
-// ===== RUTAS DE API PARA SUBALMACENES =====
-// Agregar estas rutas al archivo index.js después de las rutas existentes
-
 // ========== ROUTES - TRIPS/VIAJES ==========
 
 // GET - Obtener todos los viajes
@@ -2732,11 +2683,59 @@ app.get("/api/reports/trip-inventory", auth, adminOnly, async (req, res) => {
   }
 });
 
-if (!fallbackDatabase.trips) {
-  fallbackDatabase.trips = [];
-  fallbackDatabase.substore_inventory = [];
-  fallbackDatabase.substore_movements = [];
-}
+
+
+app.get("/admin/orders.html", (req, res) => {
+  res.sendFile(path.join(__dirname, 'frontend', 'admin', 'orders.html'));
+});
+
+app.get("/admin/reports.html", (req, res) => {
+  res.sendFile(path.join(__dirname, 'frontend', 'admin', 'reports.html'));
+});
+
+app.get("/employee/dashboard.html", (req, res) => {
+  res.sendFile(path.join(__dirname, 'frontend', 'employee', 'dashboard.html'));
+});
+
+app.get("/employee/orders.html", (req, res) => {
+  res.sendFile(path.join(__dirname, 'frontend', 'employee', 'orders.html'));
+});
+
+app.get("/employee/sales.html", (req, res) => {
+  res.sendFile(path.join(__dirname, 'frontend', 'employee', 'sales.html'));
+});
+
+// Redirects
+app.get("/admin", (req, res) => res.redirect("/admin/dashboard.html"));
+app.get("/employee", (req, res) => res.redirect("/employee/dashboard.html"));
+
+// Diagnóstico
+app.get("/diagnostic", (req, res) => {
+  res.sendFile(path.join(__dirname, 'diagnostic.html'));
+});
+
+// Catch-all para archivos no encontrados
+app.get("*", (req, res) => {
+  res.status(404).send(`
+    <div style="font-family: Arial; max-width: 600px; margin: 50px auto; text-align: center;">
+      <h1>404 - Página no encontrada</h1>
+      <p><strong>Ruta solicitada:</strong> ${req.path}</p>
+      <div style="margin: 20px 0;">
+        <a href="/" style="background: #2563eb; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin: 5px;">
+          Inicio
+        </a>
+        <a href="/diagnostic" style="background: #059669; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin: 5px;">
+          Diagnóstico
+        </a>
+      </div>
+    </div>
+  `);
+});
+
+// ===== RUTAS DE API PARA SUBALMACENES =====
+// Agregar estas rutas al archivo index.js después de las rutas existentes
+
+
 
 // Manejo de errores
 app.use((err, req, res, next) => {
