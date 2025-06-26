@@ -40,15 +40,9 @@ async function initializeSubalmacenes() {
     try {
         console.log('🔄 Cargando datos iniciales de subalmacenes...');
         
-        // Primero verificar conectividad básica
-        console.log('🔍 Verificando conectividad...');
-        await debugApiEndpoints();
-        
-        console.log('📦 Iniciando carga de datos...');
-        
         // Cargar datos en paralelo con manejo de errores individual
         const results = await Promise.allSettled([
-            getTrips().catch(error => {
+            getTripsAPI().catch(error => {
                 console.error('❌ Error cargando trips:', error);
                 return [];
             }),
@@ -74,14 +68,6 @@ async function initializeSubalmacenes() {
             employees: allEmployees.length,
             products: allProducts.length
         });
-        
-        // Verificar si hay datos
-        if (allEmployees.length === 0) {
-            console.warn('⚠️ No se encontraron empleados');
-        }
-        if (allProducts.length === 0) {
-            console.warn('⚠️ No se encontraron productos');
-        }
         
         // Llenar selectores
         populateEmployeeSelectors();
@@ -115,9 +101,6 @@ async function initializeSubalmacenes() {
                     <button onclick="initializeSubalmacenes()" class="btn btn-primary">
                         🔄 Reintentar
                     </button>
-                    <button onclick="debugApiEndpoints()" class="btn btn-secondary">
-                        🔍 Debug API
-                    </button>
                     <button onclick="testBasicConnectivity()" class="btn btn-warning">
                         🌐 Test Conexión
                     </button>
@@ -132,8 +115,8 @@ async function initializeSubalmacenes() {
 }
 
 // ===== FUNCIONES DE API PARA SUBALMACENES =====
-async function getTrips(status = null, employeeId = null) {
-    console.log('🔍 getTrips llamado con:', { status, employeeId });
+async function getTripsAPI(status = null, employeeId = null) {
+    console.log('🔍 getTripsAPI llamado con:', { status, employeeId });
     
     try {
         let url = `${window.API_BASE_URL}/api/trips`;
@@ -174,14 +157,7 @@ async function getTrips(status = null, employeeId = null) {
         return data;
         
     } catch (error) {
-        console.error('❌ Error en getTrips:', error);
-        
-        // Información de debugging adicional
-        console.error('🔍 Debug info:');
-        console.error('- API_BASE_URL:', window.API_BASE_URL);
-        console.error('- Token exists:', !!localStorage.getItem('token'));
-        console.error('- User data:', localStorage.getItem('user'));
-        
+        console.error('❌ Error en getTripsAPI:', error);
         throw error;
     }
 }
@@ -268,8 +244,8 @@ async function completeTripAPI(tripId, returnProducts = []) {
     }
 }
 
-async function getTripInventory(tripId) {
-    console.log('📦 getTripInventory llamado con:', tripId);
+async function getTripInventoryAPI(tripId) {
+    console.log('📦 getTripInventoryAPI llamado con:', tripId);
     
     try {
         const url = `${window.API_BASE_URL}/api/trips/${tripId}/inventory`;
@@ -535,7 +511,6 @@ function populateProductSelector() {
     console.log('✅ Product selector poblado');
 }
 
-
 function filterTripsData() {
     const statusFilter = document.getElementById('status-filter')?.value;
     const employeeFilter = document.getElementById('employee-filter')?.value;
@@ -772,8 +747,9 @@ async function openCompleteTripModal(tripId) {
     try {
         currentTripForCompletion = tripId;
         
-        // Obtener inventario actual del viaje
-        const inventory = await getTripInventory(tripId);
+        // Obtener inventario actual del viaje usando la API
+        console.log('🔍 Obteniendo inventario del viaje:', tripId);
+        const inventory = await getTripInventoryAPI(tripId);
         const trip = allTrips.find(t => t.id === tripId);
         
         if (!trip) {
@@ -851,7 +827,7 @@ async function openCompleteTripModal(tripId) {
     } catch (error) {
         console.error('❌ Error cargando datos para finalizar viaje:', error);
         if (window.showNotification) {
-            window.showNotification('Error cargando datos del viaje', 'error');
+            window.showNotification('Error cargando datos del viaje: ' + error.message, 'error');
         }
     }
 }
@@ -867,7 +843,7 @@ async function confirmCompleteTrip() {
     try {
         // Obtener productos a devolver
         const returnProducts = [];
-        const inventory = await getTripInventory(currentTripForCompletion);
+        const inventory = await getTripInventoryAPI(currentTripForCompletion);
         
         inventory.forEach(item => {
             const returnQtyInput = document.getElementById(`return-qty-${item.product_id}`);
@@ -937,7 +913,7 @@ async function loadTrips() {
     try {
         console.log('🔄 Recargando viajes...');
         
-        const tripsData = await getTrips();
+        const tripsData = await getTripsAPI();
         allTrips = tripsData || [];
         
         displayTrips();
@@ -1077,52 +1053,6 @@ function formatDate(dateString) {
     }
 }
 
-async function debugApiEndpoints() {
-    console.log('🔍 Iniciando debug de API de subalmacenes...');
-    
-    const endpoints = [
-        { method: 'GET', path: '/api/trips', description: 'Obtener viajes' },
-        { method: 'GET', path: '/api/products', description: 'Obtener productos' },
-        { method: 'GET', path: '/api/employees', description: 'Obtener empleados' },
-        { method: 'GET', path: '/test', description: 'Test básico' }
-    ];
-    
-    for (const endpoint of endpoints) {
-        try {
-            console.log(`🔄 Probando ${endpoint.method} ${endpoint.path}...`);
-            
-            const response = await fetch(`${window.API_BASE_URL}${endpoint.path}`, {
-                method: 'HEAD', // Solo verificar si existe
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                }
-            });
-            
-            if (response.status === 404) {
-                console.log(`❌ ${endpoint.description}: Endpoint no encontrado (404)`);
-            } else if (response.status === 401) {
-                console.log(`🔐 ${endpoint.description}: No autorizado (401)`);
-            } else if (response.status === 403) {
-                console.log(`⛔ ${endpoint.description}: Prohibido (403)`);
-            } else {
-                console.log(`✅ ${endpoint.description}: Disponible (${response.status})`);
-            }
-            
-        } catch (error) {
-            console.log(`❌ ${endpoint.description}: Error - ${error.message}`);
-        }
-    }
-    
-    console.log('🔍 Debug de endpoints completado');
-    
-    // Información adicional de debugging
-    console.log('🔍 Información de debugging adicional:');
-    console.log('- API_BASE_URL:', window.API_BASE_URL);
-    console.log('- Token length:', localStorage.getItem('token')?.length || 0);
-    console.log('- User role:', JSON.parse(localStorage.getItem('user') || '{}')?.role);
-    console.log('- Current URL:', window.location.href);
-}
-
 async function testBasicConnectivity() {
     console.log('🌐 Testeando conectividad básica...');
     
@@ -1189,7 +1119,6 @@ async function testBasicConnectivity() {
     }
 }
 
-
 // ===== EXPORTAR FUNCIONES GLOBALES =====
 window.openNewTripModal = openNewTripModal;
 window.closeNewTripModal = closeNewTripModal;
@@ -1205,7 +1134,7 @@ window.viewTripDetails = viewTripDetails;
 window.downloadTripReport = downloadTripReport;
 window.filterTrips = filterTrips;
 window.clearFilters = clearFilters;
+window.testBasicConnectivity = testBasicConnectivity;
+window.initializeSubalmacenes = initializeSubalmacenes;
 
 console.log('✅ Subalmacenes.js inicializado correctamente');
-window.debugApiEndpoints = debugApiEndpoints;
-window.testBasicConnectivity = testBasicConnectivity;

@@ -3,224 +3,941 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Diagnóstico - Lubricantes Fresno</title>
+    <title>Diagnóstico del Sistema - Aceites</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-            background: #f5f5f5;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #f8fafc;
+            color: #334155;
+            line-height: 1.6;
+            margin: 0;
+            padding: 2rem;
         }
         .container {
+            max-width: 1200px;
+            margin: 0 auto;
             background: white;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
         }
-        h1 {
-            color: #2563eb;
+        .header {
+            background: linear-gradient(135deg, #0d2975, #2563eb);
+            color: white;
+            padding: 2rem;
             text-align: center;
         }
-        .test-section {
-            margin: 20px 0;
-            padding: 20px;
-            background: #f8fafc;
-            border-radius: 8px;
-            border-left: 4px solid #2563eb;
+        .header h1 {
+            margin: 0;
+            font-size: 2rem;
+            font-weight: 700;
         }
-        button {
+        .header p {
+            margin: 0.5rem 0 0;
+            opacity: 0.9;
+        }
+        .content {
+            padding: 2rem;
+        }
+        .section {
+            margin-bottom: 3rem;
+            padding: 1.5rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            background: #fafafa;
+        }
+        .section h2 {
+            margin: 0 0 1rem;
+            color: #0d2975;
+            border-bottom: 2px solid #0d2975;
+            padding-bottom: 0.5rem;
+        }
+        .test-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+        .test-card {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 1rem;
+        }
+        .test-card h3 {
+            margin: 0 0 0.5rem;
+            color: #334155;
+            font-size: 1rem;
+        }
+        .btn {
             background: #2563eb;
             color: white;
             border: none;
-            padding: 12px 24px;
+            padding: 0.75rem 1.5rem;
             border-radius: 6px;
             cursor: pointer;
-            margin: 5px;
-            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+            margin: 0.25rem;
         }
-        button:hover {
+        .btn:hover {
             background: #1d4ed8;
         }
+        .btn-success {
+            background: #059669;
+        }
+        .btn-success:hover {
+            background: #047857;
+        }
+        .btn-warning {
+            background: #d97706;
+        }
+        .btn-warning:hover {
+            background: #b45309;
+        }
+        .btn-danger {
+            background: #dc2626;
+        }
+        .btn-danger:hover {
+            background: #b91c1c;
+        }
         .result {
-            margin: 10px 0;
-            padding: 15px;
+            margin-top: 1rem;
+            padding: 1rem;
             border-radius: 6px;
-            font-family: monospace;
+            border-left: 4px solid #2563eb;
+            background: #f1f5f9;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.875rem;
+            line-height: 1.5;
             white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
         }
         .success {
-            background: #d1fae5;
-            border: 1px solid #10b981;
+            border-left-color: #059669;
+            background: #f0fdf4;
             color: #065f46;
         }
         .error {
-            background: #fee2e2;
-            border: 1px solid #ef4444;
+            border-left-color: #dc2626;
+            background: #fef2f2;
             color: #991b1b;
         }
-        .info {
-            background: #dbeafe;
-            border: 1px solid #3b82f6;
-            color: #1e40af;
+        .warning {
+            border-left-color: #d97706;
+            background: #fffbeb;
+            color: #92400e;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+        .info-card {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 1rem;
+        }
+        .info-label {
+            font-size: 0.875rem;
+            color: #64748b;
+            font-weight: 500;
+            margin-bottom: 0.25rem;
+        }
+        .info-value {
+            font-weight: 600;
+            color: #334155;
+            word-break: break-all;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+        }
+        .status-online {
+            background: #10b981;
+        }
+        .status-offline {
+            background: #ef4444;
+        }
+        .status-warning {
+            background: #f59e0b;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🔧 Diagnóstico del Sistema</h1>
-        <p><strong>URL:</strong> <span id="currentUrl"></span></p>
-
-        <div class="test-section">
-            <h3>🏥 Pruebas de Salud del Servidor</h3>
-            <button onclick="testAPI()">Probar API (/test)</button>
-            <button onclick="testStatus()">Probar Status (/api/status)</button>
-            <button onclick="testLogin()">Probar Login</button>
-            <button onclick="testProducts()">Probar Productos</button>
+        <div class="header">
+            <h1>🔍 Diagnóstico del Sistema</h1>
+            <p>Panel de diagnóstico para identificar y resolver problemas</p>
         </div>
+        
+        <div class="content">
+            <!-- Información del Sistema -->
+            <div class="section">
+                <h2>📊 Información del Sistema</h2>
+                <div class="info-grid">
+                    <div class="info-card">
+                        <div class="info-label">URL Actual</div>
+                        <div class="info-value" id="current-url">-</div>
+                    </div>
+                    <div class="info-card">
+                        <div class="info-label">API Base URL</div>
+                        <div class="info-value" id="api-url">-</div>
+                    </div>
+                    <div class="info-card">
+                        <div class="info-label">Token de Autenticación</div>
+                        <div class="info-value" id="auth-token">-</div>
+                    </div>
+                    <div class="info-card">
+                        <div class="info-label">Usuario Logueado</div>
+                        <div class="info-value" id="current-user">-</div>
+                    </div>
+                    <div class="info-card">
+                        <div class="info-label">Navegador</div>
+                        <div class="info-value" id="browser-info">-</div>
+                    </div>
+                    <div class="info-card">
+                        <div class="info-label">Timestamp</div>
+                        <div class="info-value" id="timestamp">-</div>
+                    </div>
+                </div>
+            </div>
 
-        <div class="test-section">
-            <h3>🌐 Información del Cliente</h3>
-            <button onclick="showClientInfo()">Mostrar Info del Navegador</button>
-            <button onclick="testCORS()">Probar CORS</button>
+            <!-- Tests de Conectividad -->
+            <div class="section">
+                <h2>🌐 Tests de Conectividad</h2>
+                <div class="test-grid">
+                    <div class="test-card">
+                        <h3><span class="status-indicator" id="status-products"></span>Productos API</h3>
+                        <button class="btn" onclick="testProducts()">📦 Test Productos</button>
+                        <div id="result-products" class="result" style="display: none;"></div>
+                    </div>
+                    
+                    <div class="test-card">
+                        <h3><span class="status-indicator" id="status-employees"></span>Empleados API</h3>
+                        <button class="btn" onclick="testEmployees()">👥 Test Empleados</button>
+                        <div id="result-employees" class="result" style="display: none;"></div>
+                    </div>
+                    
+                    <div class="test-card">
+                        <h3><span class="status-indicator" id="status-orders"></span>Pedidos API</h3>
+                        <button class="btn" onclick="testOrders()">📋 Test Pedidos</button>
+                        <div id="result-orders" class="result" style="display: none;"></div>
+                    </div>
+                    
+                    <div class="test-card">
+                        <h3><span class="status-indicator" id="status-trips"></span>Trips API</h3>
+                        <button class="btn btn-warning" onclick="testTrips()">🚛 Test Subalmacenes</button>
+                        <div id="result-trips" class="result" style="display: none;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tests de Funcionalidad -->
+            <div class="section">
+                <h2>🔧 Tests de Funcionalidad</h2>
+                <div class="test-grid">
+                    <div class="test-card">
+                        <h3>Crear Trip de Prueba</h3>
+                        <p>Intenta crear un trip de prueba para verificar funcionalidad</p>
+                        <button class="btn btn-success" onclick="createTestTrip()">🧪 Crear Trip Test</button>
+                        <div id="result-create-trip" class="result" style="display: none;"></div>
+                    </div>
+                    
+                    <div class="test-card">
+                        <h3>Listar Trips Existentes</h3>
+                        <p>Verificar qué trips existen actualmente</p>
+                        <button class="btn" onclick="listTrips()">📋 Listar Trips</button>
+                        <div id="result-list-trips" class="result" style="display: none;"></div>
+                    </div>
+                    
+                    <div class="test-card">
+                        <h3>Test Completo de Subalmacenes</h3>
+                        <p>Ejecuta todos los tests relacionados con subalmacenes</p>
+                        <button class="btn btn-warning" onclick="fullSubalmacenesTest()">🚛 Test Completo</button>
+                        <div id="result-full-test" class="result" style="display: none;"></div>
+                    </div>
+                    
+                    <div class="test-card">
+                        <h3>Verificar Configuración</h3>
+                        <p>Revisar configuración del servidor y endpoints</p>
+                        <button class="btn" onclick="checkConfiguration()">⚙️ Check Config</button>
+                        <div id="result-config" class="result" style="display: none;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Acciones Rápidas -->
+            <div class="section">
+                <h2>⚡ Acciones Rápidas</h2>
+                <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
+                    <button class="btn btn-success" onclick="runAllTests()">🔄 Ejecutar Todos los Tests</button>
+                    <button class="btn" onclick="clearResults()">🧹 Limpiar Resultados</button>
+                    <button class="btn btn-warning" onclick="downloadDiagnostic()">📄 Descargar Diagnóstico</button>
+                    <button class="btn btn-danger" onclick="resetSystem()">🔄 Reset Sistema</button>
+                </div>
+            </div>
+
+            <!-- Log en Tiempo Real -->
+            <div class="section">
+                <h2>📝 Log en Tiempo Real</h2>
+                <div style="display: flex; gap: 1rem; margin-bottom: 1rem;">
+                    <button class="btn" onclick="startLogging()">▶️ Iniciar Log</button>
+                    <button class="btn" onclick="stopLogging()">⏸️ Detener Log</button>
+                    <button class="btn" onclick="clearLog()">🧹 Limpiar Log</button>
+                </div>
+                <div id="live-log" class="result" style="display: block; height: 300px; background: #1e293b; color: #e2e8f0;">
+                    📝 Log iniciará cuando presiones "Iniciar Log"...
+                </div>
+            </div>
         </div>
-
-        <div id="results"></div>
     </div>
 
     <script>
-        // Detectar URL base automáticamente
-        const BASE_URL = window.location.origin;
-        document.getElementById('currentUrl').textContent = BASE_URL;
+        // Configuración global
+        let API_BASE_URL = '';
+        let isLogging = false;
+        let logInterval = null;
 
-        function addResult(content, type = 'info') {
-            const resultsDiv = document.getElementById('results');
-            const resultDiv = document.createElement('div');
-            resultDiv.className = `result ${type}`;
-            resultDiv.textContent = `[${new Date().toLocaleTimeString()}] ${content}`;
-            resultsDiv.appendChild(resultDiv);
-            resultsDiv.scrollTop = resultsDiv.scrollHeight;
-        }
+        // Inicialización
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeDiagnostic();
+            loadSystemInfo();
+        });
 
-        async function testAPI() {
-            addResult('🔍 Probando endpoint /test...', 'info');
-            try {
-                const response = await fetch(`${BASE_URL}/test`);
-                const data = await response.json();
-                
-                if (response.ok) {
-                    addResult(`✅ /test funcionando: ${data.message}`, 'success');
-                    addResult(`Empleados encontrados: ${data.empleados.length}`, 'info');
-                } else {
-                    addResult(`❌ /test error: ${data.message}`, 'error');
-                }
-            } catch (error) {
-                addResult(`💥 Error conectando a /test: ${error.message}`, 'error');
+        function initializeDiagnostic() {
+            // Determinar API_BASE_URL
+            if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                API_BASE_URL = 'http://localhost:3000';
+            } else {
+                API_BASE_URL = window.location.origin;
             }
+            
+            console.log('🔍 Diagnostic initialized with API_BASE_URL:', API_BASE_URL);
         }
 
-        async function testStatus() {
-            addResult('🔍 Probando endpoint /api/status...', 'info');
-            try {
-                const response = await fetch(`${BASE_URL}/api/status`);
-                const data = await response.json();
-                
-                if (response.ok) {
-                    addResult(`✅ /api/status funcionando: ${data.status}`, 'success');
-                    addResult(`Versión: ${data.version}, Entorno: ${data.environment}`, 'info');
-                } else {
-                    addResult(`❌ /api/status error: ${data.message}`, 'error');
-                }
-            } catch (error) {
-                addResult(`💥 Error conectando a /api/status: ${error.message}`, 'error');
-            }
+        function loadSystemInfo() {
+            document.getElementById('current-url').textContent = window.location.href;
+            document.getElementById('api-url').textContent = API_BASE_URL;
+            
+            const token = localStorage.getItem('token');
+            document.getElementById('auth-token').textContent = token ? 
+                `${token.substring(0, 20)}... (${token.length} chars)` : 
+                'No token encontrado';
+            
+            const user = localStorage.getItem('user');
+            document.getElementById('current-user').textContent = user ? 
+                JSON.parse(user).name + ' (' + JSON.parse(user).role + ')' : 
+                'No usuario logueado';
+            
+            document.getElementById('browser-info').textContent = navigator.userAgent.split(' ').slice(-2).join(' ');
+            document.getElementById('timestamp').textContent = new Date().toLocaleString();
         }
 
-        async function testLogin() {
-            addResult('🔍 Probando login con ADMIN001...', 'info');
+        // ===== TESTS DE CONECTIVIDAD =====
+        
+        async function testBasic() {
+            const result = document.getElementById('result-basic');
+            const status = document.getElementById('status-basic');
+            
+            showResult(result, '🔄 Testando conectividad básica...', 'info');
+            
             try {
-                const response = await fetch(`${BASE_URL}/auth/login`, {
-                    method: 'POST',
+                const response = await fetch(`${API_BASE_URL}/test`, {
+                    method: 'GET',
                     headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        employee_code: 'ADMIN001',
-                        password: 'password'
-                    })
+                        'Accept': 'application/json'
+                    }
                 });
-
-                const data = await response.json();
                 
                 if (response.ok) {
-                    addResult(`✅ Login exitoso: ${data.user.name} (${data.user.role})`, 'success');
-                    window.testToken = data.token; // Guardar para otras pruebas
+                    const data = await response.json();
+                    showResult(result, `✅ CONECTIVIDAD BÁSICA: OK
+                    
+Respuesta del servidor:
+${JSON.stringify(data, null, 2)}
+
+Status: ${response.status}
+Headers: ${JSON.stringify(Object.fromEntries(response.headers), null, 2)}`, 'success');
+                    setStatus(status, 'online');
                 } else {
-                    addResult(`❌ Login falló: ${data.message}`, 'error');
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
+                
             } catch (error) {
-                addResult(`💥 Error en login: ${error.message}`, 'error');
+                showResult(result, `❌ ERROR DE CONECTIVIDAD:
+
+${error.message}
+
+Posibles causas:
+- El servidor no está ejecutándose
+- Problemas de red
+- CORS mal configurado
+- Puerto incorrecto`, 'error');
+                setStatus(status, 'offline');
+            }
+        }
+
+        async function testAuth() {
+            const result = document.getElementById('result-auth');
+            const status = document.getElementById('status-auth');
+            
+            showResult(result, '🔄 Testando autenticación...', 'info');
+            
+            const token = localStorage.getItem('token');
+            if (!token) {
+                showResult(result, `❌ NO HAY TOKEN DE AUTENTICACIÓN
+
+Para resolver:
+1. Ve a la página principal (/)
+2. Haz login con: ADMIN001 / password
+3. Regresa a este diagnóstico`, 'error');
+                setStatus(status, 'offline');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/status`, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    showResult(result, `✅ AUTENTICACIÓN: OK
+
+Token válido: ${token.substring(0, 20)}...
+Usuario: ${JSON.parse(localStorage.getItem('user')).name}
+Rol: ${JSON.parse(localStorage.getItem('user')).role}
+
+Respuesta del servidor:
+${JSON.stringify(data, null, 2)}`, 'success');
+                    setStatus(status, 'online');
+                } else if (response.status === 401) {
+                    showResult(result, `❌ TOKEN EXPIRADO O INVÁLIDO
+
+Status: ${response.status}
+Token usado: ${token.substring(0, 20)}...
+
+Para resolver:
+1. Haz login nuevamente
+2. Verifica las credenciales`, 'error');
+                    setStatus(status, 'offline');
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+            } catch (error) {
+                showResult(result, `❌ ERROR DE AUTENTICACIÓN:
+
+${error.message}`, 'error');
+                setStatus(status, 'offline');
             }
         }
 
         async function testProducts() {
-            if (!window.testToken) {
-                addResult('⚠️ Primero ejecuta "Probar Login" para obtener un token', 'error');
+            const result = document.getElementById('result-products');
+            const status = document.getElementById('status-products');
+            
+            await testEndpoint('/api/products', 'PRODUCTOS', result, status);
+        }
+
+        async function testEmployees() {
+            const result = document.getElementById('result-employees');
+            const status = document.getElementById('status-employees');
+            
+            await testEndpoint('/api/employees', 'EMPLEADOS', result, status);
+        }
+
+        async function testOrders() {
+            const result = document.getElementById('result-orders');
+            const status = document.getElementById('status-orders');
+            
+            await testEndpoint('/api/orders', 'PEDIDOS', result, status);
+        }
+
+        async function testTrips() {
+            const result = document.getElementById('result-trips');
+            const status = document.getElementById('status-trips');
+            
+            showResult(result, '🔄 Testando endpoint de trips...', 'info');
+            
+            const token = localStorage.getItem('token');
+            if (!token) {
+                showResult(result, '❌ No hay token de autenticación', 'error');
+                setStatus(status, 'offline');
                 return;
             }
-
-            addResult('🔍 Probando endpoint /api/products...', 'info');
+            
             try {
-                const response = await fetch(`${BASE_URL}/api/products`, {
+                const response = await fetch(`${API_BASE_URL}/api/trips`, {
+                    method: 'GET',
                     headers: {
-                        'Authorization': `Bearer ${window.testToken}`
+                        'Accept': 'application/json',
+                        'Authorization': `Bearer ${token}`
                     }
                 });
-
-                const data = await response.json();
                 
                 if (response.ok) {
-                    addResult(`✅ Productos obtenidos: ${data.length} productos`, 'success');
-                    if (data.length > 0) {
-                        addResult(`Primer producto: ${data[0].name}`, 'info');
-                    }
+                    const data = await response.json();
+                    showResult(result, `✅ ENDPOINT TRIPS: OK
+
+Total trips encontrados: ${data.length}
+
+Trips:
+${JSON.stringify(data, null, 2)}
+
+Status: ${response.status}`, 'success');
+                    setStatus(status, 'online');
+                } else if (response.status === 404) {
+                    showResult(result, `❌ ENDPOINT TRIPS NO ENCONTRADO
+
+Status: 404 - Not Found
+
+DIAGNÓSTICO:
+- El endpoint /api/trips no existe en el servidor
+- Las rutas de subalmacenes no están configuradas
+- Revisa index.js para verificar que las rutas estén definidas
+
+SOLUCIÓN:
+- Asegúrate de que las rutas de trips estén en index.js
+- Reinicia el servidor
+- Verifica la configuración`, 'error');
+                    setStatus(status, 'offline');
                 } else {
-                    addResult(`❌ Error productos: ${data.message}`, 'error');
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
+                
             } catch (error) {
-                addResult(`💥 Error en productos: ${error.message}`, 'error');
+                showResult(result, `❌ ERROR TESTANDO TRIPS:
+
+${error.message}
+
+Stack trace: ${error.stack}`, 'error');
+                setStatus(status, 'offline');
             }
         }
 
-        function showClientInfo() {
-            addResult('🌐 Información del navegador:', 'info');
-            addResult(`User Agent: ${navigator.userAgent}`, 'info');
-            addResult(`URL actual: ${window.location.href}`, 'info');
-            addResult(`Protocolo: ${window.location.protocol}`, 'info');
-            addResult(`Host: ${window.location.host}`, 'info');
-            addResult(`Zona horaria: ${Intl.DateTimeFormat().resolvedOptions().timeZone}`, 'info');
-        }
-
-        async function testCORS() {
-            addResult('🔍 Probando configuración CORS...', 'info');
+        async function testEndpoint(endpoint, name, resultElement, statusElement) {
+            showResult(resultElement, `🔄 Testando ${name}...`, 'info');
+            
+            const token = localStorage.getItem('token');
+            if (!token) {
+                showResult(resultElement, '❌ No hay token de autenticación', 'error');
+                setStatus(statusElement, 'offline');
+                return;
+            }
+            
             try {
-                const response = await fetch(`${BASE_URL}/test`, {
-                    method: 'OPTIONS'
+                const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    }
                 });
                 
-                addResult(`✅ CORS OPTIONS: ${response.status}`, 'success');
-                addResult(`Headers disponibles: ${response.headers.get('Access-Control-Allow-Headers') || 'N/A'}`, 'info');
+                if (response.ok) {
+                    const data = await response.json();
+                    showResult(resultElement, `✅ ${name}: OK
+
+Total registros: ${Array.isArray(data) ? data.length : 'N/A'}
+Status: ${response.status}
+
+Datos:
+${JSON.stringify(data, null, 2).substring(0, 1000)}${JSON.stringify(data, null, 2).length > 1000 ? '...' : ''}`, 'success');
+                    setStatus(statusElement, 'online');
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
             } catch (error) {
-                addResult(`❌ Error CORS: ${error.message}`, 'error');
+                showResult(resultElement, `❌ ERROR ${name}:
+
+${error.message}`, 'error');
+                setStatus(statusElement, 'offline');
             }
         }
 
-        // Ejecutar diagnóstico automático al cargar
-        window.addEventListener('load', function() {
-            addResult('🚀 Iniciando diagnóstico automático...', 'info');
-            setTimeout(testAPI, 1000);
-            setTimeout(testStatus, 2000);
-        });
+        // ===== TESTS DE FUNCIONALIDAD =====
+        
+        async function createTestTrip() {
+            const result = document.getElementById('result-create-trip');
+            
+            showResult(result, '🔄 Creando trip de prueba...', 'info');
+            
+            const token = localStorage.getItem('token');
+            if (!token) {
+                showResult(result, '❌ No hay token de autenticación', 'error');
+                return;
+            }
+            
+            try {
+                // Primero obtener empleados y productos
+                const [employeesRes, productsRes] = await Promise.all([
+                    fetch(`${API_BASE_URL}/api/employees`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    }),
+                    fetch(`${API_BASE_URL}/api/products`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    })
+                ]);
+                
+                if (!employeesRes.ok || !productsRes.ok) {
+                    throw new Error('No se pudieron obtener empleados o productos');
+                }
+                
+                const employees = await employeesRes.json();
+                const products = await productsRes.json();
+                
+                const employee = employees.find(e => e.role === 'employee');
+                const product = products.find(p => p.stock > 0);
+                
+                if (!employee) {
+                    throw new Error('No hay empleados disponibles');
+                }
+                
+                if (!product) {
+                    throw new Error('No hay productos con stock');
+                }
+                
+                // Crear trip de prueba
+                const tripData = {
+                    employee_id: employee.id,
+                    employee_code: employee.employee_code,
+                    products: [{
+                        product_id: product.id,
+                        quantity: 1,
+                        price: product.price
+                    }],
+                    notes: 'Trip de prueba desde diagnóstico'
+                };
+                
+                const response = await fetch(`${API_BASE_URL}/api/trips`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(tripData)
+                });
+                
+                if (response.ok) {
+                    const result_data = await response.json();
+                    showResult(result, `✅ TRIP DE PRUEBA CREADO EXITOSAMENTE
+
+Trip creado:
+${JSON.stringify(result_data, null, 2)}
+
+Empleado: ${employee.name}
+Producto: ${product.name}
+Cantidad: 1`, 'success');
+                } else {
+                    const errorData = await response.json();
+                    throw new Error(`${response.status}: ${errorData.message}`);
+                }
+                
+            } catch (error) {
+                showResult(result, `❌ ERROR CREANDO TRIP DE PRUEBA:
+
+${error.message}
+
+Esto indica que:
+- El endpoint POST /api/trips no existe
+- Hay problemas con la validación de datos
+- El servidor no está configurado correctamente`, 'error');
+            }
+        }
+
+        async function listTrips() {
+            const result = document.getElementById('result-list-trips');
+            
+            showResult(result, '🔄 Listando trips existentes...', 'info');
+            
+            const token = localStorage.getItem('token');
+            if (!token) {
+                showResult(result, '❌ No hay token de autenticación', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/trips`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (response.ok) {
+                    const trips = await response.json();
+                    showResult(result, `✅ TRIPS ENCONTRADOS: ${trips.length}
+
+${trips.length === 0 ? 'No hay trips en el sistema' : trips.map(trip => `
+🚛 ${trip.trip_number}
+   Empleado: ${trip.employee_name || trip.employee_code}
+   Estado: ${trip.status}
+   Productos: ${trip.substore_inventory?.length || 0}
+   Creado: ${trip.created_at}
+`).join('\n')}
+
+Raw data:
+${JSON.stringify(trips, null, 2)}`, trips.length > 0 ? 'success' : 'warning');
+                } else {
+                    throw new Error(`${response.status}: ${response.statusText}`);
+                }
+                
+            } catch (error) {
+                showResult(result, `❌ ERROR LISTANDO TRIPS:
+
+${error.message}`, 'error');
+            }
+        }
+
+        async function fullSubalmacenesTest() {
+            const result = document.getElementById('result-full-test');
+            
+            showResult(result, '🔄 Ejecutando test completo de subalmacenes...', 'info');
+            
+            let testResults = [];
+            
+            // Test 1: Verificar endpoint de trips
+            try {
+                await new Promise(resolve => setTimeout(resolve, 500));
+                const response = await fetch(`${API_BASE_URL}/api/trips`, {
+                    method: 'HEAD',
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                });
+                testResults.push(`✅ Endpoint /api/trips existe (${response.status})`);
+            } catch (error) {
+                testResults.push(`❌ Endpoint /api/trips falla: ${error.message}`);
+            }
+            
+            // Test 2: Verificar empleados
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/employees`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                });
+                const employees = await response.json();
+                const employeeCount = employees.filter(e => e.role === 'employee').length;
+                testResults.push(`✅ Empleados disponibles: ${employeeCount}`);
+            } catch (error) {
+                testResults.push(`❌ Error obteniendo empleados: ${error.message}`);
+            }
+            
+            // Test 3: Verificar productos
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/products`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                });
+                const products = await response.json();
+                const productsWithStock = products.filter(p => p.stock > 0).length;
+                testResults.push(`✅ Productos con stock: ${productsWithStock}/${products.length}`);
+            } catch (error) {
+                testResults.push(`❌ Error obteniendo productos: ${error.message}`);
+            }
+            
+            // Test 4: Listar trips existentes
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/trips`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                });
+                const trips = await response.json();
+                testResults.push(`✅ Trips existentes: ${trips.length}`);
+            } catch (error) {
+                testResults.push(`❌ Error listando trips: ${error.message}`);
+            }
+            
+            showResult(result, `🔍 RESULTADOS DEL TEST COMPLETO:
+
+${testResults.join('\n')}
+
+DIAGNÓSTICO:
+${testResults.filter(r => r.includes('❌')).length === 0 ? 
+  '✅ Todos los tests pasaron. El sistema debería funcionar correctamente.' : 
+  `❌ ${testResults.filter(r => r.includes('❌')).length} tests fallaron. Revisa la configuración del servidor.`}`, 
+            testResults.filter(r => r.includes('❌')).length === 0 ? 'success' : 'error');
+        }
+
+        async function checkConfiguration() {
+            const result = document.getElementById('result-config');
+            
+            showResult(result, '🔄 Verificando configuración...', 'info');
+            
+            let configResults = [];
+            
+            // Verificar configuración del cliente
+            configResults.push(`CONFIGURACIÓN DEL CLIENTE:`);
+            configResults.push(`- URL actual: ${window.location.href}`);
+            configResults.push(`- API Base URL: ${API_BASE_URL}`);
+            configResults.push(`- Token presente: ${localStorage.getItem('token') ? 'Sí' : 'No'}`);
+            configResults.push(`- Usuario: ${localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')).name : 'No logueado'}`);
+            configResults.push(``);
+            
+            // Verificar configuración del servidor
+            try {
+                const response = await fetch(`${API_BASE_URL}/test`);
+                const data = await response.json();
+                
+                configResults.push(`CONFIGURACIÓN DEL SERVIDOR:`);
+                configResults.push(`- Status: ${response.status} ${response.statusText}`);
+                configResults.push(`- Node.js: ${data.nodeVersion}`);
+                configResults.push(`- Environment: ${data.environment}`);
+                configResults.push(`- Database: ${data.database?.type}`);
+                configResults.push(`- Supabase: ${data.supabase?.status}`);
+                configResults.push(`- Productos: ${data.database?.products}`);
+                configResults.push(`- Empleados: ${data.database?.employees}`);
+                
+            } catch (error) {
+                configResults.push(`❌ No se pudo obtener configuración del servidor: ${error.message}`);
+            }
+            
+            showResult(result, configResults.join('\n'), 'info');
+        }
+
+        // ===== ACCIONES RÁPIDAS =====
+        
+        async function runAllTests() {
+            await testBasic();
+            await new Promise(resolve => setTimeout(resolve, 500));
+            await testAuth();
+            await new Promise(resolve => setTimeout(resolve, 500));
+            await testProducts();
+            await new Promise(resolve => setTimeout(resolve, 500));
+            await testEmployees();
+            await new Promise(resolve => setTimeout(resolve, 500));
+            await testOrders();
+            await new Promise(resolve => setTimeout(resolve, 500));
+            await testTrips();
+            await new Promise(resolve => setTimeout(resolve, 500));
+            await fullSubalmacenesTest();
+        }
+
+        function clearResults() {
+            const results = document.querySelectorAll('.result');
+            results.forEach(result => {
+                result.style.display = 'none';
+                result.textContent = '';
+                result.className = 'result';
+            });
+            
+            const statuses = document.querySelectorAll('.status-indicator');
+            statuses.forEach(status => {
+                status.className = 'status-indicator';
+            });
+        }
+
+        function downloadDiagnostic() {
+            const results = document.querySelectorAll('.result');
+            let content = `DIAGNÓSTICO DEL SISTEMA - ${new Date().toLocaleString()}\n`;
+            content += `===============================================\n\n`;
+            
+            results.forEach((result, index) => {
+                if (result.style.display !== 'none' && result.textContent.trim()) {
+                    content += `TEST ${index + 1}:\n`;
+                    content += result.textContent;
+                    content += `\n\n`;
+                }
+            });
+            
+            const blob = new Blob([content], { type: 'text/plain' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `diagnostico_${new Date().toISOString().split('T')[0]}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        }
+
+        function resetSystem() {
+            if (confirm('¿Estás seguro de que quieres limpiar todos los datos locales?')) {
+                localStorage.clear();
+                sessionStorage.clear();
+                alert('Datos locales limpiados. Redirigiendo al login...');
+                window.location.href = '/';
+            }
+        }
+
+        // ===== LOG EN TIEMPO REAL =====
+        
+        function startLogging() {
+            if (isLogging) return;
+            
+            isLogging = true;
+            const logElement = document.getElementById('live-log');
+            logElement.textContent = '📝 Iniciando log en tiempo real...\n';
+            
+            logInterval = setInterval(async () => {
+                const timestamp = new Date().toLocaleTimeString();
+                
+                try {
+                    const response = await fetch(`${API_BASE_URL}/test`, {
+                        method: 'HEAD'
+                    });
+                    logElement.textContent += `[${timestamp}] ✅ Server OK (${response.status})\n`;
+                } catch (error) {
+                    logElement.textContent += `[${timestamp}] ❌ Server ERROR: ${error.message}\n`;
+                }
+                
+                // Scroll to bottom
+                logElement.scrollTop = logElement.scrollHeight;
+                
+                // Limitar líneas
+                const lines = logElement.textContent.split('\n');
+                if (lines.length > 50) {
+                    logElement.textContent = lines.slice(-45).join('\n');
+                }
+                
+            }, 2000);
+        }
+
+        function stopLogging() {
+            if (!isLogging) return;
+            
+            isLogging = false;
+            if (logInterval) {
+                clearInterval(logInterval);
+                logInterval = null;
+            }
+            
+            const logElement = document.getElementById('live-log');
+            logElement.textContent += `\n📝 Log detenido a las ${new Date().toLocaleTimeString()}\n`;
+        }
+
+        function clearLog() {
+            document.getElementById('live-log').textContent = '📝 Log limpiado...\n';
+        }
+
+        // ===== UTILIDADES =====
+        
+        function showResult(element, text, type) {
+            element.style.display = 'block';
+            element.textContent = text;
+            element.className = `result ${type}`;
+        }
+
+        function setStatus(element, status) {
+            element.className = `status-indicator status-${status}`;
+        }
     </script>
 </body>
 </html>
+                        <h3><span class="status-indicator" id="status-basic"></span>Test Básico</h3>
+                        <button class="btn" onclick="testBasic()">🔄 Test API Base</button>
+                        <div id="result-basic" class="result" style="display: none;"></div>
+                    </div>
+                    
+                    <div class="test-card">
+                        <h3><span class="status-indicator" id="status-auth"></span>Autenticación</h3>
+                        <button class="btn" onclick="testAuth()">🔐 Test Token</button>
+                        <div id="result-auth" class="result" style="display: none;"></div>
+                    </div>
+                    
+                    <div class="test-card">
