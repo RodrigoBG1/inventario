@@ -6,6 +6,226 @@
     <title>Productos - Sistema de Aceites</title>
     <link rel="stylesheet" href="../css/style.css">
     <link rel="stylesheet" href="../css/admin.css">
+    <style>
+        /* ===== EXISTING STYLES - KEEP ALL YOUR CURRENT STYLES ===== */
+        /* Estilos adicionales para el sistema multi-precio */
+        .pricing-section {
+            margin-top: 2rem;
+            border-top: 2px solid var(--border-color);
+            padding-top: 2rem;
+        }
+
+        .pricing-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1rem;
+        }
+
+        .price-card {
+            background: #f8fafc;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1.5rem;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .price-card:hover {
+            border-color: var(--primary-color);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px -8px rgba(13, 41, 117, 0.2);
+        }
+
+        .price-card.display-price {
+            border-color: var(--success-color);
+            background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+        }
+
+        .price-card.display-price::before {
+            content: "PRECIO MOSTRADO";
+            position: absolute;
+            top: -10px;
+            right: 10px;
+            background: var(--success-color);
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .price-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+
+        .price-card.display-price .price-header {
+            color: var(--success-color);
+        }
+
+        .price-badge {
+            background: var(--primary-color);
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .display-badge {
+            background: var(--success-color);
+        }
+
+        .price-input {
+            position: relative;
+        }
+
+        .price-input::before {
+            content: '$';
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--secondary-color);
+            font-weight: 600;
+            z-index: 1;
+        }
+
+        .price-input input {
+            padding-left: 2rem;
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+
+        .pricing-help {
+            background: #fffbeb;
+            border: 1px solid #fbbf24;
+            border-radius: 6px;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .pricing-help h4 {
+            color: #92400e;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .pricing-help p {
+            color: #78350f;
+            font-size: 0.875rem;
+            margin: 0;
+        }
+
+        .price-display-table {
+            font-size: 0.875rem;
+            line-height: 1.4;
+        }
+
+        .price-main {
+            font-weight: 700;
+            color: var(--success-color);
+            font-size: 1.1rem;
+        }
+
+        .price-details {
+            color: var(--secondary-color);
+            margin-top: 0.25rem;
+        }
+
+        .price-tooltip {
+            position: relative;
+            cursor: help;
+        }
+
+        .price-tooltip:hover::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--primary-color);
+            color: white;
+            padding: 0.5rem;
+            border-radius: 4px;
+            white-space: nowrap;
+            font-size: 0.75rem;
+            z-index: 10;
+        }
+
+        /* ===== NEW: MINIMAL SCROLLBAR FIX ===== */
+        /* This keeps your exact design and just adds scrolling */
+        
+        .modal-content {
+            max-height: 90vh; /* Prevent modal from being too tall */
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Keep header fixed at top */
+        .modal-header {
+            flex-shrink: 0; /* Don't let header shrink */
+        }
+
+        /* Make the form area scrollable */
+        #product-form {
+            flex: 1;
+            overflow-y: auto;
+            padding: 2rem; /* Keep your existing padding */
+            max-height: calc(90vh - 140px); /* Leave space for header and footer */
+        }
+
+        /* Keep footer fixed at bottom */
+        .modal-actions {
+            flex-shrink: 0; /* Don't let footer shrink */
+        }
+
+        /* Style the scrollbar to look nice */
+        #product-form::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        #product-form::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 4px;
+        }
+
+        #product-form::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+
+        #product-form::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        @media (max-width: 768px) {
+            .pricing-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            /* Mobile responsiveness for scrollbar */
+            .modal-content {
+                max-height: 95vh;
+            }
+            
+            #product-form {
+                max-height: calc(95vh - 120px);
+                padding: 1.5rem;
+            }
+        }
+    </style>
 </head>
 <body>
     <div class="admin-container">
@@ -23,7 +243,6 @@
                 <li><a href="reports.html">Reportes</a></li>
                 <li><a href="#" onclick="logout()">Cerrar Sesión</a></li>
             </ul>
-
         </nav>
 
         <main class="main-content">
@@ -52,7 +271,8 @@
                             <th>Viscosidad</th>
                             <th>Capacidad</th>
                             <th>Stock</th>
-                            <th>Precio</th>
+                            <th>Precio Mostrado</th>
+                            <th>Precios Detallados</th>
                             <th>Acciones</th>
                         </tr>
                     </thead>
@@ -62,15 +282,18 @@
         </main>
     </div>
 
-    <!-- Modal para agregar/editar producto -->
+    <!-- Modal para agregar/editar producto - EXACTLY THE SAME, JUST WITH SCROLLBAR -->
     <div id="product-modal" class="modal">
-        <div class="modal-content">
+        <div class="modal-content" style="max-width: 1000px;">
             <div class="modal-header">
                 <h3 id="modal-title">Nuevo Producto</h3>
                 <span class="close" onclick="closeProductModal()">&times;</span>
             </div>
+            <!-- THE FORM IS EXACTLY THE SAME - NO CHANGES TO HTML STRUCTURE -->
             <form id="product-form">
                 <input type="hidden" id="product-id">
+                
+                <!-- Información Básica -->
                 <div class="form-grid">
                     <div class="form-group">
                         <label for="product-code">Código:</label>
@@ -97,23 +320,100 @@
                         <input type="number" id="product-stock" min="0" required>
                     </div>
                     <div class="form-group">
-                        <label for="product-price">Precio:</label>
-                        <input type="number" id="product-price" step="0.01" min="0" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="product-cost">Costo:</label>
-                        <input type="number" id="product-cost" step="0.01" min="0" required>
+                        <label for="product-cost">Costo de Adquisición:</label>
+                        <div class="price-input">
+                            <input type="number" id="product-cost" step="0.01" min="0" required>
+                        </div>
                     </div>
                 </div>
-                <div class="modal-actions">
-                    <button type="button" class="btn btn-secondary" onclick="closeProductModal()">
-                        Cancelar
-                    </button>
-                    <button type="submit" class="btn btn-primary">
-                        Guardar
-                    </button>
+
+                <!-- Sistema de Precios Múltiples -->
+                <div class="pricing-section">
+                    <h3 style="color: var(--primary-color); margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+                        <span>💰</span>
+                        Sistema de Precios Múltiples
+                    </h3>
+                    
+                    <div class="pricing-help">
+                        <h4>
+                            <span>💡</span>
+                            Información Importante
+                        </h4>
+                        <p>El <strong>Precio Contado - Caja</strong> será el precio principal mostrado en la lista de productos. Los demás precios se almacenan para uso en facturación y diferentes modalidades de venta.</p>
+                    </div>
+                    
+                    <div class="pricing-grid">
+                        <!-- Contado Pieza -->
+                        <div class="price-card">
+                            <div class="price-header">
+                                <span>💵</span>
+                                <span>Contado - Pieza</span>
+                                <span class="price-badge">UNIDAD</span>
+                            </div>
+                            <div class="form-group">
+                                <label for="price-cash-unit">Precio por Unidad</label>
+                                <div class="price-input">
+                                    <input type="number" id="price-cash-unit" step="0.01" min="0" placeholder="0.00">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Contado Caja (PRECIO MOSTRADO) -->
+                        <div class="price-card display-price">
+                            <div class="price-header">
+                                <span>📦</span>
+                                <span>Contado - Caja</span>
+                                <span class="price-badge display-badge">PRINCIPAL</span>
+                            </div>
+                            <div class="form-group">
+                                <label for="price-cash-box">Precio por Caja *</label>
+                                <div class="price-input">
+                                    <input type="number" id="price-cash-box" step="0.01" min="0" required placeholder="0.00">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Crédito 21 días Pieza -->
+                        <div class="price-card">
+                            <div class="price-header">
+                                <span>📅</span>
+                                <span>Crédito 21d - Pieza</span>
+                                <span class="price-badge">CRÉDITO</span>
+                            </div>
+                            <div class="form-group">
+                                <label for="price-credit-unit">Precio por Unidad</label>
+                                <div class="price-input">
+                                    <input type="number" id="price-credit-unit" step="0.01" min="0" placeholder="0.00">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Crédito 21 días Caja -->
+                        <div class="price-card">
+                            <div class="price-header">
+                                <span>📦📅</span>
+                                <span>Crédito 21d - Caja</span>
+                                <span class="price-badge">CRÉDITO</span>
+                            </div>
+                            <div class="form-group">
+                                <label for="price-credit-box">Precio por Caja</label>
+                                <div class="price-input">
+                                    <input type="number" id="price-credit-box" step="0.01" min="0" placeholder="0.00">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </form>
+            
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeProductModal()">
+                    Cancelar
+                </button>
+                <button type="submit" class="btn btn-primary" form="product-form">
+                    Guardar
+                </button>
+            </div>
         </div>
     </div>
 
@@ -123,5 +423,146 @@
     <script src="../js/api.js"></script>
     <script src="../js/admin.js"></script>
     <script src="../js/order-details-modal.js"></script>
+    
+    <script>
+        // Sobrescribir funciones de productos para manejar multi-precios
+        
+        // Función para mostrar productos actualizada
+        function displayProducts() {
+            const tbody = document.querySelector('#products-table tbody');
+            if (!tbody) return;
+            
+            tbody.innerHTML = products.map(product => {
+                // Determinar precio principal (cash_box o price como fallback)
+                const displayPrice = product.prices?.cash_box || product.price || 0;
+                
+                // Construir detalles de precios
+                let priceDetails = '';
+                if (product.prices) {
+                    priceDetails = `
+                        <div class="price-display-table">
+                            <div><strong>Contado:</strong> ${window.formatCurrency(product.prices.cash_unit || 0)}/ud • ${window.formatCurrency(product.prices.cash_box || 0)}/caja</div>
+                            <div class="price-details"><strong>Crédito 21d:</strong> ${window.formatCurrency(product.prices.credit_unit || 0)}/ud • ${window.formatCurrency(product.prices.credit_box || 0)}/caja</div>
+                        </div>
+                    `;
+                } else {
+                    priceDetails = `<span class="price-details">Sistema anterior: ${window.formatCurrency(product.price || 0)}</span>`;
+                }
+                
+                return `
+                    <tr>
+                        <td>${product.code}</td>
+                        <td>${product.name}</td>
+                        <td>${product.brand}</td>
+                        <td>${product.viscosity}</td>
+                        <td>${product.capacity}</td>
+                        <td>${product.stock}</td>
+                        <td>
+                            <div class="price-main price-tooltip" data-tooltip="Precio Contado - Caja">
+                                ${window.formatCurrency(displayPrice)}
+                            </div>
+                        </td>
+                        <td>${priceDetails}</td>
+                        <td>
+                            <div class="action-buttons">
+                                <button class="btn btn-sm btn-edit" onclick="editProduct(${product.id})">
+                                    ✏️ Editar
+                                </button>
+                                <button class="btn btn-sm btn-delete" onclick="deleteProductConfirm(${product.id})">
+                                    🗑️ Eliminar
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+        
+        // Función para llenar formulario de producto actualizada
+        function fillProductForm(product) {
+            document.getElementById('product-id').value = product.id;
+            document.getElementById('product-code').value = product.code;
+            document.getElementById('product-name').value = product.name;
+            document.getElementById('product-brand').value = product.brand;
+            document.getElementById('product-viscosity').value = product.viscosity;
+            document.getElementById('product-capacity').value = product.capacity;
+            document.getElementById('product-stock').value = product.stock;
+            document.getElementById('product-cost').value = product.cost;
+            
+            // Llenar precios múltiples o valores por defecto
+            if (product.prices) {
+                document.getElementById('price-cash-unit').value = product.prices.cash_unit || '';
+                document.getElementById('price-cash-box').value = product.prices.cash_box || '';
+                document.getElementById('price-credit-unit').value = product.prices.credit_unit || '';
+                document.getElementById('price-credit-box').value = product.prices.credit_box || '';
+            } else {
+                // Migrar del sistema anterior
+                document.getElementById('price-cash-unit').value = '';
+                document.getElementById('price-cash-box').value = product.price || '';
+                document.getElementById('price-credit-unit').value = '';
+                document.getElementById('price-credit-box').value = '';
+            }
+        }
+        
+        // Event listener para el formulario de productos actualizado
+        document.getElementById('product-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = {
+                code: document.getElementById('product-code').value,
+                name: document.getElementById('product-name').value,
+                brand: document.getElementById('product-brand').value,
+                viscosity: document.getElementById('product-viscosity').value,
+                capacity: document.getElementById('product-capacity').value,
+                stock: parseInt(document.getElementById('product-stock').value),
+                cost: parseFloat(document.getElementById('product-cost').value),
+                
+                // Mantener precio único para compatibilidad (usar cash_box como principal)
+                price: parseFloat(document.getElementById('price-cash-box').value),
+                
+                // Nuevo sistema de precios múltiples
+                prices: {
+                    cash_unit: parseFloat(document.getElementById('price-cash-unit').value) || 0,
+                    cash_box: parseFloat(document.getElementById('price-cash-box').value) || 0,
+                    credit_unit: parseFloat(document.getElementById('price-credit-unit').value) || 0,
+                    credit_box: parseFloat(document.getElementById('price-credit-box').value) || 0
+                }
+            };
+            
+            // Validación
+            if (!formData.prices.cash_box) {
+                if (window.showNotification) {
+                    window.showNotification('El precio Contado - Caja es requerido (precio principal)', 'error');
+                }
+                return;
+            }
+            
+            try {
+                if (currentEditingProduct) {
+                    await window.updateProduct(currentEditingProduct, formData);
+                    if (window.showNotification) {
+                        window.showNotification('Producto actualizado exitosamente', 'success');
+                    }
+                } else {
+                    await window.createProduct(formData);
+                    if (window.showNotification) {
+                        window.showNotification('Producto creado exitosamente', 'success');
+                    }
+                }
+                
+                closeProductModal();
+                loadProductsPage();
+            } catch (error) {
+                console.error('Error saving product:', error);
+                if (window.showNotification) {
+                    window.showNotification('Error al guardar producto: ' + error.message, 'error');
+                }
+            }
+        });
+        
+        // Asegurar que las funciones estén disponibles globalmente
+        window.displayProducts = displayProducts;
+        window.fillProductForm = fillProductForm;
+    </script>
 </body>
 </html>

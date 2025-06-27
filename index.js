@@ -75,8 +75,34 @@ const fallbackDatabase = {
       viscosity: "20W-50",
       capacity: "1L",
       stock: 50,
-      price: 25.99,
+      price: 620.00, // Precio principal (cash_box) para compatibilidad
       cost: 18.50,
+      // Nuevo sistema de precios múltiples
+      prices: {
+        cash_unit: 25.99,     // Contado - Pieza
+        cash_box: 620.00,     // Contado - Caja (MOSTRADO)
+        credit_unit: 27.50,   // Crédito 21 días - Pieza
+        credit_box: 660.00    // Crédito 21 días - Caja
+      },
+      created_at: new Date().toISOString()
+    },
+    {
+      id: 2,
+      code: "ACE002", 
+      name: "Aceite Sintético 5W-30",
+      brand: "Mobil 1",
+      viscosity: "5W-30",
+      capacity: "4L",
+      stock: 25,
+      price: 1079.00, // Precio principal (cash_box) para compatibilidad
+      cost: 45.00,
+      // Nuevo sistema de precios múltiples
+      prices: {
+        cash_unit: 89.99,
+        cash_box: 1079.00,
+        credit_unit: 95.50,
+        credit_box: 1146.00
+      },
       created_at: new Date().toISOString()
     }
   ],
@@ -106,6 +132,36 @@ const fallbackDatabase = {
   sales: [],
   inventory_movements: []
 };
+
+// ===== FUNCIONES ACTUALIZADAS PARA MANEJAR MULTI-PRECIOS =====
+
+// Función helper para migrar productos del sistema anterior al nuevo
+function migrateProductPrices(product) {
+  // Si el producto ya tiene el sistema de precios múltiples, devolverlo tal como está
+  if (product.prices && typeof product.prices === 'object') {
+    return {
+      ...product,
+      // Asegurar que el precio principal esté sincronizado
+      price: product.prices.cash_box || product.price
+    };
+  }
+  
+  // Migrar del sistema anterior (un solo precio) al nuevo sistema
+  const basePrice = product.price || 0;
+  const migratedProduct = {
+    ...product,
+    prices: {
+      cash_unit: Math.round((basePrice / 24) * 100) / 100, // Estimación: caja de 24 unidades
+      cash_box: basePrice,
+      credit_unit: Math.round((basePrice / 24 * 1.06) * 100) / 100, // 6% más para crédito
+      credit_box: Math.round(basePrice * 1.06 * 100) / 100
+    }
+  };
+  
+  console.log(`🔄 Producto migrado a multi-precios: ${product.code}`);
+  return migratedProduct;
+}
+
 
 
 // ===== NUEVA FUNCIÓN: ACTUALIZAR INVENTARIO =====
@@ -359,13 +415,80 @@ async function getProducts() {
         .order('created_at', { ascending: false });
       
       if (error) throw error;
-      return data || [];
+      
+      // Migrar productos que no tengan el sistema de multi-precios
+      const migratedProducts = (data || []).map(migrateProductPrices);
+      
+      console.log(`📦 Productos obtenidos de Supabase: ${migratedProducts.length}`);
+      return migratedProducts;
     } catch (error) {
       console.error('Error getting products from Supabase:', error);
-      return fallbackDatabase.products;
+      return fallbackDatabase.products.map(migrateProductPrices);
     }
   }
-  return fallbackDatabase.products;
+  
+  // Migrar productos en memoria
+  const migratedProducts = fallbackDatabase.products.map(migrateProductPrices);
+  console.log(`📦 Productos obtenidos de memoria: ${migratedProducts.length}`);
+  return migratedProducts;
+}
+
+function getProductPrice(product, paymentMethod = 'cash', quantity = 1, unitType = 'unit') {
+  // paymentMethod: 'cash' | 'credit'
+  // quantity: número de unidades
+  // unitType: 'unit' | 'box'
+  
+  if (!product.prices) {
+    // Producto del sistema anterior
+    return product.price || 0;
+  }
+  
+  const priceKey = `${paymentMethod}_${unitType}`;
+  const basePrice = product.prices[priceKey] || 0;
+  
+  console.log(`💰 Precio calculado para ${product.code}: ${paymentMethod} ${unitType} = $${basePrice} x ${quantity}`);
+  
+  return basePrice * quantity;
+}
+
+// ===== FUNCIÓN PARA CALCULAR PRECIOS EN PEDIDOS =====
+function calculateOrderPricing(orderProducts, paymentMethod = 'cash') {
+  let total = 0;
+  const pricedProducts = [];
+  
+  for (const orderProduct of orderProducts) {
+    // Buscar el producto completo
+    const product = fallbackDatabase.products.find(p => p.id === orderProduct.product_id);
+    
+    if (!product) {
+      console.warn(`⚠️ Producto no encontrado: ${orderProduct.product_id}`);
+      continue;
+    }
+    
+    // Determinar si es compra por unidad o caja
+    // Por defecto, usar precio de caja para pedidos
+    const unitType = orderProduct.unit_type || 'box';
+    
+    const unitPrice = getProductPrice(product, paymentMethod, 1, unitType);
+    const lineTotal = unitPrice * orderProduct.quantity;
+    
+    total += lineTotal;
+    
+    pricedProducts.push({
+      ...orderProduct,
+      unit_price: unitPrice,
+      line_total: lineTotal,
+      pricing_method: `${paymentMethod}_${unitType}`,
+      product_name: product.name,
+      product_code: product.code
+    });
+  }
+  
+  return {
+    products: pricedProducts,
+    subtotal: total,
+    total: total // Se pueden agregar impuestos aquí si es necesario
+  };
 }
 
 async function getEmployees() {
@@ -410,16 +533,35 @@ async function getEmployeeByCode(employee_code) {
   return fallbackDatabase.employees.find(emp => emp.employee_code === employee_code);
 }
 
+// Actualizar función createProduct para manejar multi-precios
 async function createProduct(productData) {
+  console.log('📦 Creando producto con multi-precios:', productData);
+  
+  // Validar estructura de precios
+  if (!productData.prices || !productData.prices.cash_box) {
+    return res.status(400).json({ 
+      message: 'El precio Contado - Caja es requerido',
+      error: 'missing_cash_box_price'
+    });
+  }
+  
+  // Asegurar sincronización del precio principal
+  const processedData = {
+    ...productData,
+    price: productData.prices.cash_box, // Mantener compatibilidad
+    created_at: new Date().toISOString()
+  };
+  
   if (supabase) {
     try {
       const { data, error } = await supabase
         .from('products')
-        .insert([productData])
+        .insert([processedData])
         .select()
         .single();
       
       if (error) throw error;
+      console.log('✅ Producto creado en Supabase con multi-precios');
       return data;
     } catch (error) {
       console.error('Error creating product in Supabase:', error);
@@ -427,26 +569,41 @@ async function createProduct(productData) {
     }
   }
   
+  // Fallback: crear en memoria
   const newProduct = {
     id: fallbackDatabase.products.length + 1,
-    ...productData,
-    created_at: new Date().toISOString()
+    ...processedData
   };
   fallbackDatabase.products.push(newProduct);
+  console.log('✅ Producto creado en memoria con multi-precios');
   return newProduct;
 }
 
 async function updateProduct(id, productData) {
+  console.log('📦 Actualizando producto con multi-precios:', id, productData);
+  
+  // Validar estructura de precios
+  if (productData.prices && !productData.prices.cash_box) {
+    throw new Error('El precio Contado - Caja es requerido');
+  }
+  
+  // Asegurar sincronización del precio principal
+  const processedData = {
+    ...productData,
+    price: productData.prices?.cash_box || productData.price // Mantener compatibilidad
+  };
+  
   if (supabase) {
     try {
       const { data, error } = await supabase
         .from('products')
-        .update(productData)
+        .update(processedData)
         .eq('id', id)
         .select()
         .single();
       
       if (error) throw error;
+      console.log('✅ Producto actualizado en Supabase con multi-precios');
       return data;
     } catch (error) {
       console.error('Error updating product in Supabase:', error);
@@ -454,12 +611,18 @@ async function updateProduct(id, productData) {
     }
   }
   
+  // Fallback: actualizar en memoria
   const index = fallbackDatabase.products.findIndex(p => p.id === parseInt(id));
   if (index === -1) throw new Error('Producto no encontrado');
   
-  fallbackDatabase.products[index] = { ...fallbackDatabase.products[index], ...productData };
+  fallbackDatabase.products[index] = { 
+    ...fallbackDatabase.products[index], 
+    ...processedData 
+  };
+  console.log('✅ Producto actualizado en memoria con multi-precios');
   return fallbackDatabase.products[index];
 }
+
 
 async function deleteProduct(id) {
   if (supabase) {
@@ -712,6 +875,145 @@ app.get("/api/products", auth, async (req, res) => {
   }
 });
 
+app.get("/api/products/:id/pricing", auth, async (req, res) => {
+  try {
+    const productId = parseInt(req.params.id);
+    const { payment_method = 'cash', unit_type = 'box', quantity = 1 } = req.query;
+    
+    console.log(`💰 Solicitud de precio para producto ${productId}:`, { payment_method, unit_type, quantity });
+    
+    // Buscar producto
+    const products = await getProducts();
+    const product = products.find(p => p.id === productId);
+    
+    if (!product) {
+      return res.status(404).json({ message: 'Producto no encontrado' });
+    }
+    
+    // Calcular precio
+    const price = getProductPrice(product, payment_method, parseInt(quantity), unit_type);
+    
+    res.json({
+      product_id: productId,
+      product_code: product.code,
+      product_name: product.name,
+      pricing: {
+        payment_method,
+        unit_type,
+        quantity: parseInt(quantity),
+        unit_price: price / parseInt(quantity),
+        total_price: price
+      },
+      available_prices: product.prices || { legacy_price: product.price }
+    });
+    
+  } catch (error) {
+    console.error('Error getting product pricing:', error);
+    res.status(500).json({ 
+      message: 'Error obteniendo precios del producto', 
+      error: error.message 
+    });
+  }
+});
+
+// ===== ENDPOINT PARA MIGRAR PRODUCTOS AL NUEVO SISTEMA =====
+app.post("/api/products/migrate-pricing", auth, adminOnly, async (req, res) => {
+  try {
+    console.log('🔄 Iniciando migración de productos a sistema multi-precios...');
+    
+    const products = await getProducts();
+    let migratedCount = 0;
+    let alreadyMigratedCount = 0;
+    
+    for (const product of products) {
+      if (product.prices && typeof product.prices === 'object') {
+        alreadyMigratedCount++;
+        continue;
+      }
+      
+      // Migrar producto
+      const migratedProduct = migrateProductPrices(product);
+      
+      try {
+        await updateProduct(product.id, migratedProduct);
+        migratedCount++;
+        console.log(`✅ Producto migrado: ${product.code}`);
+      } catch (error) {
+        console.error(`❌ Error migrando producto ${product.code}:`, error);
+      }
+    }
+    
+    res.json({
+      message: 'Migración completada',
+      total_products: products.length,
+      migrated: migratedCount,
+      already_migrated: alreadyMigratedCount,
+      errors: products.length - migratedCount - alreadyMigratedCount
+    });
+    
+  } catch (error) {
+    console.error('Error in migration:', error);
+    res.status(500).json({ 
+      message: 'Error en migración', 
+      error: error.message 
+    });
+  }
+});
+
+app.post("/api/products/bulk-pricing", auth, async (req, res) => {
+  try {
+    const { product_ids, payment_method = 'cash', unit_type = 'box' } = req.body;
+    
+    if (!product_ids || !Array.isArray(product_ids)) {
+      return res.status(400).json({ message: 'Se requiere un array de product_ids' });
+    }
+    
+    console.log(`💰 Calculando precios masivos para ${product_ids.length} productos`);
+    
+    const products = await getProducts();
+    const pricingResults = [];
+    
+    for (const productId of product_ids) {
+      const product = products.find(p => p.id === productId);
+      
+      if (!product) {
+        pricingResults.push({
+          product_id: productId,
+          error: 'Producto no encontrado'
+        });
+        continue;
+      }
+      
+      const price = getProductPrice(product, payment_method, 1, unit_type);
+      
+      pricingResults.push({
+        product_id: productId,
+        product_code: product.code,
+        product_name: product.name,
+        payment_method,
+        unit_type,
+        unit_price: price,
+        available_prices: product.prices || { legacy_price: product.price }
+      });
+    }
+    
+    res.json({
+      pricing_method: `${payment_method}_${unit_type}`,
+      results: pricingResults,
+      total_requested: product_ids.length,
+      total_found: pricingResults.filter(r => !r.error).length
+    });
+    
+  } catch (error) {
+    console.error('Error in bulk pricing:', error);
+    res.status(500).json({ 
+      message: 'Error calculando precios masivos', 
+      error: error.message 
+    });
+  }
+});
+
+
 app.post("/api/products", auth, adminOnly, async (req, res) => {
   try {
     const newProduct = await createProduct(req.body);
@@ -772,9 +1074,9 @@ app.get("/api/orders", auth, async (req, res) => {
 // POST Orders - Crear nuevo pedido CON VALIDACIÓN DE STOCK
 app.post("/api/orders", auth, async (req, res) => {
   try {
-    console.log('🔍 POST /api/orders - User:', req.user?.role);
+    console.log('🔍 POST /api/orders con multi-precios - User:', req.user?.role);
     
-    const { products } = req.body;
+    const { products, payment_method = 'cash' } = req.body;
     
     // Validar que hay productos en el pedido
     if (!products || !Array.isArray(products) || products.length === 0) {
@@ -784,7 +1086,11 @@ app.post("/api/orders", auth, async (req, res) => {
       });
     }
     
-    // ✅ NUEVA VALIDACIÓN: Verificar stock disponible antes de crear el pedido
+    // ✅ NUEVA FUNCIONALIDAD: Calcular precios según modalidad de pago
+    console.log('💰 Calculando precios según modalidad:', payment_method);
+    const pricingResult = calculateOrderPricing(products, payment_method);
+    
+    // Validar stock disponible
     console.log('🔍 Validando stock disponible...');
     const stockValidation = await validateStockAvailability(products);
     
@@ -802,18 +1108,28 @@ app.post("/api/orders", auth, async (req, res) => {
       employee_id: req.user.id,
       employee_code: req.user.employee_code,
       status: 'hold',
+      payment_method: payment_method, // Nuevo campo
+      products: pricingResult.products, // Productos con precios calculados
+      subtotal: pricingResult.subtotal,
+      total: pricingResult.total,
       ...req.body
     };
     
     const newOrder = await createOrder(orderData);
-    console.log('✅ Pedido creado:', newOrder.id);
+    console.log('✅ Pedido creado con precios calculados:', newOrder.id);
     
     res.json({
       ...newOrder,
+      pricing_details: {
+        payment_method,
+        products_count: pricingResult.products.length,
+        subtotal: pricingResult.subtotal,
+        total: pricingResult.total
+      },
       stock_validation: 'passed'
     });
   } catch (error) {
-    console.error('Error in POST /api/orders:', error);
+    console.error('Error in POST /api/orders with multi-pricing:', error);
     res.status(500).json({ message: 'Error creando pedido', error: error.message });
   }
 });
