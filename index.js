@@ -416,21 +416,28 @@ async function getProducts() {
       
       if (error) throw error;
       
-      // Migrar productos que no tengan el sistema de multi-precios
-      const migratedProducts = (data || []).map(migrateProductPrices);
+      // Ensure backward compatibility - add prices if missing
+      const productsWithPrices = (data || []).map(product => {
+        if (!product.prices && product.price) {
+          product.prices = {
+            cash_unit: 0,
+            cash_box: product.price,
+            credit_unit: 0,
+            credit_box: 0
+          };
+        }
+        return product;
+      });
       
-      console.log(`📦 Productos obtenidos de Supabase: ${migratedProducts.length}`);
-      return migratedProducts;
+      console.log('✅ Products loaded with price compatibility:', productsWithPrices.length);
+      return productsWithPrices;
+      
     } catch (error) {
-      console.error('Error getting products from Supabase:', error);
-      return fallbackDatabase.products.map(migrateProductPrices);
+      console.error('❌ Error getting products from Supabase:', error);
+      return fallbackDatabase.products;
     }
   }
-  
-  // Migrar productos en memoria
-  const migratedProducts = fallbackDatabase.products.map(migrateProductPrices);
-  console.log(`📦 Productos obtenidos de memoria: ${migratedProducts.length}`);
-  return migratedProducts;
+  return fallbackDatabase.products;
 }
 
 function getProductPrice(product, paymentMethod = 'cash', quantity = 1, unitType = 'unit') {
@@ -535,91 +542,157 @@ async function getEmployeeByCode(employee_code) {
 
 // Actualizar función createProduct para manejar multi-precios
 async function createProduct(productData) {
-  console.log('📦 Creando producto con multi-precios:', productData);
-  
-  // Validar estructura de precios
-  if (!productData.prices || !productData.prices.cash_box) {
-    return res.status(400).json({ 
-      message: 'El precio Contado - Caja es requerido',
-      error: 'missing_cash_box_price'
-    });
-  }
-  
-  // Asegurar sincronización del precio principal
-  const processedData = {
-    ...productData,
-    price: productData.prices.cash_box, // Mantener compatibilidad
-    created_at: new Date().toISOString()
-  };
-  
   if (supabase) {
     try {
+      // Prepare the data with prices compatibility
+      const createData = { ...productData };
+      
+      // Handle prices field
+      if (productData.prices) {
+        createData.prices = productData.prices;
+        createData.price = productData.prices.cash_box || productData.price || 0;
+      } else if (productData.price) {
+        createData.prices = {
+          cash_unit: 0,
+          cash_box: productData.price,
+          credit_unit: 0,
+          credit_box: 0
+        };
+      }
+      
+      console.log('🔄 Creating product with data:', createData);
+      
       const { data, error } = await supabase
         .from('products')
-        .insert([processedData])
+        .insert([createData])
         .select()
         .single();
       
-      if (error) throw error;
-      console.log('✅ Producto creado en Supabase con multi-precios');
+      if (error) {
+        console.error('❌ Supabase create error:', error);
+        throw error;
+      }
+      
+      console.log('✅ Product created in Supabase:', data);
       return data;
+      
     } catch (error) {
-      console.error('Error creating product in Supabase:', error);
-      // Fallback a memoria si falla Supabase
+      console.error('❌ Error creating product in Supabase:', error);
+      
+      // If it's a column not found error, fall back to old format
+      if (error.code === 'PGRST204' && error.message.includes('prices')) {
+        console.log('⚠️ Prices column not found, using old format...');
+        
+        const fallbackData = { ...productData };
+        delete fallbackData.prices;
+        
+        const { data, error: fallbackError } = await supabase
+          .from('products')
+          .insert([fallbackData])
+          .select()
+          .single();
+        
+        if (fallbackError) throw fallbackError;
+        
+        console.log('✅ Product created using old format:', data);
+        return data;
+      }
+      
+      // Continue with fallback for other errors
+      console.log('🔄 Falling back to memory database...');
     }
   }
   
-  // Fallback: crear en memoria
+  // Fallback: create in memory
   const newProduct = {
     id: fallbackDatabase.products.length + 1,
-    ...processedData
+    ...productData,
+    created_at: new Date().toISOString()
   };
+  
   fallbackDatabase.products.push(newProduct);
-  console.log('✅ Producto creado en memoria con multi-precios');
+  console.log('✅ Product created in memory:', newProduct);
   return newProduct;
 }
 
 async function updateProduct(id, productData) {
-  console.log('📦 Actualizando producto con multi-precios:', id, productData);
-  
-  // Validar estructura de precios
-  if (productData.prices && !productData.prices.cash_box) {
-    throw new Error('El precio Contado - Caja es requerido');
-  }
-  
-  // Asegurar sincronización del precio principal
-  const processedData = {
-    ...productData,
-    price: productData.prices?.cash_box || productData.price // Mantener compatibilidad
-  };
-  
   if (supabase) {
     try {
+      // Prepare the update data
+      const updateData = { ...productData };
+      
+      // Handle backward compatibility for prices
+      if (productData.prices) {
+        // New multi-price system
+        updateData.prices = productData.prices;
+        // Also update the main price field for backward compatibility
+        updateData.price = productData.prices.cash_box || productData.price || 0;
+      } else if (productData.price) {
+        // Old single price system - convert to new format
+        updateData.prices = {
+          cash_unit: 0,
+          cash_box: productData.price,
+          credit_unit: 0,
+          credit_box: 0
+        };
+      }
+      
+      console.log('🔄 Updating product with data:', updateData);
+      
       const { data, error } = await supabase
         .from('products')
-        .update(processedData)
+        .update(updateData)
         .eq('id', id)
         .select()
         .single();
       
-      if (error) throw error;
-      console.log('✅ Producto actualizado en Supabase con multi-precios');
+      if (error) {
+        console.error('❌ Supabase update error:', error);
+        throw error;
+      }
+      
+      console.log('✅ Product updated in Supabase:', data);
       return data;
+      
     } catch (error) {
-      console.error('Error updating product in Supabase:', error);
-      // Fallback a memoria si falla Supabase
+      console.error('❌ Error updating product in Supabase:', error);
+      
+      // If it's a column not found error, fall back to old format
+      if (error.code === 'PGRST204' && error.message.includes('prices')) {
+        console.log('⚠️ Prices column not found, using old format...');
+        
+        // Remove the prices field and try again with old format
+        const fallbackData = { ...productData };
+        delete fallbackData.prices;
+        
+        const { data, error: fallbackError } = await supabase
+          .from('products')
+          .update(fallbackData)
+          .eq('id', id)
+          .select()
+          .single();
+        
+        if (fallbackError) throw fallbackError;
+        
+        console.log('✅ Product updated using old format:', data);
+        return data;
+      }
+      
+      // For other errors, continue with fallback to memory
+      console.log('🔄 Falling back to memory database...');
     }
   }
   
-  // Fallback: actualizar en memoria
+  // Fallback: update in memory
   const index = fallbackDatabase.products.findIndex(p => p.id === parseInt(id));
   if (index === -1) throw new Error('Producto no encontrado');
   
   fallbackDatabase.products[index] = { 
     ...fallbackDatabase.products[index], 
-    ...processedData 
+    ...productData 
   };
-  console.log('✅ Producto actualizado en memoria con multi-precios');
+  
+  console.log('✅ Product updated in memory:', fallbackDatabase.products[index]);
   return fallbackDatabase.products[index];
 }
 
