@@ -746,6 +746,8 @@ async function getOrders(employeeId = null, role = null) {
 }
 
 async function createOrder(orderData) {
+  console.log('🔄 Creating order with data:', orderData);
+  
   if (supabase) {
     try {
       const { data, error } = await supabase
@@ -754,20 +756,30 @@ async function createOrder(orderData) {
         .select()
         .single();
       
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Supabase error creating order:', error);
+        throw new Error(`Database error: ${error.message}`);
+      }
+      
+      console.log('✅ Order created in Supabase:', data);
       return data;
     } catch (error) {
-      console.error('Error creating order in Supabase:', error);
-      // Fallback a memoria si falla Supabase
+      console.error('❌ Error creating order in Supabase:', error);
+      
+      // Don't fall back to memory for database errors, throw the error
+      throw error;
     }
   }
   
+  // Fallback: create in memory
   const newOrder = {
     id: fallbackDatabase.orders.length + 1,
     ...orderData,
     created_at: new Date().toISOString()
   };
+  
   fallbackDatabase.orders.push(newOrder);
+  console.log('✅ Order created in memory:', newOrder);
   return newOrder;
 }
 
@@ -1439,28 +1451,54 @@ app.post("/api/orders", auth, async (req, res) => {
       return res.status(403).json({ message: 'Rol no autorizado' });
     }
     
-    // Crear el pedido
-    const newOrder = await createOrder(orderData);
-    
-    console.log(`✅ Pedido creado desde ${inventorySource}:`, newOrder.id);
-    
-    res.json({
-      ...newOrder,
-      inventory_source: inventorySource,
-      trip_info: inventorySource === 'substore' ? {
-        trip_id: orderData.trip_id,
-        trip_number: substoreData?.trip?.trip_number
-      } : null
-    });
+    try {
+      // Crear el pedido
+      const newOrder = await createOrder(orderData);
+      
+      console.log(`✅ Pedido creado desde ${inventorySource}:`, newOrder.id);
+      
+      // Ensure we return a valid JSON response
+      const response = {
+        success: true,
+        message: 'Pedido creado exitosamente',
+        order: newOrder,
+        inventory_source: inventorySource,
+        trip_info: inventorySource === 'substore' ? {
+          trip_id: orderData.trip_id,
+          trip_number: substoreData?.trip?.trip_number
+        } : null
+      };
+      
+      // Set proper headers for JSON response
+      res.setHeader('Content-Type', 'application/json');
+      
+      // Send the response
+      res.status(201).json(response);
+      
+    } catch (createError) {
+      console.error('❌ Error creating order in database:', createError);
+      
+      return res.status(500).json({
+        success: false,
+        message: 'Error interno creando pedido',
+        error: createError.message
+      });
+    }
     
   } catch (error) {
-    console.error('Error in POST /api/orders with substore:', error);
+    console.error('❌ Error in POST /api/orders with substore:', error);
+    
+    // Ensure we always send a JSON response
+    res.setHeader('Content-Type', 'application/json');
+    
     res.status(500).json({ 
-      message: 'Error creando pedido', 
+      success: false,
+      message: 'Error interno del servidor', 
       error: error.message 
     });
   }
 });
+
 
 // PUT Confirm Order - CON GESTIÓN AUTOMÁTICA DE INVENTARIO
 app.put("/api/orders/:id/confirm", auth, adminOnly, async (req, res) => {

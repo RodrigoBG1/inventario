@@ -24,7 +24,6 @@ async function apiRequest(endpoint, options = {}) {
         }
     };
     
-    // Solo agregar Authorization si hay token
     if (token) {
         defaultOptions.headers['Authorization'] = `Bearer ${token}`;
     }
@@ -53,33 +52,55 @@ async function apiRequest(endpoint, options = {}) {
         
         console.log('📡 API Response:', response.status, response.statusText);
         
-        // Obtener el texto de la respuesta primero
-        const responseText = await response.text();
-        console.log('📄 Response text:', responseText);
-        
-        // Intentar parsear como JSON
-        let data;
-        try {
-            data = responseText ? JSON.parse(responseText) : {};
-        } catch (parseError) {
-            console.error('❌ Error parsing JSON:', parseError);
-            console.error('📄 Raw response:', responseText);
-            
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        // Only treat as error if response is clearly not ok (4xx, 5xx)
+        if (!response.ok) {
+            let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+            try {
+                const errorText = await response.text();
+                if (errorText) {
+                    try {
+                        const errorData = JSON.parse(errorText);
+                        errorMessage = errorData.message || errorData.error || errorMessage;
+                    } catch (parseError) {
+                        errorMessage = errorText || errorMessage;
+                    }
+                }
+            } catch (textError) {
+                // Ignore errors reading response text
             }
             
-            // Si la respuesta es exitosa pero no es JSON válido
-            data = { success: true, raw_response: responseText };
-        }
-        
-        if (!response.ok) {
-            const errorMessage = data.message || data.error || `HTTP ${response.status}: ${response.statusText}`;
-            console.error('❌ API Error Response:', data);
+            console.error('❌ API Error Response:', errorMessage);
             throw new Error(errorMessage);
         }
         
-        console.log('📄 API Data received:', endpoint, 'type:', typeof data);
+        // Get response text
+        const responseText = await response.text();
+        console.log('📄 Response received, length:', responseText.length);
+        
+        // Handle empty responses as success
+        if (!responseText || responseText.trim() === '') {
+            console.log('✅ Empty response - treating as success');
+            return { success: true, message: 'Operation completed successfully' };
+        }
+        
+        // Try to parse JSON, but don't fail if it's malformed
+        let data;
+        try {
+            data = JSON.parse(responseText);
+            console.log('✅ JSON parsed successfully');
+        } catch (parseError) {
+            console.warn('⚠️ JSON Parse warning (but response was successful):', parseError.message);
+            
+            // For successful HTTP status codes, treat parsing errors as success
+            // since the server operation was successful
+            return { 
+                success: true, 
+                message: 'Operation completed successfully',
+                note: 'Server response was not valid JSON but operation was successful'
+            };
+        }
+        
+        console.log('📄 API Data received successfully');
         return data;
         
     } catch (error) {
@@ -89,7 +110,7 @@ async function apiRequest(endpoint, options = {}) {
             throw new Error('Timeout: El servidor no responde');
         }
         
-        // Si es error 401, redirigir al login
+        // Handle auth errors
         if (error.message.includes('401')) {
             console.log('🔑 Token expirado, redirigiendo al login');
             localStorage.removeItem('token');
@@ -101,6 +122,7 @@ async function apiRequest(endpoint, options = {}) {
         throw error;
     }
 }
+
 
 // ===== PRODUCTOS =====
 async function getProducts() {
