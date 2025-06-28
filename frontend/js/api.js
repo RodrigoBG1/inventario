@@ -42,7 +42,7 @@ async function apiRequest(endpoint, options = {}) {
         console.log('🔄 API Request:', endpoint, config.method || 'GET');
         
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 segundos timeout
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
         
         const response = await fetch(`${window.API_BASE_URL}${endpoint}`, {
             ...config,
@@ -53,18 +53,33 @@ async function apiRequest(endpoint, options = {}) {
         
         console.log('📡 API Response:', response.status, response.statusText);
         
-        if (!response.ok) {
-            let errorData;
-            try {
-                errorData = await response.json();
-            } catch (e) {
+        // Obtener el texto de la respuesta primero
+        const responseText = await response.text();
+        console.log('📄 Response text:', responseText);
+        
+        // Intentar parsear como JSON
+        let data;
+        try {
+            data = responseText ? JSON.parse(responseText) : {};
+        } catch (parseError) {
+            console.error('❌ Error parsing JSON:', parseError);
+            console.error('📄 Raw response:', responseText);
+            
+            if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
-            throw new Error(errorData.message || `Error ${response.status}`);
+            
+            // Si la respuesta es exitosa pero no es JSON válido
+            data = { success: true, raw_response: responseText };
         }
         
-        const data = await response.json();
-        console.log('📄 API Data received:', endpoint, 'items:', Array.isArray(data) ? data.length : 'object');
+        if (!response.ok) {
+            const errorMessage = data.message || data.error || `HTTP ${response.status}: ${response.statusText}`;
+            console.error('❌ API Error Response:', data);
+            throw new Error(errorMessage);
+        }
+        
+        console.log('📄 API Data received:', endpoint, 'type:', typeof data);
         return data;
         
     } catch (error) {
@@ -89,7 +104,27 @@ async function apiRequest(endpoint, options = {}) {
 
 // ===== PRODUCTOS =====
 async function getProducts() {
-    return await apiRequest('/api/products');
+    console.log('📦 Obteniendo productos (con soporte para subalmacén)...');
+    
+    try {
+        const user = getUser();
+        const response = await apiRequest('/api/products');
+        
+        // Si es empleado, la respuesta puede incluir información del subalmacén
+        if (user?.role === 'employee' && response.substore_info) {
+            console.log('👤 Empleado - productos del subalmacén:', response.products?.length || 0);
+            console.log('🚛 Info del viaje:', response.substore_info.trip?.trip_number);
+            return response;
+        }
+        
+        // Si es admin o respuesta estándar, devolver productos normalmente
+        console.log('👑 Admin - productos del almacén principal:', Array.isArray(response) ? response.length : 'formato no estándar');
+        return Array.isArray(response) ? response : response.products || [];
+        
+    } catch (error) {
+        console.error('❌ Error obteniendo productos:', error);
+        throw error;
+    }
 }
 
 async function getProduct(id) {
@@ -116,6 +151,256 @@ async function deleteProduct(id) {
     });
 }
 
+// Obtener viajes (trips)
+async function getTrips(status = null, employeeId = null) {
+    console.log('🚛 Obteniendo viajes:', { status, employeeId });
+    
+    try {
+        let url = '/api/trips';
+        const params = new URLSearchParams();
+        
+        if (status) params.append('status', status);
+        if (employeeId) params.append('employee_id', employeeId);
+        
+        if (params.toString()) {
+            url += '?' + params.toString();
+        }
+        
+        const response = await apiRequest(url);
+        console.log('✅ Viajes obtenidos:', response?.length || 0);
+        return response;
+        
+    } catch (error) {
+        console.error('❌ Error obteniendo viajes:', error);
+        throw error;
+    }
+}
+
+async function createTrip(tripData) {
+    console.log('🚛 Creando viaje:', tripData);
+    
+    try {
+        const response = await apiRequest('/api/trips', {
+            method: 'POST',
+            body: JSON.stringify(tripData)
+        });
+        
+        console.log('✅ Viaje creado:', response);
+        return response;
+        
+    } catch (error) {
+        console.error('❌ Error creando viaje:', error);
+        throw error;
+    }
+}
+
+// Finalizar viaje
+async function completeTrip(tripId, returnProducts = []) {
+    console.log('🏁 Finalizando viaje:', { tripId, returnProducts });
+    
+    try {
+        const response = await apiRequest(`/api/trips/${tripId}/complete`, {
+            method: 'PUT',
+            body: JSON.stringify({ return_products: returnProducts })
+        });
+        
+        console.log('✅ Viaje finalizado:', response);
+        return response;
+        
+    } catch (error) {
+        console.error('❌ Error finalizando viaje:', error);
+        throw error;
+    }
+}
+
+// Obtener inventario de subalmacén por viaje
+async function getTripInventory(tripId) {
+    console.log('📦 Obteniendo inventario del viaje:', tripId);
+    
+    try {
+        const response = await apiRequest(`/api/trips/${tripId}/inventory`);
+        console.log('✅ Inventario del viaje obtenido:', response?.length || 0);
+        return response;
+        
+    } catch (error) {
+        console.error('❌ Error obteniendo inventario del viaje:', error);
+        throw error;
+    }
+}
+
+// ===== FUNCIONES DE REPORTES PARA SUBALMACENES =====
+
+// Resumen de viajes activos
+async function getActiveTripsReport() {
+    console.log('📊 Obteniendo reporte de viajes activos...');
+    
+    try {
+        const response = await apiRequest('/api/reports/active-trips');
+        console.log('✅ Reporte de viajes activos obtenido:', response?.length || 0);
+        return response;
+        
+    } catch (error) {
+        console.error('❌ Error obteniendo reporte de viajes activos:', error);
+        throw error;
+    }
+}
+
+// Reporte detallado de inventario por viajes
+async function getTripInventoryReport() {
+    console.log('📊 Obteniendo reporte de inventario por viajes...');
+    
+    try {
+        const response = await apiRequest('/api/reports/trip-inventory');
+        console.log('✅ Reporte de inventario por viajes obtenido:', response?.length || 0);
+        return response;
+        
+    } catch (error) {
+        console.error('❌ Error obteniendo reporte de inventario por viajes:', error);
+        throw error;
+    }
+}
+
+// ===== FUNCIONES DE DEBUGGING =====
+
+// Debug de trips
+async function debugTrips() {
+    console.log('🔍 Debug de trips...');
+    
+    try {
+        const response = await apiRequest('/api/trips-debug');
+        console.log('✅ Debug de trips:', response);
+        return response;
+        
+    } catch (error) {
+        console.error('❌ Error en debug de trips:', error);
+        throw error;
+    }
+}
+
+// Test de conectividad para subalmacenes
+async function testSubstoreConnectivity() {
+    console.log('🌐 Testeando conectividad de subalmacenes...');
+    
+    try {
+        // Test endpoint de trips
+        const tripsTest = await fetch(`${window.API_BASE_URL}/api/trips`, {
+            method: 'HEAD',
+            headers: {
+                'Authorization': `Bearer ${getToken()}`
+            }
+        });
+        
+        console.log('🚛 Test trips endpoint:', tripsTest.status);
+        
+        // Test endpoint de estado de subalmacén
+        const substoreTest = await fetch(`${window.API_BASE_URL}/api/employee/substore-status`, {
+            method: 'HEAD',
+            headers: {
+                'Authorization': `Bearer ${getToken()}`
+            }
+        });
+        
+        console.log('📦 Test substore endpoint:', substoreTest.status);
+        
+        return {
+            trips_available: tripsTest.status !== 404,
+            substore_available: substoreTest.status !== 404,
+            trips_status: tripsTest.status,
+            substore_status: substoreTest.status
+        };
+        
+    } catch (error) {
+        console.error('❌ Error testeando conectividad:', error);
+        return {
+            trips_available: false,
+            substore_available: false,
+            error: error.message
+        };
+    }
+}
+
+function showNoSubstoreNotification() {
+    showNotification(
+        'No tienes un subalmacén activo. Contacta al administrador para que te asigne productos.',
+        'warning'
+    );
+}
+
+// Mostrar notificación de éxito para pedidos desde subalmacén
+function showSubstoreOrderSuccess(orderNumber, tripNumber) {
+    showNotification(
+        `Pedido ${orderNumber} creado desde subalmacén ${tripNumber}`,
+        'success'
+    );
+}
+
+// Mostrar notificación de stock insuficiente en subalmacén
+function showSubstoreStockWarning(productName, available, requested) {
+    showNotification(
+        `Stock insuficiente en subalmacén para ${productName}. Disponible: ${available}, solicitado: ${requested}`,
+        'warning'
+    );
+}
+
+// ===== HACER FUNCIONES GLOBALES =====
+
+// Nuevas funciones para subalmacén
+if (!window.getEmployeeSubstoreStatus) {
+    window.getEmployeeSubstoreStatus = getEmployeeSubstoreStatus;
+    window.getEmployeeSubstoreProducts = getEmployeeSubstoreProducts;
+    window.getEmployeeSubstoreSales = getEmployeeSubstoreSales;
+    window.confirmOrderFromSubstore = confirmOrderFromSubstore;
+    
+    // Funciones de trips
+    window.getTrips = getTrips;
+    window.createTrip = createTrip;
+    window.completeTrip = completeTrip;
+    window.getTripInventory = getTripInventory;
+    
+    // Reportes
+    window.getActiveTripsReport = getActiveTripsReport;
+    window.getTripInventoryReport = getTripInventoryReport;
+    
+    // Debug y testing
+    window.debugTrips = debugTrips;
+    window.testSubstoreConnectivity = testSubstoreConnectivity;
+    
+    // Notificaciones específicas
+    window.showNoSubstoreNotification = showNoSubstoreNotification;
+    window.showSubstoreOrderSuccess = showSubstoreOrderSuccess;
+    window.showSubstoreStockWarning = showSubstoreStockWarning;
+}
+
+// ===== VERIFICACIÓN DE SUBALMACÉN AL CARGAR =====
+document.addEventListener('DOMContentLoaded', async function() {
+    // Solo verificar si estamos en páginas de empleado
+    if (window.location.pathname.includes('/employee/')) {
+        try {
+            const user = getUser();
+            if (user && user.role === 'employee') {
+                console.log('👤 Usuario empleado detectado, verificando conectividad de subalmacén...');
+                
+                const connectivity = await testSubstoreConnectivity();
+                console.log('🌐 Conectividad de subalmacén:', connectivity);
+                
+                if (!connectivity.trips_available || !connectivity.substore_available) {
+                    console.warn('⚠️ Algunos endpoints de subalmacén no están disponibles');
+                    if (window.location.pathname.includes('orders.html')) {
+                        showNotification(
+                            'Algunos servicios de subalmacén no están disponibles. Contacta al administrador.',
+                            'warning'
+                        );
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('❌ Error verificando subalmacén:', error);
+        }
+    }
+});
+
+console.log('✅ API de subalmacén configurada correctamente');
+
 // ===== EMPLEADOS =====
 async function getEmployees() {
     return await apiRequest('/api/employees');
@@ -134,10 +419,64 @@ async function getOrders() {
 }
 
 async function createOrder(orderData) {
-    return await apiRequest('/api/orders', {
-        method: 'POST',
-        body: JSON.stringify(orderData)
-    });
+    console.log('📤 createOrder llamado con:', orderData);
+    
+    try {
+        const response = await apiRequest('/api/orders', {
+            method: 'POST',
+            body: JSON.stringify(orderData)
+        });
+        
+        console.log('✅ createOrder respuesta exitosa:', response);
+        return response;
+        
+    } catch (error) {
+        console.error('❌ createOrder error:', error);
+        throw error;
+    }
+}
+
+
+// Función para obtener estado del subalmacén del empleado
+async function getEmployeeSubstoreStatus() {
+    console.log('🔍 Obteniendo estado del subalmacén del empleado...');
+    
+    try {
+        const response = await apiRequest('/api/employee/substore-status');
+        console.log('✅ Estado del subalmacén obtenido:', response);
+        return response;
+    } catch (error) {
+        console.error('❌ Error obteniendo estado del subalmacén:', error);
+        throw error;
+    }
+}
+
+// Función para obtener productos del subalmacén del empleado
+async function getEmployeeSubstoreProducts() {
+    console.log('📦 Obteniendo productos del subalmacén...');
+    
+    try {
+        const response = await apiRequest('/api/substore/products');
+        console.log('✅ Productos del subalmacén obtenidos:', response);
+        return response;
+    } catch (error) {
+        console.error('❌ Error obteniendo productos del subalmacén:', error);
+        throw error;
+    }
+}
+
+// Función para obtener ventas del subalmacén del empleado
+async function getEmployeeSubstoreSales() {
+    console.log('💰 Obteniendo ventas del subalmacén...');
+    
+    try {
+        const response = await apiRequest('/api/employee/substore-sales');
+        console.log('✅ Ventas del subalmacén obtenidas:', response);
+        return response;
+    } catch (error) {
+        console.error('❌ Error obteniendo ventas del subalmacén:', error);
+        throw error;
+    }
 }
 
 // ===== FUNCIONES DE CONFIRMACIÓN CORREGIDAS =====
@@ -185,6 +524,28 @@ async function confirmOrder(orderId, paymentInfo) {
         throw error;
     }
 }
+
+async function confirmOrderFromSubstore(orderId, tripId, paymentInfo) {
+    console.log('🔄 Confirmando pedido desde subalmacén:', { orderId, tripId, paymentInfo });
+    
+    try {
+        const response = await apiRequest(`/api/orders/${orderId}/confirm-substore`, {
+            method: 'PUT',
+            body: JSON.stringify({ 
+                trip_id: tripId, 
+                payment_info: paymentInfo 
+            })
+        });
+        
+        console.log('✅ Pedido confirmado desde subalmacén:', response);
+        return response;
+        
+    } catch (error) {
+        console.error('❌ Error confirmando pedido desde subalmacén:', error);
+        throw error;
+    }
+}
+
 
 // Cancel Order - CORREGIDO
 async function cancelOrder(orderId, reason) {

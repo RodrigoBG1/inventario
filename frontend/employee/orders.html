@@ -7,183 +7,153 @@
     <link rel="stylesheet" href="../css/style.css">
     <link rel="stylesheet" href="../css/employee.css">
     <style>
-        /* Estilos específicos para la selección de modalidad de pago */
-        .payment-method-section {
-            background: white;
-            margin-bottom: 2rem;
-            border-radius: 8px;
-            padding: 0;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-            overflow: hidden;
-        }
-
-        .payment-method-header {
-            background: #2563eb;
+        /* Estilos específicos para subalmacén */
+        .substore-status {
+            background: linear-gradient(135deg, #1e40af, #2563eb);
             color: white;
-            padding: 1rem 1.5rem;
-            margin: 0;
-            font-weight: 600;
-            font-size: 1rem;
-            border-bottom: none;
-        }
-
-        .payment-method-content {
             padding: 1.5rem;
-        }
-
-        .payment-options {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1rem;
-        }
-
-        .payment-option {
-            border: 2px solid #e2e8f0;
             border-radius: 8px;
-            padding: 1.5rem;
-            cursor: pointer;
-            transition: all 0.2s;
-            position: relative;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         }
 
-        .payment-option:hover {
-            border-color: #2563eb;
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px -8px rgba(37, 99, 235, 0.2);
+        .substore-status.no-trip {
+            background: linear-gradient(135deg, #dc2626, #ef4444);
         }
 
-        .payment-option.selected {
-            border-color: #2563eb;
-            background: linear-gradient(135deg, #eff6ff, #dbeafe);
-        }
-
-        .payment-option input[type="radio"] {
-            position: absolute;
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-
-        .payment-option-header {
+        .substore-header {
             display: flex;
+            justify-content: space-between;
             align-items: center;
-            gap: 0.75rem;
             margin-bottom: 1rem;
         }
 
-        .payment-icon {
-            font-size: 1.5rem;
-        }
-
-        .payment-title {
+        .substore-title {
+            font-size: 1.25rem;
             font-weight: 600;
-            color: #334155;
-            font-size: 1.1rem;
+            margin: 0;
         }
 
-        .payment-badge {
-            background: #2563eb;
+        .trip-number {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.875rem;
+        }
+
+        .substore-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .substore-stat {
+            text-align: center;
+            padding: 1rem;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            display: block;
+            margin-bottom: 0.25rem;
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            opacity: 0.9;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .substore-product-card {
+            border-left: 4px solid var(--primary-color);
+            position: relative;
+        }
+
+        .substore-badge {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            background: var(--success-color);
             color: white;
             padding: 0.25rem 0.5rem;
             border-radius: 4px;
             font-size: 0.7rem;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-left: auto;
-        }
-
-        .payment-option.selected .payment-badge {
-            background: #059669;
-        }
-
-        .payment-description {
-            color: #64748b;
-            font-size: 0.875rem;
-            line-height: 1.4;
-            margin-bottom: 0.75rem;
-        }
-
-        .payment-benefits {
-            font-size: 0.8rem;
-            color: #16a34a;
-            font-weight: 500;
-        }
-
-        .price-preview {
-            margin-top: 1rem;
-            padding: 1rem;
-            background: #f8fafc;
-            border-radius: 6px;
-            border: 1px solid #e2e8f0;
-        }
-
-        .price-preview h4 {
-            color: #2563eb;
-            margin-bottom: 0.5rem;
-            font-size: 0.9rem;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .price-example {
-            display: flex;
-            justify-content: between;
-            align-items: center;
-            margin-bottom: 0.25rem;
-        }
-
-        .price-label {
-            color: #64748b;
-            font-size: 0.875rem;
-        }
-
-        .price-value {
             font-weight: 600;
-            color: #2563eb;
-            margin-left: auto;
+            text-transform: uppercase;
         }
 
-        .product-card {
-            position: relative;
-        }
-
-        .product-pricing-info {
-            background: #f8fafc;
-            margin: 1rem 0;
-            padding: 0.75rem;
+        .substore-info {
+            background: #f0f9ff;
+            border: 1px solid #0ea5e9;
             border-radius: 6px;
-            border: 1px solid #e2e8f0;
+            padding: 0.75rem;
+            margin-top: 0.5rem;
+            font-size: 0.85rem;
         }
 
-        .pricing-row {
+        .substore-info-row {
             display: flex;
             justify-content: space-between;
-            align-items: center;
             margin-bottom: 0.25rem;
-            font-size: 0.875rem;
         }
 
-        .pricing-row:last-child {
+        .substore-info-row:last-child {
             margin-bottom: 0;
         }
 
-        .pricing-label {
-            color: #64748b;
+        .no-trip-message {
+            text-align: center;
+            padding: 3rem 2rem;
+            background: #fef2f2;
+            border-radius: 8px;
+            border: 1px solid #fecaca;
+            margin: 2rem 0;
         }
 
-        .pricing-value {
+        .no-trip-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .no-trip-title {
+            color: #dc2626;
+            font-size: 1.5rem;
             font-weight: 600;
-            color: #334155;
+            margin-bottom: 1rem;
         }
 
-        .pricing-value.current {
-            color: #059669;
-            font-size: 1rem;
+        .no-trip-description {
+            color: #7f1d1d;
+            margin-bottom: 1.5rem;
+            line-height: 1.6;
+        }
+
+        .contact-admin {
+            background: #dc2626;
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
         }
 
         @media (max-width: 768px) {
-            .payment-options {
-                grid-template-columns: 1fr;
+            .substore-header {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .substore-stats {
+                grid-template-columns: repeat(2, 1fr);
             }
         }
     </style>
@@ -205,14 +175,21 @@
 
         <main class="main-content">
             <header class="content-header">
-                <h1>Nuevo Pedido</h1>
+                <h1>Nuevo Pedido - Subalmacén</h1>
                 <div class="header-actions">
-                    <button id="location-btn" class="btn-location">📍 Obtener Ubicación</button>
-                    <span id="location-status"></span>
+                    <button id="refresh-substore-btn" class="btn btn-secondary" onclick="refreshSubstoreStatus()">
+                        🔄 Actualizar Estado
+                    </button>
                 </div>
             </header>
 
-            <div class="order-form-container">
+            <!-- Estado del Subalmacén -->
+            <div id="substore-status-container">
+                <!-- Se llena dinámicamente -->
+            </div>
+
+            <!-- Contenido del formulario de pedido -->
+            <div id="order-form-container" class="order-form-container" style="display: none;">
                 <!-- Modalidad de Pago -->
                 <div class="payment-method-section">
                     <h3 class="payment-method-header">💳 Modalidad de Pago</h3>
@@ -254,18 +231,6 @@
                                 </label>
                             </div>
                         </div>
-
-                        <div class="price-preview">
-                            <h4>💰 Vista Previa de Precios</h4>
-                            <div class="price-example">
-                                <span class="price-label">Aceite Motor 20W-50 (Caja):</span>
-                                <span class="price-value" id="price-preview-value">$620.00</span>
-                            </div>
-                            <div class="price-example">
-                                <span class="price-label">Aceite Motor 20W-50 (Unidad):</span>
-                                <span class="price-value" id="price-preview-unit">$25.99</span>
-                            </div>
-                        </div>
                     </div>
                 </div>
 
@@ -294,16 +259,16 @@
                     </div>
                 </div>
 
-                <!-- Productos -->
+                <!-- Productos del Subalmacén -->
                 <div class="form-section">
-                    <h3 class="section-title">Seleccionar Productos</h3>
+                    <h3 class="section-title">📦 Productos Disponibles en mi Subalmacén</h3>
                     <div style="padding: 1rem; border-bottom: 1px solid #e2e8f0;">
                         <input type="text" id="product-search" class="search-input" 
-                               placeholder="🔍 Buscar productos por nombre, código o marca...">
+                               placeholder="🔍 Buscar productos en mi subalmacén...">
                     </div>
                     
                     <div style="padding: 1.5rem;">
-                        <div id="products-list" class="loading">Cargando productos...</div>
+                        <div id="products-list" class="loading">Cargando productos del subalmacén...</div>
                         
                         <div class="selected-products" style="margin-top: 2rem;">
                             <h4>Productos en el Pedido (<span id="products-count">0</span>)</h4>
@@ -337,23 +302,16 @@
                     </div>
                 </div>
 
-                <!-- Resto del formulario (Foto y Notas) -->
+                <!-- Foto y Notas -->
                 <div class="form-section">
-                    <h3 class="section-title">Foto del Pedido (Opcional)</h3>
+                    <h3 class="section-title">Información Adicional</h3>
                     <div style="padding: 1.5rem;">
-                        <div style="border: 2px dashed #e2e8f0; border-radius: 8px; padding: 2rem 1rem; text-align: center; background: #f8fafc;">
+                        <div class="form-group">
+                            <label for="order-photo">Foto del Pedido (Opcional):</label>
                             <input type="file" id="order-photo" accept="image/*" capture="camera">
-                            <p style="margin: 0.5rem 0; font-size: 0.875rem; color: #64748b;">
-                                📷 Toca para agregar una foto del pedido (máximo 5MB)
-                            </p>
                             <div id="photo-preview"></div>
                         </div>
-                    </div>
-                </div>
-
-                <div class="form-section">
-                    <h3 class="section-title">Notas Adicionales</h3>
-                    <div style="padding: 1.5rem;">
+                        
                         <div class="form-group">
                             <label for="order-notes">Observaciones:</label>
                             <textarea id="order-notes" rows="4" 
@@ -376,28 +334,35 @@
     <script src="../js/api.js"></script>
     
     <script>
-        console.log('🚀 Iniciando página de pedidos con multi-precios');
+        console.log('🚀 Iniciando página de pedidos con subalmacén');
 
         // Variables globales
-        let products = [];
+        let substoreProducts = [];
         let orderProducts = [];
         let currentLocation = null;
         let isProcessing = false;
         let currentPaymentMethod = 'cash';
+        let substoreInfo = null;
 
         // Inicialización
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('📋 Inicializando página de pedidos...');
+            console.log('📋 Inicializando página de pedidos con subalmacén...');
             
             const user = checkAuth();
             if (!user) return;
+            
+            if (user.role !== 'employee') {
+                alert('Esta página es solo para empleados.');
+                window.location.href = '/';
+                return;
+            }
             
             const userNameElement = document.getElementById('user-name');
             if (userNameElement) userNameElement.textContent = user.name;
             
             setupEventListeners();
             setupMobile();
-            loadProducts();
+            loadSubstoreStatus();
         });
 
         // Configurar event listeners
@@ -420,10 +385,6 @@
             const searchInput = document.getElementById('product-search');
             if (searchInput) searchInput.addEventListener('input', handleSearch);
             
-            // Ubicación
-            const locationBtn = document.getElementById('location-btn');
-            if (locationBtn) locationBtn.addEventListener('click', handleGetLocation);
-            
             // Foto
             const photoInput = document.getElementById('order-photo');
             if (photoInput) photoInput.addEventListener('change', handlePhotoChange);
@@ -431,104 +392,176 @@
             console.log('✅ Event listeners configurados');
         }
 
-        // Manejar cambio de modalidad de pago
-        function handlePaymentMethodChange(e) {
-            currentPaymentMethod = e.target.value;
-            console.log('💳 Modalidad de pago cambiada:', currentPaymentMethod);
+        // Cargar estado del subalmacén
+        async function loadSubstoreStatus() {
+            console.log('🔍 Cargando estado del subalmacén...');
             
-            // Actualizar estilos visuales
-            document.querySelectorAll('.payment-option').forEach(option => {
-                option.classList.remove('selected');
-            });
-            e.target.closest('.payment-option').classList.add('selected');
-            
-            // Actualizar vista previa de precios
-            updatePricePreview();
-            
-            // Recalcular precios de productos en el carrito
-            updateProductPricing();
-            
-            // Mostrar notificación
-            if (window.showNotification) {
-                const methodText = currentPaymentMethod === 'cash' ? 'Contado' : 'Crédito 21 días';
-                window.showNotification(`Modalidad cambiada a: ${methodText}`, 'success');
+            try {
+                const response = await fetch(`${window.API_BASE_URL}/api/employee/substore-status`, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                        'Accept': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Error ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                console.log('✅ Estado del subalmacén:', data);
+                
+                displaySubstoreStatus(data);
+                
+                if (data.has_active_trip) {
+                    substoreInfo = data.trip_info;
+                    await loadSubstoreProducts();
+                    showOrderForm();
+                } else {
+                    hideOrderForm();
+                }
+                
+            } catch (error) {
+                console.error('❌ Error cargando estado del subalmacén:', error);
+                displaySubstoreError(error.message);
             }
         }
 
-        // Actualizar vista previa de precios
-        function updatePricePreview() {
-            // Precios de ejemplo (se pueden obtener de la API)
-            const examplePrices = {
-                cash: { box: 620.00, unit: 25.99 },
-                credit: { box: 660.00, unit: 27.50 }
-            };
+        // Mostrar estado del subalmacén
+        function displaySubstoreStatus(data) {
+            const container = document.getElementById('substore-status-container');
             
-            const prices = examplePrices[currentPaymentMethod] || examplePrices.cash;
-            
-            document.getElementById('price-preview-value').textContent = `$${prices.box.toFixed(2)}`;
-            document.getElementById('price-preview-unit').textContent = `$${prices.unit.toFixed(2)}`;
-        }
-
-        // Cargar productos
-        async function loadProducts() {
-            console.log('📦 Cargando productos...');
-            const container = document.getElementById('products-list');
-            if (!container) return;
-            
-            try {
-                container.innerHTML = '<div class="loading">🔄 Cargando productos...</div>';
-                
-                if (typeof window.getProducts !== 'function') {
-                    throw new Error('API no disponible');
-                }
-                
-                const data = await window.getProducts();
-                if (!data || data.length === 0) {
-                    throw new Error('No hay productos disponibles');
-                }
-                
-                products = data;
-                displayProducts(products);
-                
-                if (window.showNotification) {
-                    window.showNotification('Productos cargados', 'success');
-                }
-                
-                console.log('✅ Productos cargados:', products.length);
-                
-            } catch (error) {
-                console.error('❌ Error cargando productos:', error);
+            if (data.has_active_trip) {
                 container.innerHTML = `
-                    <div style="text-align: center; padding: 2rem; color: #dc2626;">
-                        <p>❌ Error: ${error.message}</p>
-                        <button onclick="loadProducts()" class="btn btn-primary" style="margin-top: 1rem;">
-                            🔄 Reintentar
+                    <div class="substore-status">
+                        <div class="substore-header">
+                            <h3 class="substore-title">🚛 Subalmacén Activo</h3>
+                            <div class="trip-number">${data.trip_info.trip_number}</div>
+                        </div>
+                        <p>Tienes productos disponibles para venta desde tu subalmacén móvil.</p>
+                        
+                        <div class="substore-stats">
+                            <div class="substore-stat">
+                                <span class="stat-value">${data.inventory_summary.available_products}</span>
+                                <span class="stat-label">Productos Disponibles</span>
+                            </div>
+                            <div class="substore-stat">
+                                <span class="stat-value">${data.inventory_summary.total_products}</span>
+                                <span class="stat-label">Total Productos</span>
+                            </div>
+                            <div class="substore-stat">
+                                <span class="stat-value">${data.inventory_summary.out_of_stock}</span>
+                                <span class="stat-label">Sin Stock</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                container.innerHTML = `
+                    <div class="substore-status no-trip">
+                        <div class="substore-header">
+                            <h3 class="substore-title">⚠️ Sin Subalmacén Activo</h3>
+                        </div>
+                        <p>No tienes un viaje activo asignado. Contacta al administrador para que te asigne productos.</p>
+                    </div>
+                    
+                    <div class="no-trip-message">
+                        <div class="no-trip-icon">📦</div>
+                        <h3 class="no-trip-title">No hay productos asignados</h3>
+                        <p class="no-trip-description">
+                            Para crear pedidos necesitas tener un viaje activo con productos asignados a tu subalmacén.
+                            El administrador debe crear un viaje y cargar productos para ti.
+                        </p>
+                        <button class="contact-admin" onclick="contactAdmin()">
+                            📞 Contactar Administrador
                         </button>
                     </div>
                 `;
             }
         }
 
-        // Mostrar productos con precios según modalidad
-        function displayProducts(productsToShow) {
+        // Mostrar error del subalmacén
+        function displaySubstoreError(errorMessage) {
+            const container = document.getElementById('substore-status-container');
+            container.innerHTML = `
+                <div class="substore-status no-trip">
+                    <div class="substore-header">
+                        <h3 class="substore-title">❌ Error de Conexión</h3>
+                    </div>
+                    <p>No se pudo verificar el estado de tu subalmacén: ${errorMessage}</p>
+                    <button onclick="loadSubstoreStatus()" class="btn btn-primary" style="margin-top: 1rem;">
+                        🔄 Reintentar
+                    </button>
+                </div>
+            `;
+        }
+
+        // Cargar productos del subalmacén
+        async function loadSubstoreProducts() {
+            console.log('📦 Cargando productos del subalmacén...');
+            
+            try {
+                const response = await fetch(`${window.API_BASE_URL}/api/substore/products`, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                        'Accept': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Error ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                console.log('✅ Productos del subalmacén:', data);
+                
+                substoreProducts = data.products || [];
+                displaySubstoreProducts(substoreProducts);
+                
+            } catch (error) {
+                console.error('❌ Error cargando productos del subalmacén:', error);
+                
+                const container = document.getElementById('products-list');
+                if (container) {
+                    container.innerHTML = `
+                        <div style="text-align: center; padding: 2rem; color: #dc2626;">
+                            <p>❌ Error: ${error.message}</p>
+                            <button onclick="loadSubstoreProducts()" class="btn btn-primary" style="margin-top: 1rem;">
+                                🔄 Reintentar
+                            </button>
+                        </div>
+                    `;
+                }
+            }
+        }
+
+        // Mostrar productos del subalmacén
+        function displaySubstoreProducts(productsToShow) {
             const container = document.getElementById('products-list');
             if (!container) return;
             
             if (productsToShow.length === 0) {
-                container.innerHTML = '<div style="text-align: center; padding: 2rem; color: #64748b;"><p>📦 No hay productos</p></div>';
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 2rem; color: #64748b;">
+                        <p>📦 No hay productos disponibles en tu subalmacén</p>
+                        <p>Contacta al administrador para solicitar productos.</p>
+                    </div>
+                `;
                 return;
             }
             
             container.innerHTML = productsToShow.map(product => {
-                const stockClass = product.stock > 20 ? 'stock-high' : product.stock > 5 ? 'stock-medium' : 'stock-low';
-                const stockText = product.stock > 0 ? `${product.stock} disponibles` : 'Sin stock';
+                const stockClass = product.stock > 10 ? 'stock-high' : product.stock > 3 ? 'stock-medium' : 'stock-low';
+                const stockText = `${product.stock} disponibles en subalmacén`;
                 const isOutOfStock = product.stock === 0;
                 
                 // Obtener precios según modalidad actual
                 const prices = getProductPrices(product, currentPaymentMethod);
                 
                 return `
-                    <div class="product-card">
+                    <div class="product-card substore-product-card">
+                        <div class="substore-badge">SUBALMACÉN</div>
+                        
                         <div class="product-header">
                             <div><div class="product-code">${product.code}</div></div>
                             <div class="product-price">${formatCurrency(prices.box)}</div>
@@ -537,18 +570,18 @@
                         <div class="product-details">${product.brand} • ${product.viscosity} • ${product.capacity}</div>
                         <div class="stock-info ${stockClass}">📦 ${stockText}</div>
                         
-                        <div class="product-pricing-info">
-                            <div class="pricing-row">
-                                <span class="pricing-label">Caja (24 uds):</span>
-                                <span class="pricing-value current">${formatCurrency(prices.box)}</span>
+                        <div class="substore-info">
+                            <div class="substore-info-row">
+                                <span>📦 Stock inicial:</span>
+                                <span><strong>${product.substore_info.initial_quantity}</strong></span>
                             </div>
-                            <div class="pricing-row">
-                                <span class="pricing-label">Por unidad:</span>
-                                <span class="pricing-value">${formatCurrency(prices.unit)}</span>
+                            <div class="substore-info-row">
+                                <span>💰 Vendidos:</span>
+                                <span><strong>${product.substore_info.sold_quantity}</strong></span>
                             </div>
-                            <div class="pricing-row">
-                                <span class="pricing-label">Modalidad:</span>
-                                <span class="pricing-value">${currentPaymentMethod === 'cash' ? 'Contado' : 'Crédito 21d'}</span>
+                            <div class="substore-info-row">
+                                <span>🚛 Viaje:</span>
+                                <span><strong>${substoreInfo?.trip_number || 'N/A'}</strong></span>
                             </div>
                         </div>
                         
@@ -565,18 +598,20 @@
             }).join('');
         }
 
-        // Obtener precios del producto según modalidad
+        // Obtener precios del producto según modalidad (del subalmacén)
         function getProductPrices(product, paymentMethod) {
+            // En el subalmacén, usar el precio asignado al producto
+            const basePrice = product.substore_info?.substore_price || product.price || 0;
+            
             if (product.prices) {
                 // Sistema multi-precios
                 const priceKey = paymentMethod === 'cash' ? 'cash' : 'credit';
                 return {
                     unit: product.prices[`${priceKey}_unit`] || 0,
-                    box: product.prices[`${priceKey}_box`] || 0
+                    box: product.prices[`${priceKey}_box`] || basePrice
                 };
             } else {
-                // Sistema anterior - usar precio base
-                const basePrice = product.price || 0;
+                // Sistema anterior - usar precio base del subalmacén
                 const unitPrice = basePrice / 24; // Estimación
                 
                 if (paymentMethod === 'credit') {
@@ -595,11 +630,11 @@
 
         // Agregar producto al pedido
         function addToOrder(productId) {
-            console.log('➕ Agregando producto al pedido:', productId);
+            console.log('➕ Agregando producto del subalmacén al pedido:', productId);
             
-            const product = products.find(p => p.id === productId);
+            const product = substoreProducts.find(p => p.id === productId);
             if (!product) {
-                console.error('Producto no encontrado');
+                console.error('Producto no encontrado en subalmacén');
                 return;
             }
             
@@ -608,7 +643,7 @@
             
             if (quantity <= 0 || quantity > product.stock) {
                 if (window.showNotification) {
-                    window.showNotification(`Stock insuficiente. Disponible: ${product.stock}`, 'warning');
+                    window.showNotification(`Stock insuficiente en subalmacén. Disponible: ${product.stock}`, 'warning');
                 }
                 return;
             }
@@ -625,7 +660,7 @@
                 const newQuantity = orderProducts[existingIndex].quantity + quantity;
                 if (newQuantity > product.stock) {
                     if (window.showNotification) {
-                        window.showNotification(`Cantidad máxima: ${product.stock}`, 'warning');
+                        window.showNotification(`Cantidad máxima en subalmacén: ${product.stock}`, 'warning');
                     }
                     return;
                 }
@@ -640,7 +675,8 @@
                     quantity: quantity,
                     line_total: prices.box * quantity,
                     payment_method: currentPaymentMethod,
-                    unit_type: 'box' // Por defecto caja
+                    unit_type: 'box',
+                    substore_info: product.substore_info
                 });
             }
             
@@ -650,26 +686,10 @@
             if (quantityInput) quantityInput.value = 1;
             
             if (window.showNotification) {
-                window.showNotification(`${product.name} agregado`, 'success');
+                window.showNotification(`${product.name} agregado desde subalmacén`, 'success');
             }
             
-            console.log('✅ Producto agregado. Total en pedido:', orderProducts.length);
-        }
-
-        // Actualizar precios de productos existentes en el carrito
-        function updateProductPricing() {
-            orderProducts.forEach(orderProduct => {
-                const product = products.find(p => p.id === orderProduct.product_id);
-                if (product && orderProduct.payment_method !== currentPaymentMethod) {
-                    // Actualizar modalidad y precio
-                    const prices = getProductPrices(product, currentPaymentMethod);
-                    orderProduct.payment_method = currentPaymentMethod;
-                    orderProduct.unit_price = prices.box;
-                    orderProduct.line_total = prices.box * orderProduct.quantity;
-                }
-            });
-            
-            updateOrderTable();
+            console.log('✅ Producto agregado desde subalmacén. Total en pedido:', orderProducts.length);
         }
 
         // Actualizar tabla de pedido
@@ -692,6 +712,7 @@
                     <tr>
                         <td>
                             <div style="font-weight: 600;">${product.code} - ${product.name}</div>
+                            <small style="color: #059669;">🚛 Desde subalmacén</small>
                         </td>
                         <td>
                             <span style="padding: 0.25rem 0.5rem; background: ${product.payment_method === 'cash' ? '#dcfce7' : '#fef3c7'}; 
@@ -729,16 +750,241 @@
             }
             
             if (countElement) {
-                countElement.textContent = `${totalItems} productos seleccionados`;
+                countElement.textContent = `${totalItems} productos seleccionados del subalmacén`;
             }
         }
 
-        // Remover producto
+        // Manejar cambio de modalidad de pago
+        function handlePaymentMethodChange(e) {
+            currentPaymentMethod = e.target.value;
+            console.log('💳 Modalidad de pago cambiada:', currentPaymentMethod);
+            
+            // Actualizar estilos visuales
+            document.querySelectorAll('.payment-option').forEach(option => {
+                option.classList.remove('selected');
+            });
+            e.target.closest('.payment-option').classList.add('selected');
+            
+            // Recalcular precios de productos en el carrito
+            updateProductPricing();
+            
+            // Mostrar notificación
+            if (window.showNotification) {
+                const methodText = currentPaymentMethod === 'cash' ? 'Contado' : 'Crédito 21 días';
+                window.showNotification(`Modalidad cambiada a: ${methodText}`, 'success');
+            }
+        }
+
+        // Actualizar precios de productos existentes en el carrito
+        function updateProductPricing() {
+            orderProducts.forEach(orderProduct => {
+                const product = substoreProducts.find(p => p.id === orderProduct.product_id);
+                if (product && orderProduct.payment_method !== currentPaymentMethod) {
+                    // Actualizar modalidad y precio
+                    const prices = getProductPrices(product, currentPaymentMethod);
+                    orderProduct.payment_method = currentPaymentMethod;
+                    orderProduct.unit_price = prices.box;
+                    orderProduct.line_total = prices.box * orderProduct.quantity;
+                }
+            });
+            
+            updateOrderTable();
+        }
+
+        // Crear pedido desde subalmacén
+        async function handleCreateOrder() {
+    if (isProcessing) return;
+    
+    console.log('📤 Iniciando creación de pedido desde subalmacén...');
+    
+    // Validaciones
+    if (!orderProducts || orderProducts.length === 0) {
+        if (window.showNotification) {
+            window.showNotification('Agrega al menos un producto del subalmacén', 'warning');
+        }
+        return;
+    }
+    
+    const clientName = document.getElementById('client-name')?.value?.trim();
+    if (!clientName) {
+        if (window.showNotification) {
+            window.showNotification('El nombre del cliente es requerido', 'warning');
+        }
+        document.getElementById('client-name')?.focus();
+        return;
+    }
+    
+    if (!substoreInfo) {
+        if (window.showNotification) {
+            window.showNotification('Error: No hay información del subalmacén', 'error');
+        }
+        return;
+    }
+    
+    isProcessing = true;
+    const submitBtn = document.getElementById('submit-order-btn');
+    
+    try {
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.textContent = '📤 Creando desde subalmacén...';
+        }
+        
+        // Preparar datos del pedido
+        const formData = {
+            client_info: {
+                name: clientName,
+                phone: document.getElementById('client-phone')?.value?.trim() || '',
+                address: document.getElementById('client-address')?.value?.trim() || '',
+                email: document.getElementById('client-email')?.value?.trim() || ''
+            },
+            products: orderProducts,
+            payment_method: currentPaymentMethod,
+            inventory_source: 'substore',
+            trip_id: substoreInfo.id,
+            location: currentLocation,
+            notes: document.getElementById('order-notes')?.value?.trim() || '',
+            total: orderProducts.reduce((sum, p) => sum + p.line_total, 0)
+        };
+        
+        // Manejar foto
+        const photoFile = document.getElementById('order-photo')?.files[0];
+        if (photoFile) {
+            try {
+                const photoBase64 = await convertToBase64(photoFile);
+                formData.photo_url = photoBase64;
+            } catch (error) {
+                console.error('Error con la foto:', error);
+            }
+        }
+        
+        console.log('📤 Enviando pedido desde subalmacén:', formData);
+        
+        // Enviar pedido con manejo de errores mejorado
+        let newOrder;
+        try {
+            newOrder = await window.createOrder(formData);
+            console.log('✅ Respuesta del servidor recibida:', newOrder);
+        } catch (apiError) {
+            console.error('❌ Error de API:', apiError);
+            
+            // Verificar si el error es de formato pero el pedido se creó
+            if (apiError.message && apiError.message.includes('JSON') && submitBtn) {
+                // Posible error de parsing, verificar si el pedido se creó
+                console.log('🔍 Posible error de parsing, verificando si el pedido se creó...');
+                
+                if (window.showNotification) {
+                    window.showNotification('Posible problema de formato, pero el pedido podría haberse creado. Verificando...', 'warning');
+                }
+                
+                // Esperar un momento y recargar la página
+                setTimeout(() => {
+                    window.location.reload();
+                }, 2000);
+                return;
+            }
+            
+            throw apiError;
+        }
+        
+        console.log('✅ Pedido desde subalmacén creado:', newOrder);
+        
+        if (window.showNotification) {
+            window.showNotification('¡Pedido desde subalmacén creado exitosamente!', 'success');
+        }
+        
+        // Mostrar confirmación
+        const methodText = currentPaymentMethod === 'cash' ? 'Contado' : 'Crédito 21 días';
+        const orderNumber = newOrder.order_number || newOrder.id || 'Generándose...';
+        const tripNumber = substoreInfo.trip_number;
+        
+        const confirmationMessage = `✅ PEDIDO CREADO DESDE SUBALMACÉN
+
+📋 Número: ${orderNumber}
+👤 Cliente: ${formData.client_info.name}
+💳 Modalidad: ${methodText}
+📦 Productos: ${orderProducts.length}
+💰 Total: ${formatCurrency(formData.total)}
+🚛 Viaje: ${tripNumber}
+
+Los productos se han reservado de tu subalmacén.
+El pedido debe ser confirmado por el administrador.`;
+        
+        console.log('📋 Mostrando confirmación:', confirmationMessage);
+        alert(confirmationMessage);
+        
+        // Limpiar formulario
+        clearOrderForm();
+        
+        // Recargar productos del subalmacén para mostrar nuevos stocks
+        console.log('🔄 Recargando productos del subalmacén...');
+        await loadSubstoreProducts();
+        
+        if (window.showNotification) {
+            window.showNotification('Productos del subalmacén actualizados', 'info');
+        }
+        
+    } catch (error) {
+        console.error('❌ Error creando pedido desde subalmacén:', error);
+        
+        if (window.showNotification) {
+            window.showNotification('Error: ' + error.message, 'error');
+        }
+        
+        const errorMessage = `❌ Error al crear el pedido desde subalmacén:
+
+${error.message}
+
+Posibles causas:
+- Stock insuficiente en tu subalmacén
+- Conexión perdida con el servidor
+- Tu viaje fue finalizado por el administrador
+
+Verifica el estado de tu subalmacén y intenta nuevamente.`;
+        
+        console.log('❌ Mostrando error:', errorMessage);
+        alert(errorMessage);
+        
+    } finally {
+        isProcessing = false;
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = '✅ Crear Pedido';
+        }
+    }
+}
+
+        // Funciones auxiliares
+        function showOrderForm() {
+            document.getElementById('order-form-container').style.display = 'block';
+        }
+
+        function hideOrderForm() {
+            document.getElementById('order-form-container').style.display = 'none';
+        }
+
+        function refreshSubstoreStatus() {
+            console.log('🔄 Refrescando estado del subalmacén...');
+            loadSubstoreStatus();
+        }
+
+        function contactAdmin() {
+            alert(`📞 Contacta al Administrador
+
+Para obtener productos en tu subalmacén:
+
+1. Solicita al administrador que cree un nuevo viaje
+2. El administrador debe asignarte productos específicos
+3. Una vez asignados, podrás crear pedidos desde tu subalmacén
+
+Mientras tanto, el administrador puede crear pedidos directamente desde el almacén principal.`);
+        }
+
         function removeFromOrder(index) {
             const product = orderProducts[index];
             if (!product) return;
             
-            if (confirm(`¿Remover ${product.name}?`)) {
+            if (confirm(`¿Remover ${product.name} del subalmacén?`)) {
                 orderProducts.splice(index, 1);
                 updateOrderTable();
                 if (window.showNotification) {
@@ -747,115 +993,10 @@
             }
         }
 
-        // Crear pedido
-        async function handleCreateOrder() {
-            if (isProcessing) return;
-            
-            console.log('📤 Iniciando creación de pedido con multi-precios...');
-            
-            // Validaciones
-            if (!orderProducts || orderProducts.length === 0) {
-                if (window.showNotification) {
-                    window.showNotification('Agrega al menos un producto', 'warning');
-                }
-                return;
-            }
-            
-            const clientName = document.getElementById('client-name')?.value?.trim();
-            if (!clientName) {
-                if (window.showNotification) {
-                    window.showNotification('El nombre del cliente es requerido', 'warning');
-                }
-                document.getElementById('client-name')?.focus();
-                return;
-            }
-            
-            isProcessing = true;
-            const submitBtn = document.getElementById('submit-order-btn');
-            
-            try {
-                if (submitBtn) {
-                    submitBtn.disabled = true;
-                    submitBtn.textContent = '📤 Creando...';
-                }
-                
-                // Preparar datos del pedido
-                const formData = {
-                    client_info: {
-                        name: clientName,
-                        phone: document.getElementById('client-phone')?.value?.trim() || '',
-                        address: document.getElementById('client-address')?.value?.trim() || '',
-                        email: document.getElementById('client-email')?.value?.trim() || ''
-                    },
-                    products: orderProducts,
-                    payment_method: currentPaymentMethod, // ✅ NUEVO CAMPO
-                    location: currentLocation,
-                    notes: document.getElementById('order-notes')?.value?.trim() || '',
-                    total: orderProducts.reduce((sum, p) => sum + p.line_total, 0)
-                };
-                
-                // Manejar foto
-                const photoFile = document.getElementById('order-photo')?.files[0];
-                if (photoFile) {
-                    try {
-                        const photoBase64 = await convertToBase64(photoFile);
-                        formData.photo_url = photoBase64;
-                    } catch (error) {
-                        console.error('Error con la foto:', error);
-                    }
-                }
-                
-                console.log('📤 Enviando pedido con modalidad:', currentPaymentMethod, formData);
-                
-                // Enviar pedido
-                const newOrder = await window.createOrder(formData);
-                
-                console.log('✅ Pedido creado:', newOrder);
-                
-                if (window.showNotification) {
-                    window.showNotification('¡Pedido creado exitosamente!', 'success');
-                }
-                
-                // Mostrar confirmación
-                const methodText = currentPaymentMethod === 'cash' ? 'Contado' : 'Crédito 21 días';
-                alert(`✅ PEDIDO CREADO EXITOSAMENTE
-
-📋 Número: ${newOrder.order_number || 'Generándose...'}
-👤 Cliente: ${formData.client_info.name}
-💳 Modalidad: ${methodText}
-📦 Productos: ${orderProducts.length}
-💰 Total: ${formatCurrency(formData.total)}
-
-Redirigiendo al dashboard...`);
-                
-                // Limpiar y redirigir
-                setTimeout(() => {
-                    window.location.href = 'dashboard.html';
-                }, 2000);
-                
-            } catch (error) {
-                console.error('❌ Error creando pedido:', error);
-                
-                if (window.showNotification) {
-                    window.showNotification('Error: ' + error.message, 'error');
-                }
-                
-                alert(`❌ Error al crear el pedido: ${error.message}`);
-                
-            } finally {
-                isProcessing = false;
-                if (submitBtn) {
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = '✅ Crear Pedido';
-                }
-            }
-        }
-
-        // Resto de funciones auxiliares...
         function handleClearOrder() {
             if (orderProducts.length === 0) return;
             
-            if (confirm('¿Limpiar todo el pedido?')) {
+            if (confirm('¿Limpiar todo el pedido del subalmacén?')) {
                 orderProducts = [];
                 updateOrderTable();
                 
@@ -869,17 +1010,8 @@ Redirigiendo al dashboard...`);
                 if (photoInput) photoInput.value = '';
                 if (photoPreview) photoPreview.innerHTML = '';
                 
-                currentLocation = null;
-                const btn = document.getElementById('location-btn');
-                const status = document.getElementById('location-status');
-                if (btn) {
-                    btn.textContent = '📍 Obtener Ubicación';
-                    btn.style.backgroundColor = '#d97706';
-                }
-                if (status) status.textContent = '';
-                
                 if (window.showNotification) {
-                    window.showNotification('Pedido limpiado', 'success');
+                    window.showNotification('Pedido del subalmacén limpiado', 'success');
                 }
             }
         }
@@ -889,10 +1021,10 @@ Redirigiendo al dashboard...`);
             clearTimeout(searchTimeout);
             searchTimeout = setTimeout(() => {
                 const term = e.target.value.toLowerCase().trim();
-                let filtered = products;
+                let filtered = substoreProducts;
                 
                 if (term) {
-                    filtered = products.filter(p => 
+                    filtered = substoreProducts.filter(p => 
                         p.name.toLowerCase().includes(term) ||
                         p.code.toLowerCase().includes(term) ||
                         p.brand.toLowerCase().includes(term) ||
@@ -900,69 +1032,8 @@ Redirigiendo al dashboard...`);
                     );
                 }
                 
-                displayProducts(filtered);
+                displaySubstoreProducts(filtered);
             }, 300);
-        }
-
-        async function handleGetLocation() {
-            const btn = document.getElementById('location-btn');
-            const status = document.getElementById('location-status');
-            
-            try {
-                if (btn) {
-                    btn.disabled = true;
-                    btn.textContent = '📍 Obteniendo...';
-                }
-                
-                const position = await new Promise((resolve, reject) => {
-                    if (!navigator.geolocation) {
-                        reject(new Error('Geolocalización no soportada'));
-                        return;
-                    }
-                    
-                    navigator.geolocation.getCurrentPosition(resolve, reject, {
-                        enableHighAccuracy: true,
-                        timeout: 15000,
-                        maximumAge: 60000
-                    });
-                });
-                
-                currentLocation = {
-                    latitude: position.coords.latitude,
-                    longitude: position.coords.longitude,
-                    accuracy: position.coords.accuracy,
-                    timestamp: new Date().toISOString()
-                };
-                
-                if (btn) {
-                    btn.textContent = '📍 Ubicación Obtenida';
-                    btn.style.backgroundColor = '#059669';
-                }
-                
-                if (status) {
-                    status.textContent = `📍 ${position.coords.latitude.toFixed(6)}, ${position.coords.longitude.toFixed(6)}`;
-                    status.style.color = '#059669';
-                }
-                
-                if (window.showNotification) {
-                    window.showNotification('Ubicación obtenida', 'success');
-                }
-                
-            } catch (error) {
-                console.error('Error obteniendo ubicación:', error);
-                
-                if (btn) {
-                    btn.textContent = '📍 Error';
-                    btn.style.backgroundColor = '#dc2626';
-                }
-                
-                if (status) {
-                    status.textContent = '❌ Error de ubicación';
-                    status.style.color = '#dc2626';
-                }
-            } finally {
-                if (btn) btn.disabled = false;
-            }
         }
 
         function handlePhotoChange(e) {
@@ -1071,9 +1142,10 @@ Redirigiendo al dashboard...`);
         window.removeFromOrder = removeFromOrder;
         window.removePhoto = removePhoto;
         window.logout = logout;
-        window.loadProducts = loadProducts;
+        window.refreshSubstoreStatus = refreshSubstoreStatus;
+        window.contactAdmin = contactAdmin;
 
-        console.log('✅ Página de pedidos con multi-precios inicializada correctamente');
+        console.log('✅ Página de pedidos con subalmacén inicializada correctamente');
     </script>
 </body>
 </html>

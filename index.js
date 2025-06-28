@@ -771,6 +771,120 @@ async function createOrder(orderData) {
   return newOrder;
 }
 
+// Función para obtener el viaje activo de un empleado
+async function getActiveEmployeeTrip(employeeId) {
+  console.log('🔍 Buscando viaje activo para empleado:', employeeId);
+  
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('trips')
+        .select('*')
+        .eq('employee_id', employeeId)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+      
+      if (error && error.code !== 'PGRST116') throw error;
+      
+      console.log('✅ Viaje activo encontrado en Supabase:', data?.trip_number);
+      return data;
+      
+    } catch (error) {
+      console.error('Error obteniendo viaje activo de Supabase:', error);
+      // Continuar con fallback
+    }
+  }
+  
+  // Fallback: buscar en memoria
+  const activeTrip = (fallbackDatabase.trips || [])
+    .filter(trip => trip.employee_id === parseInt(employeeId) && trip.status === 'active')
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
+  
+  console.log('✅ Viaje activo encontrado en memoria:', activeTrip?.trip_number);
+  return activeTrip || null;
+}
+
+// Función para obtener productos disponibles en el subalmacén del empleado
+async function getEmployeeSubstoreProducts(employeeId) {
+  console.log('📦 Obteniendo productos del subalmacén para empleado:', employeeId);
+  
+  // 1. Obtener viaje activo del empleado
+  const activeTrip = await getActiveEmployeeTrip(employeeId);
+  
+  if (!activeTrip) {
+    console.log('⚠️ No hay viaje activo para el empleado');
+    return {
+      has_active_trip: false,
+      trip: null,
+      products: []
+    };
+  }
+  
+  // 2. Obtener inventario del subalmacén
+  const inventory = await getSubstoreInventory(activeTrip.id);
+  
+  // 3. Filtrar solo productos con stock disponible
+  const availableProducts = inventory.filter(item => item.current_quantity > 0);
+  
+  // 4. Obtener información completa de productos del almacén principal
+  const allProducts = await getProducts();
+  
+  // 5. Combinar información del subalmacén con datos completos del producto
+  const substoreProducts = availableProducts.map(substoreItem => {
+    const mainProduct = allProducts.find(p => p.id === substoreItem.product_id);
+    
+    return {
+      // Información del producto principal
+      id: substoreItem.product_id,
+      code: substoreItem.product_code,
+      name: substoreItem.product_name,
+      brand: mainProduct?.brand || 'N/A',
+      viscosity: mainProduct?.viscosity || 'N/A',
+      capacity: mainProduct?.capacity || 'N/A',
+      cost: mainProduct?.cost || 0,
+      
+      // Stock del subalmacén (NO del almacén principal)
+      stock: substoreItem.current_quantity,
+      
+      // Precios del producto principal
+      price: substoreItem.price || mainProduct?.price || 0,
+      prices: mainProduct?.prices || {
+        cash_unit: 0,
+        cash_box: substoreItem.price || mainProduct?.price || 0,
+        credit_unit: 0,
+        credit_box: 0
+      },
+      
+      // Información del subalmacén
+      substore_info: {
+        trip_id: activeTrip.id,
+        initial_quantity: substoreItem.initial_quantity,
+        current_quantity: substoreItem.current_quantity,
+        sold_quantity: substoreItem.sold_quantity,
+        substore_price: substoreItem.price
+      },
+      
+      created_at: mainProduct?.created_at || substoreItem.created_at
+    };
+  });
+  
+  console.log(`✅ Productos del subalmacén obtenidos: ${substoreProducts.length} disponibles de ${inventory.length} totales`);
+  
+  return {
+    has_active_trip: true,
+    trip: activeTrip,
+    products: substoreProducts,
+    inventory_summary: {
+      total_products: inventory.length,
+      available_products: substoreProducts.length,
+      out_of_stock: inventory.length - substoreProducts.length
+    }
+  };
+}
+
+
 async function getSales(employeeId = null, role = null) {
   if (supabase) {
     try {
@@ -940,11 +1054,57 @@ app.post("/auth/login", async (req, res) => {
 // API Routes - Productos
 app.get("/api/products", auth, async (req, res) => {
   try {
-    const products = await getProducts();
-    res.json(products);
+    console.log('📦 GET /api/products - User:', req.user?.role, 'ID:', req.user?.id);
+    
+    if (req.user.role === 'admin') {
+      // Administradores ven todos los productos del almacén principal
+      const products = await getProducts();
+      res.json(products);
+    } else if (req.user.role === 'employee') {
+      // Empleados ven solo productos de su subalmacén activo
+      const substoreData = await getEmployeeSubstoreProducts(req.user.id);
+      
+      res.json({
+        products: substoreData.products,
+        substore_info: {
+          has_active_trip: substoreData.has_active_trip,
+          trip: substoreData.trip,
+          inventory_summary: substoreData.inventory_summary
+        }
+      });
+    } else {
+      res.status(403).json({ message: 'Rol no autorizado' });
+    }
+    
   } catch (error) {
     console.error('Error in GET /api/products:', error);
-    res.status(500).json({ message: 'Error obteniendo productos', error: error.message });
+    res.status(500).json({ 
+      message: 'Error obteniendo productos', 
+      error: error.message 
+    });
+  }
+});
+
+app.get("/api/substore/products", auth, async (req, res) => {
+  try {
+    console.log('📦 GET /api/substore/products - Empleado:', req.user?.id);
+    
+    if (req.user.role !== 'employee') {
+      return res.status(403).json({ 
+        message: 'Esta ruta es solo para empleados' 
+      });
+    }
+    
+    const substoreData = await getEmployeeSubstoreProducts(req.user.id);
+    
+    res.json(substoreData);
+    
+  } catch (error) {
+    console.error('Error getting substore products:', error);
+    res.status(500).json({ 
+      message: 'Error obteniendo productos del subalmacén', 
+      error: error.message 
+    });
   }
 });
 
@@ -1147,7 +1307,7 @@ app.get("/api/orders", auth, async (req, res) => {
 // POST Orders - Crear nuevo pedido CON VALIDACIÓN DE STOCK
 app.post("/api/orders", auth, async (req, res) => {
   try {
-    console.log('🔍 POST /api/orders con multi-precios - User:', req.user?.role);
+    console.log('🔍 POST /api/orders - User:', req.user?.role, 'ID:', req.user?.id);
     
     const { products, payment_method = 'cash' } = req.body;
     
@@ -1159,51 +1319,146 @@ app.post("/api/orders", auth, async (req, res) => {
       });
     }
     
-    // ✅ NUEVA FUNCIONALIDAD: Calcular precios según modalidad de pago
-    console.log('💰 Calculando precios según modalidad:', payment_method);
-    const pricingResult = calculateOrderPricing(products, payment_method);
+    let orderData;
+    let inventorySource = 'main_store'; // Por defecto
     
-    // Validar stock disponible
-    console.log('🔍 Validando stock disponible...');
-    const stockValidation = await validateStockAvailability(products);
-    
-    if (!stockValidation.valid) {
-      console.log('❌ Stock insuficiente:', stockValidation.issues);
-      return res.status(400).json({
-        message: 'Stock insuficiente para algunos productos',
-        error: 'insufficient_stock',
-        stock_issues: stockValidation.issues
-      });
+    if (req.user.role === 'admin') {
+      // ===== ADMIN: Vender desde almacén principal (comportamiento actual) =====
+      console.log('👑 Admin creando pedido desde almacén principal');
+      
+      // Calcular precios según modalidad de pago
+      const pricingResult = calculateOrderPricing(products, payment_method);
+      
+      // Validar stock disponible en almacén principal
+      const stockValidation = await validateStockAvailability(products);
+      
+      if (!stockValidation.valid) {
+        return res.status(400).json({
+          message: 'Stock insuficiente en almacén principal',
+          error: 'insufficient_stock',
+          stock_issues: stockValidation.issues
+        });
+      }
+      
+      orderData = {
+        order_number: `ORD-${Date.now()}`,
+        employee_id: req.user.id,
+        employee_code: req.user.employee_code,
+        status: 'hold',
+        payment_method: payment_method,
+        products: pricingResult.products,
+        subtotal: pricingResult.subtotal,
+        total: pricingResult.total,
+        inventory_source: 'main_store',
+        ...req.body
+      };
+      
+    } else if (req.user.role === 'employee') {
+      // ===== EMPLOYEE: Vender desde subalmacén =====
+      console.log('👤 Empleado creando pedido desde subalmacén');
+      
+      // Obtener datos del subalmacén del empleado
+      const substoreData = await getEmployeeSubstoreProducts(req.user.id);
+      
+      if (!substoreData.has_active_trip) {
+        return res.status(400).json({
+          message: 'No tienes un viaje activo. Contacta al administrador para que te asigne productos.',
+          error: 'no_active_trip'
+        });
+      }
+      
+      // Validar stock disponible en subalmacén
+      const substoreStockIssues = [];
+      const validatedProducts = [];
+      
+      for (const orderProduct of products) {
+        const { product_id, quantity } = orderProduct;
+        
+        const substoreProduct = substoreData.products.find(p => p.id === product_id);
+        
+        if (!substoreProduct) {
+          substoreStockIssues.push({
+            product_id,
+            issue: 'not_in_substore',
+            message: `Producto ${product_id} no está disponible en tu subalmacén`
+          });
+          continue;
+        }
+        
+        if (substoreProduct.stock < quantity) {
+          substoreStockIssues.push({
+            product_id,
+            product_name: substoreProduct.name,
+            issue: 'insufficient_substore_stock',
+            available: substoreProduct.stock,
+            requested: quantity,
+            message: `Stock insuficiente en subalmacén para ${substoreProduct.name}. Disponible: ${substoreProduct.stock}, solicitado: ${quantity}`
+          });
+          continue;
+        }
+        
+        // Producto válido - agregar información de precios
+        validatedProducts.push({
+          ...orderProduct,
+          product_name: substoreProduct.name,
+          product_code: substoreProduct.code,
+          unit_price: substoreProduct.substore_info.substore_price,
+          line_total: substoreProduct.substore_info.substore_price * quantity,
+          substore_info: substoreProduct.substore_info
+        });
+      }
+      
+      if (substoreStockIssues.length > 0) {
+        return res.status(400).json({
+          message: 'Problemas de stock en subalmacén',
+          error: 'insufficient_substore_stock',
+          stock_issues: substoreStockIssues
+        });
+      }
+      
+      // Calcular totales
+      const subtotal = validatedProducts.reduce((sum, p) => sum + p.line_total, 0);
+      
+      orderData = {
+        order_number: `ORD-${Date.now()}`,
+        employee_id: req.user.id,
+        employee_code: req.user.employee_code,
+        trip_id: substoreData.trip.id,
+        status: 'hold',
+        payment_method: payment_method,
+        products: validatedProducts,
+        subtotal: subtotal,
+        total: subtotal,
+        inventory_source: 'substore',
+        ...req.body
+      };
+      
+      inventorySource = 'substore';
+      
+    } else {
+      return res.status(403).json({ message: 'Rol no autorizado' });
     }
     
-    const orderData = {
-      order_number: `ORD-${Date.now()}`,
-      employee_id: req.user.id,
-      employee_code: req.user.employee_code,
-      status: 'hold',
-      payment_method: payment_method, // Nuevo campo
-      products: pricingResult.products, // Productos con precios calculados
-      subtotal: pricingResult.subtotal,
-      total: pricingResult.total,
-      ...req.body
-    };
-    
+    // Crear el pedido
     const newOrder = await createOrder(orderData);
-    console.log('✅ Pedido creado con precios calculados:', newOrder.id);
+    
+    console.log(`✅ Pedido creado desde ${inventorySource}:`, newOrder.id);
     
     res.json({
       ...newOrder,
-      pricing_details: {
-        payment_method,
-        products_count: pricingResult.products.length,
-        subtotal: pricingResult.subtotal,
-        total: pricingResult.total
-      },
-      stock_validation: 'passed'
+      inventory_source: inventorySource,
+      trip_info: inventorySource === 'substore' ? {
+        trip_id: orderData.trip_id,
+        trip_number: substoreData?.trip?.trip_number
+      } : null
     });
+    
   } catch (error) {
-    console.error('Error in POST /api/orders with multi-pricing:', error);
-    res.status(500).json({ message: 'Error creando pedido', error: error.message });
+    console.error('Error in POST /api/orders with substore:', error);
+    res.status(500).json({ 
+      message: 'Error creando pedido', 
+      error: error.message 
+    });
   }
 });
 
@@ -1213,246 +1468,125 @@ app.put("/api/orders/:id/confirm", auth, adminOnly, async (req, res) => {
     const orderId = parseInt(req.params.id);
     const { payment_info } = req.body;
     
-    console.log(`🔄 CONFIRMAR PEDIDO CON INVENTARIO - DEBUG:`);
-    console.log(`- Order ID: ${orderId}`);
-    console.log(`- Payment info:`, payment_info);
-    console.log(`- Usuario: ${req.user?.name} (${req.user?.role})`);
+    console.log(`🔄 CONFIRMAR PEDIDO (CON SUBALMACÉN) - Order ID: ${orderId}`);
     
-    // Validación básica
+    // Validaciones básicas
     if (!orderId || isNaN(orderId)) {
-      return res.status(400).json({ 
-        message: 'ID de pedido inválido',
-        received_id: req.params.id,
-        parsed_id: orderId
-      });
+      return res.status(400).json({ message: 'ID de pedido inválido' });
     }
     
     if (!payment_info || !payment_info.method) {
-      return res.status(400).json({ 
-        message: 'Información de pago requerida',
-        received_payment_info: payment_info
-      });
+      return res.status(400).json({ message: 'Información de pago requerida' });
     }
     
-    console.log(`🔄 Procesando confirmación del pedido ${orderId}...`);
-    
+    // Obtener el pedido
+    let order;
     if (supabase) {
-      try {
-        // 1. Obtener el pedido
-        console.log('📋 Buscando pedido en Supabase...');
-        const { data: order, error: getError } = await supabase
-          .from('orders')
-          .select('*')
-          .eq('id', orderId)
-          .single();
-        
-        if (getError) {
-          console.error('❌ Error obteniendo pedido de Supabase:', getError);
-          if (getError.code === 'PGRST116') {
-            return res.status(404).json({ message: 'Pedido no encontrado en Supabase' });
-          }
-          throw getError;
-        }
-        
-        if (!order) {
-          console.error('❌ Pedido no encontrado en Supabase:', orderId);
-          return res.status(404).json({ message: 'Pedido no encontrado' });
-        }
-        
-        console.log('✅ Pedido encontrado en Supabase:', order.order_number);
-        
-        if (order.status === 'confirmed') {
-          console.log('⚠️ Pedido ya confirmado');
-          return res.status(400).json({ message: 'El pedido ya está confirmado' });
-        }
-        
-        // ✅ NUEVA FUNCIONALIDAD: Validar stock antes de confirmar
-        console.log('🔍 Validando stock disponible antes de confirmar...');
-        if (order.products && Array.isArray(order.products)) {
-          const stockValidation = await validateStockAvailability(order.products);
-          
-          if (!stockValidation.valid) {
-            console.log('❌ Stock insuficiente al confirmar:', stockValidation.issues);
-            return res.status(400).json({
-              message: 'Stock insuficiente para confirmar el pedido',
-              error: 'insufficient_stock_on_confirm',
-              stock_issues: stockValidation.issues
-            });
-          }
-        }
-        
-        // ✅ NUEVA FUNCIONALIDAD: Actualizar inventario ANTES de confirmar
-        let inventoryUpdate = null;
-        if (order.products && Array.isArray(order.products)) {
-          console.log('📦 Actualizando inventario...');
-          try {
-            inventoryUpdate = await updateInventoryStock(
-              order.products, 
-              'subtract', 
-              `Venta - Pedido ${order.order_number} confirmado`
-            );
-            console.log('✅ Inventario actualizado exitosamente');
-          } catch (inventoryError) {
-            console.error('❌ Error actualizando inventario:', inventoryError);
-            return res.status(400).json({
-              message: 'Error actualizando inventario: ' + inventoryError.message,
-              error: 'inventory_update_failed'
-            });
-          }
-        }
-        
-        // Actualizar pedido
-        console.log('📝 Actualizando estado del pedido en Supabase...');
-        const { data: updatedOrder, error: updateError } = await supabase
-          .from('orders')
-          .update({ 
-            status: 'confirmed',
-            confirmed_at: new Date().toISOString(),
-            payment_info: payment_info
-          })
-          .eq('id', orderId)
-          .select()
-          .single();
-        
-        if (updateError) {
-          console.error('❌ Error actualizando pedido:', updateError);
-          
-          // Si falla la actualización del pedido, intentar revertir el inventario
-          if (inventoryUpdate && order.products) {
-            console.log('🔄 Revirtiendo cambios de inventario...');
-            try {
-              await updateInventoryStock(
-                order.products, 
-                'add', 
-                `Reversión - Error confirmando pedido ${order.order_number}`
-              );
-              console.log('✅ Inventario revertido');
-            } catch (revertError) {
-              console.error('❌ Error revirtiendo inventario:', revertError);
-              // Esto es crítico - debería notificarse al administrador
-            }
-          }
-          
-          throw updateError;
-        }
-        
-        console.log('✅ Pedido actualizado en Supabase');
-        
-        // Crear registro de venta
-        console.log('💰 Creando registro de venta...');
-        const saleData = {
-          order_id: orderId,
-          sale_number: `SALE-${Date.now()}`,
-          employee_id: order.employee_id,
-          employee_code: order.employee_code,
-          client_info: order.client_info,
-          products: order.products,
-          total: order.total,
-          payment_info: payment_info,
-          location: order.location,
-          notes: order.notes,
-          created_at: new Date().toISOString()
-        };
-        
-        const { data: newSale, error: saleError } = await supabase
-          .from('sales')
-          .insert([saleData])
-          .select()
-          .single();
-        
-        if (saleError) {
-          console.warn('⚠️ Error creando venta:', saleError);
-        } else {
-          console.log('✅ Venta creada:', newSale?.sale_number);
-        }
-        
-        console.log(`✅ Pedido ${orderId} confirmado exitosamente en Supabase`);
-        return res.json({ 
-          message: 'Pedido confirmado exitosamente',
-          order: updatedOrder,
-          sale: newSale || null,
-          inventory_update: inventoryUpdate,
-          debug: {
-            database: 'supabase',
-            order_id: orderId,
-            confirmed_at: new Date().toISOString(),
-            products_updated: order.products?.length || 0
-          }
-        });
-        
-      } catch (error) {
-        console.error('❌ Error en Supabase, usando fallback:', error);
-        // Continuar con fallback
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('id', orderId)
+        .single();
+      
+      if (error || !data) {
+        return res.status(404).json({ message: 'Pedido no encontrado' });
+      }
+      order = data;
+    } else {
+      order = fallbackDatabase.orders.find(o => o.id === orderId);
+      if (!order) {
+        return res.status(404).json({ message: 'Pedido no encontrado' });
       }
     }
     
-    // Fallback: base de datos en memoria
-    console.log('📋 Buscando pedido en memoria...');
-    const orderIndex = fallbackDatabase.orders.findIndex(o => o.id === orderId);
-    
-    if (orderIndex === -1) {
-      console.error('❌ Pedido no encontrado en memoria:', orderId);
-      return res.status(404).json({ 
-        message: 'Pedido no encontrado',
-        available_orders: fallbackDatabase.orders.map(o => ({ id: o.id, number: o.order_number })),
-        searched_id: orderId
-      });
-    }
-    
-    const order = fallbackDatabase.orders[orderIndex];
-    console.log('✅ Pedido encontrado en memoria:', order.order_number);
-    
     if (order.status === 'confirmed') {
-      console.log('⚠️ Pedido ya confirmado');
       return res.status(400).json({ message: 'El pedido ya está confirmado' });
     }
     
-    // ✅ NUEVA FUNCIONALIDAD: Validar y actualizar inventario en memoria
+    console.log('📦 Fuente de inventario:', order.inventory_source || 'main_store');
+    
     let inventoryUpdate = null;
-    if (order.products && Array.isArray(order.products)) {
-      console.log('🔍 Validando stock disponible...');
-      const stockValidation = await validateStockAvailability(order.products);
+    
+    // Procesar según la fuente del inventario
+    if (order.inventory_source === 'substore' && order.trip_id) {
+      // ===== CONFIRMAR DESDE SUBALMACÉN =====
+      console.log('🚛 Confirmando pedido desde subalmacén, trip:', order.trip_id);
       
-      if (!stockValidation.valid) {
-        console.log('❌ Stock insuficiente al confirmar:', stockValidation.issues);
-        return res.status(400).json({
-          message: 'Stock insuficiente para confirmar el pedido',
-          error: 'insufficient_stock_on_confirm',
-          stock_issues: stockValidation.issues
-        });
+      // Validar y actualizar inventario del subalmacén
+      if (order.products && Array.isArray(order.products)) {
+        for (const orderProduct of order.products) {
+          const { product_id, quantity } = orderProduct;
+          
+          console.log(`📦 Vendiendo desde subalmacén: ${product_id} x ${quantity}`);
+          
+          await sellFromSubstore(order.trip_id, product_id, quantity, {
+            order_id: orderId,
+            client_info: order.client_info
+          });
+        }
+        
+        inventoryUpdate = {
+          type: 'substore',
+          trip_id: order.trip_id,
+          products_updated: order.products.length
+        };
       }
       
-      console.log('📦 Actualizando inventario en memoria...');
-      try {
+    } else {
+      // ===== CONFIRMAR DESDE ALMACÉN PRINCIPAL =====
+      console.log('🏪 Confirmando pedido desde almacén principal');
+      
+      // Validar stock en almacén principal
+      if (order.products && Array.isArray(order.products)) {
+        const stockValidation = await validateStockAvailability(order.products);
+        
+        if (!stockValidation.valid) {
+          return res.status(400).json({
+            message: 'Stock insuficiente en almacén principal',
+            error: 'insufficient_stock_on_confirm',
+            stock_issues: stockValidation.issues
+          });
+        }
+        
+        // Actualizar inventario del almacén principal
         inventoryUpdate = await updateInventoryStock(
           order.products, 
           'subtract', 
           `Venta - Pedido ${order.order_number} confirmado`
         );
-        console.log('✅ Inventario actualizado exitosamente');
-      } catch (inventoryError) {
-        console.error('❌ Error actualizando inventario:', inventoryError);
-        return res.status(400).json({
-          message: 'Error actualizando inventario: ' + inventoryError.message,
-          error: 'inventory_update_failed'
-        });
       }
     }
     
-    // Actualizar pedido en memoria
-    console.log('📝 Actualizando pedido en memoria...');
-    fallbackDatabase.orders[orderIndex] = {
-      ...order,
-      status: 'confirmed',
-      confirmed_at: new Date().toISOString(),
-      payment_info: payment_info
-    };
+    // Actualizar estado del pedido
+    if (supabase) {
+      const { data: updatedOrder, error: updateError } = await supabase
+        .from('orders')
+        .update({ 
+          status: 'confirmed',
+          confirmed_at: new Date().toISOString(),
+          payment_info: payment_info
+        })
+        .eq('id', orderId)
+        .select()
+        .single();
+      
+      if (updateError) throw updateError;
+      order = updatedOrder;
+    } else {
+      const orderIndex = fallbackDatabase.orders.findIndex(o => o.id === orderId);
+      fallbackDatabase.orders[orderIndex] = {
+        ...order,
+        status: 'confirmed',
+        confirmed_at: new Date().toISOString(),
+        payment_info: payment_info
+      };
+      order = fallbackDatabase.orders[orderIndex];
+    }
     
-    // Crear venta en memoria
-    console.log('💰 Creando venta en memoria...');
-    const newSale = {
-      id: fallbackDatabase.sales.length + 1,
+    // Crear registro de venta
+    const saleData = {
       order_id: orderId,
+      trip_id: order.trip_id || null,
       sale_number: `SALE-${Date.now()}`,
       employee_id: order.employee_id,
       employee_code: order.employee_code,
@@ -1460,42 +1594,44 @@ app.put("/api/orders/:id/confirm", auth, adminOnly, async (req, res) => {
       products: order.products,
       total: order.total,
       payment_info: payment_info,
+      inventory_source: order.inventory_source || 'main_store',
       location: order.location,
       notes: order.notes,
       created_at: new Date().toISOString()
     };
     
-    fallbackDatabase.sales.push(newSale);
+    let newSale = null;
+    if (supabase) {
+      const { data, error: saleError } = await supabase
+        .from('sales')
+        .insert([saleData])
+        .select()
+        .single();
+      
+      if (!saleError) newSale = data;
+    } else {
+      newSale = {
+        id: fallbackDatabase.sales.length + 1,
+        ...saleData
+      };
+      fallbackDatabase.sales.push(newSale);
+    }
     
-    console.log(`✅ Pedido ${orderId} confirmado exitosamente en memoria`);
-    return res.json({ 
+    console.log(`✅ Pedido ${orderId} confirmado exitosamente desde ${order.inventory_source || 'main_store'}`);
+    
+    res.json({ 
       message: 'Pedido confirmado exitosamente',
-      order: fallbackDatabase.orders[orderIndex],
+      order: order,
       sale: newSale,
       inventory_update: inventoryUpdate,
-      debug: {
-        database: 'memory',
-        order_id: orderId,
-        confirmed_at: new Date().toISOString(),
-        products_updated: order.products?.length || 0
-      }
+      inventory_source: order.inventory_source || 'main_store'
     });
     
   } catch (error) {
-    console.error('❌ ERROR CRÍTICO en confirmación de pedido:', error);
-    console.error('❌ Stack trace:', error.stack);
-    
-    return res.status(500).json({ 
+    console.error('❌ ERROR en confirmación de pedido con subalmacén:', error);
+    res.status(500).json({ 
       message: 'Error interno del servidor al confirmar pedido', 
-      error: process.env.NODE_ENV === 'development' ? error.message : 'Error interno',
-      debug: {
-        orderId: req.params.id,
-        hasPaymentInfo: !!req.body.payment_info,
-        userRole: req.user?.role,
-        timestamp: new Date().toISOString(),
-        url: req.originalUrl,
-        method: req.method
-      }
+      error: error.message
     });
   }
 });
@@ -1642,6 +1778,70 @@ app.get("/api/orders/:id", auth, async (req, res) => {
     });
   }
 });
+
+app.get("/api/employee/substore-status", auth, async (req, res) => {
+  try {
+    if (req.user.role !== 'employee') {
+      return res.status(403).json({ message: 'Solo para empleados' });
+    }
+    
+    const substoreData = await getEmployeeSubstoreProducts(req.user.id);
+    
+    res.json({
+      employee_id: req.user.id,
+      employee_code: req.user.employee_code,
+      has_active_trip: substoreData.has_active_trip,
+      trip_info: substoreData.trip,
+      inventory_summary: substoreData.inventory_summary,
+      products_available: substoreData.products.length
+    });
+    
+  } catch (error) {
+    console.error('Error getting substore status:', error);
+    res.status(500).json({ 
+      message: 'Error obteniendo estado del subalmacén', 
+      error: error.message 
+    });
+  }
+});
+
+// GET - Historial de ventas del empleado desde subalmacén
+app.get("/api/employee/substore-sales", auth, async (req, res) => {
+  try {
+    if (req.user.role !== 'employee') {
+      return res.status(403).json({ message: 'Solo para empleados' });
+    }
+    
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('sales')
+        .select('*')
+        .eq('employee_id', req.user.id)
+        .eq('inventory_source', 'substore')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      res.json(data || []);
+    } else {
+      const substoreSales = fallbackDatabase.sales
+        .filter(sale => 
+          sale.employee_id === req.user.id && 
+          sale.inventory_source === 'substore'
+        )
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      
+      res.json(substoreSales);
+    }
+    
+  } catch (error) {
+    console.error('Error getting substore sales:', error);
+    res.status(500).json({ 
+      message: 'Error obteniendo ventas del subalmacén', 
+      error: error.message 
+    });
+  }
+});
+
 
 // ===== NUEVOS ENDPOINTS PARA GESTIÓN DE INVENTARIO =====
 
