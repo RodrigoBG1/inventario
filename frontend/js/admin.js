@@ -266,6 +266,15 @@ Verifica tu conexión e intenta nuevamente.`);
     }
 }
 
+function injectAutoConfirmStyles() {
+    if (!document.getElementById('auto-confirm-styles')) {
+        const styleElement = document.createElement('style');
+        styleElement.id = 'auto-confirm-styles';
+        styleElement.textContent = autoConfirmStyles;
+        document.head.appendChild(styleElement);
+    }
+}
+
 // Función para debugging - crear pedido de prueba
 async function createTestOrder() {
     if (!confirm('¿Crear un pedido de prueba para testing?')) {
@@ -554,19 +563,42 @@ function getUser() {
 
 // ===== RESTO DE FUNCIONES ADMIN =====
 function updateDashboardStats() {
-    console.log('📊 Actualizando estadísticas del dashboard...');
+    console.log('📊 Actualizando estadísticas del dashboard con auto-confirmación...');
     
     const totalProductsElement = document.getElementById('total-products');
     if (totalProductsElement) {
         totalProductsElement.textContent = products.length;
-        console.log('📦 Total productos:', products.length);
     }
     
-    const pendingOrders = orders.filter(order => order.status === 'hold').length;
+    // ✅ NUEVO: Separar pedidos pendientes de los auto-confirmados
+    const pendingOrders = orders.filter(order => order.status === 'hold' && !order.auto_confirmed).length;
+    const autoConfirmedOrders = orders.filter(order => order.auto_confirmed).length;
+    
     const pendingOrdersElement = document.getElementById('pending-orders');
     if (pendingOrdersElement) {
         pendingOrdersElement.textContent = pendingOrders;
-        console.log('📋 Pedidos pendientes:', pendingOrders);
+        
+        // ✅ NUEVO: Cambiar color del card según la cantidad de pendientes
+        const parentCard = pendingOrdersElement.closest('.stat-card');
+        if (parentCard) {
+            if (pendingOrders > 0) {
+                parentCard.classList.add('pending-confirm-stat');
+                parentCard.classList.remove('auto-confirm-stat');
+            } else {
+                parentCard.classList.add('auto-confirm-stat');
+                parentCard.classList.remove('pending-confirm-stat');
+            }
+        }
+    }
+    
+    // ✅ NUEVO: Actualizar título del card de pedidos pendientes
+    const pendingOrdersTitle = document.querySelector('#pending-orders').closest('.stat-card').querySelector('h3');
+    if (pendingOrdersTitle) {
+        if (pendingOrders > 0) {
+            pendingOrdersTitle.innerHTML = `⏳ Pedidos Pendientes <small>(${autoConfirmedOrders} auto-confirmados)</small>`;
+        } else {
+            pendingOrdersTitle.innerHTML = `✅ Pedidos al Día <small>(${autoConfirmedOrders} auto-confirmados)</small>`;
+        }
     }
     
     const currentMonth = new Date().getMonth();
@@ -581,36 +613,62 @@ function updateDashboardStats() {
     const monthlySalesElement = document.getElementById('monthly-sales');
     if (monthlySalesElement) {
         monthlySalesElement.textContent = window.formatCurrency ? window.formatCurrency(monthlySales) : `${monthlySales}`;
-        console.log('💰 Ventas del mes:', monthlySales);
     }
     
     const activeEmployees = employees.filter(emp => emp.role === 'employee').length;
     const activeEmployeesElement = document.getElementById('active-employees');
     if (activeEmployeesElement) {
         activeEmployeesElement.textContent = activeEmployees;
-        console.log('👥 Empleados activos:', activeEmployees);
     }
+    
+    console.log('📊 Estadísticas actualizadas:', {
+        productos: products.length,
+        pedidos_pendientes: pendingOrders,
+        pedidos_auto_confirmados: autoConfirmedOrders,
+        ventas_mes: monthlySales,
+        empleados_activos: activeEmployees
+    });
 }
 
 function updateRecentOrders() {
     const tbody = document.querySelector('#recent-orders-table tbody');
     if (!tbody) return;
     
-    console.log('📋 Actualizando pedidos recientes...');
+    console.log('📋 Actualizando pedidos recientes con indicadores de auto-confirmación...');
     
     const recentOrders = orders
         .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
         .slice(0, 5);
     
-    tbody.innerHTML = recentOrders.map(order => `
-        <tr>
-            <td>${order.order_number}</td>
-            <td>${order.employee_code}</td>
-            <td>${window.formatCurrency ? window.formatCurrency(order.total) : `${order.total}`}</td>
-            <td><span class="status-badge status-${order.status}">${order.status}</span></td>
-            <td>${window.formatDate ? window.formatDate(order.created_at) : order.created_at}</td>
-        </tr>
-    `).join('');
+    tbody.innerHTML = recentOrders.map(order => {
+        let statusBadge = '';
+        
+        if (order.status === 'confirmed') {
+            if (order.auto_confirmed) {
+                statusBadge = `<span class="status-badge status-auto-confirmed">⚡ Auto</span>`;
+            } else {
+                statusBadge = `<span class="status-badge status-confirmed">✅ Manual</span>`;
+            }
+        } else if (order.status === 'hold') {
+            statusBadge = `<span class="status-badge status-hold">⏳ Pendiente</span>`;
+        } else {
+            statusBadge = `<span class="status-badge status-cancelled">❌ Cancelada</span>`;
+        }
+        
+        const inventoryIcon = order.inventory_source === 'substore' ? '🚛' : '🏪';
+        
+        return `
+            <tr>
+                <td>
+                    ${inventoryIcon} ${order.order_number}
+                </td>
+                <td>${order.employee_code}</td>
+                <td>${window.formatCurrency ? window.formatCurrency(order.total) : `${order.total}`}</td>
+                <td>${statusBadge}</td>
+                <td>${window.formatDate ? window.formatDate(order.created_at) : order.created_at}</td>
+            </tr>
+        `;
+    }).join('');
     
     console.log('📋 Pedidos recientes actualizados:', recentOrders.length);
 }
@@ -904,31 +962,75 @@ function displayOrders() {
     const tbody = document.querySelector('#orders-table tbody');
     if (!tbody) return;
     
-    tbody.innerHTML = orders.map(order => `
-        <tr>
-            <td>${order.order_number}</td>
-            <td>${order.employee_code}</td>
-            <td>${order.client_info?.name || 'Sin cliente'}</td>
-            <td>${window.formatCurrency ? window.formatCurrency(order.total) : `${order.total}`}</td>
-            <td><span class="status-badge status-${order.status}">${order.status}</span></td>
-            <td>${window.formatDate ? window.formatDate(order.created_at) : order.created_at}</td>
-            <td>
-                <div class="action-buttons">
-                    ${order.status === 'hold' ? `
-                        <button class="btn btn-sm btn-confirm" onclick="confirmOrderModal(${order.id})">
-                            ✅ Confirmar
-                        </button>
-                        <button class="btn btn-sm btn-delete" onclick="cancelOrderModal(${order.id})">
-                            ❌ Cancelar
-                        </button>
-                    ` : ''}
-                    <button class="btn btn-sm btn-primary" onclick="viewOrderDetails(${order.id})">
-                        👁️ Ver
-                    </button>
-                </div>
-            </td>
-        </tr>
-    `).join('');
+    tbody.innerHTML = orders.map(order => {
+        // ✅ NUEVO: Determinar tipo de confirmación
+        const isAutoConfirmed = order.auto_confirmed || order.status === 'confirmed';
+        const requiresAction = order.status === 'hold' && !order.auto_confirmed;
+        
+        // ✅ NUEVO: Estilos y badges para diferentes tipos de órdenes
+        let statusBadge = '';
+        let actionButtons = '';
+        
+        if (order.status === 'confirmed') {
+            if (order.auto_confirmed) {
+                statusBadge = `<span class="status-badge status-auto-confirmed">⚡ Auto-Confirmada</span>`;
+            } else {
+                statusBadge = `<span class="status-badge status-confirmed">✅ Confirmada</span>`;
+            }
+            
+            actionButtons = `
+                <button class="btn btn-sm btn-primary" onclick="viewOrderDetails(${order.id})">
+                    👁️ Ver
+                </button>
+            `;
+        } else if (order.status === 'hold') {
+            statusBadge = `<span class="status-badge status-hold">⏳ Pendiente</span>`;
+            
+            actionButtons = `
+                <button class="btn btn-sm btn-confirm" onclick="confirmOrderModal(${order.id})">
+                    ✅ Confirmar
+                </button>
+                <button class="btn btn-sm btn-delete" onclick="cancelOrderModal(${order.id})">
+                    ❌ Cancelar
+                </button>
+                <button class="btn btn-sm btn-primary" onclick="viewOrderDetails(${order.id})">
+                    👁️ Ver
+                </button>
+            `;
+        } else if (order.status === 'cancelled') {
+            statusBadge = `<span class="status-badge status-cancelled">❌ Cancelada</span>`;
+            
+            actionButtons = `
+                <button class="btn btn-sm btn-primary" onclick="viewOrderDetails(${order.id})">
+                    👁️ Ver
+                </button>
+            `;
+        }
+        
+        // ✅ NUEVO: Indicador de fuente de inventario
+        const inventorySource = order.inventory_source === 'substore' ? 
+            `<small style="color: #059669;">🚛 Subalmacén</small>` : 
+            `<small style="color: #2563eb;">🏪 Almacén Principal</small>`;
+        
+        return `
+            <tr class="${requiresAction ? 'order-requires-action' : ''}">
+                <td>
+                    <div>${order.order_number}</div>
+                    ${inventorySource}
+                </td>
+                <td>${order.employee_code}</td>
+                <td>${order.client_info?.name || 'Sin cliente'}</td>
+                <td>${window.formatCurrency ? window.formatCurrency(order.total) : `${order.total}`}</td>
+                <td>${statusBadge}</td>
+                <td>${window.formatDate ? window.formatDate(order.created_at) : order.created_at}</td>
+                <td>
+                    <div class="action-buttons">
+                        ${actionButtons}
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
 }
 
 function viewOrderDetails(orderId) {
@@ -1123,7 +1225,28 @@ async function updateEmployee(id, employeeData) {
     return await window.updateEmployeeAPI(id, employeeData);
 }
 function filterOrders() {
-    console.log('Filtrar pedidos');
+    const statusFilter = document.getElementById('status-filter')?.value;
+    const showOnlyPending = statusFilter === 'hold';
+    const showOnlyConfirmed = statusFilter === 'confirmed';
+    const showOnlyCancelled = statusFilter === 'cancelled';
+    
+    let filteredOrders = orders;
+    
+    if (showOnlyPending) {
+        filteredOrders = orders.filter(order => order.status === 'hold');
+    } else if (showOnlyConfirmed) {
+        filteredOrders = orders.filter(order => order.status === 'confirmed');
+    } else if (showOnlyCancelled) {
+        filteredOrders = orders.filter(order => order.status === 'cancelled');
+    }
+    
+    // Temporarily update the orders array for display
+    const originalOrders = orders;
+    orders = filteredOrders;
+    displayOrders();
+    orders = originalOrders;
+    
+    console.log('🔍 Filtros aplicados. Mostrando', filteredOrders.length, 'de', orders.length, 'pedidos');
 }
 
 function updateReports() {
@@ -1172,6 +1295,8 @@ if (!window.confirmOrderModal) {
     window.filterOrders = filterOrders;
     window.updateReports = updateReports;
     window.closeConfirmModal = closeConfirmModal;
+    window.injectAutoConfirmStyles = injectAutoConfirmStyles;
+    window.filterOrders = filterOrders;
 }
 
 // Event listener para el formulario de productos
@@ -1215,6 +1340,22 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Inject styles
+    injectAutoConfirmStyles();
+    
+    // Add filter options for auto-confirmed orders
+    const statusFilter = document.getElementById('status-filter');
+    if (statusFilter && !statusFilter.querySelector('[value="auto-confirmed"]')) {
+        const autoConfirmedOption = document.createElement('option');
+        autoConfirmedOption.value = 'auto-confirmed';
+        autoConfirmedOption.textContent = '⚡ Auto-confirmados';
+        statusFilter.appendChild(autoConfirmedOption);
+    }
+    
+    console.log('✅ Funcionalidad de auto-confirmación inicializada');
 });
 
 // ===== FUNCIONES ADICIONALES PARA VISTA DETALLADA DE PEDIDOS =====
@@ -1741,6 +1882,158 @@ function setupEnhancedModalEvents() {
     });
 }
 
+const autoConfirmStyles = `
+/* Auto-confirmation status badges */
+.status-auto-confirmed {
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+    border: 1px solid #047857;
+    position: relative;
+    overflow: hidden;
+}
+
+.status-auto-confirmed::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+    animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+    0% { left: -100%; }
+    100% { left: 100%; }
+}
+
+/* Highlight rows that require admin action */
+.order-requires-action {
+    background: linear-gradient(90deg, #fef3c7, #ffffff);
+    border-left: 4px solid #f59e0b;
+}
+
+.order-requires-action:hover {
+    background: linear-gradient(90deg, #fde68a, #f9fafb);
+}
+
+/* Inventory source indicators */
+.inventory-source-badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 12px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 0.25rem;
+}
+
+.source-substore {
+    background: #d1fae5;
+    color: #065f46;
+    border: 1px solid #10b981;
+}
+
+.source-main-store {
+    background: #dbeafe;
+    color: #1e40af;
+    border: 1px solid #3b82f6;
+}
+
+/* Enhanced action buttons */
+.action-buttons {
+    display: flex;
+    gap: 0.25rem;
+    flex-wrap: wrap;
+}
+
+.btn-sm {
+    padding: 0.375rem 0.75rem;
+    font-size: 0.75rem;
+    border-radius: 4px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+}
+
+.btn-confirm {
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+    box-shadow: 0 2px 4px rgba(16, 185, 129, 0.3);
+}
+
+.btn-confirm:hover {
+    background: linear-gradient(135deg, #059669, #047857);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(16, 185, 129, 0.4);
+}
+
+.btn-delete {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: white;
+    box-shadow: 0 2px 4px rgba(239, 68, 68, 0.3);
+}
+
+.btn-delete:hover {
+    background: linear-gradient(135deg, #dc2626, #b91c1c);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(239, 68, 68, 0.4);
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    color: white;
+    box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(59, 130, 246, 0.4);
+}
+
+/* Dashboard stats update for auto-confirmed orders */
+.auto-confirm-stat {
+    background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+    border-left: 4px solid #10b981;
+}
+
+.auto-confirm-stat .stat-number {
+    color: #059669;
+}
+
+.pending-confirm-stat {
+    background: linear-gradient(135deg, #fef3c7, #fde68a);
+    border-left: 4px solid #f59e0b;
+}
+
+.pending-confirm-stat .stat-number {
+    color: #d97706;
+}
+
+/* Mobile responsive adjustments */
+@media (max-width: 768px) {
+    .action-buttons {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .btn-sm {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .order-requires-action {
+        border-left: 2px solid #f59e0b;
+    }
+}
+`;
+
 // Función principal para mostrar el modal mejorado con datos (NUEVA)
 function showEnhancedOrderModal(order) {
     console.log('📋 Mostrando modal mejorado con datos:', order);
@@ -1863,16 +2156,6 @@ if (!window.viewOrderDetailsEnhanced) {
     };
 }
 
-// Hacer las nuevas funciones globales
-if (!window.viewOrderDetailsEnhanced) {
-    window.viewOrderDetailsEnhanced = viewOrderDetailsEnhanced;
-    window.ensureEnhancedOrderModalExists = ensureEnhancedOrderModalExists;
-    window.showEnhancedOrderModal = showEnhancedOrderModal;
-    window.closeEnhancedOrderModal = closeEnhancedOrderModal;
-    window.confirmOrderFromEnhancedModal = confirmOrderFromEnhancedModal;
-    window.cancelOrderFromEnhancedModal = cancelOrderFromEnhancedModal;
-    window.getEnhancedStatusText = getEnhancedStatusText;
-}
 
 // Inicializar cuando se cargue la página de pedidos
 document.addEventListener('DOMContentLoaded', function() {
@@ -1984,3 +2267,14 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 console.log('✅ Admin.js completo cargado correctamente');
+
+// Hacer las nuevas funciones globales
+if (!window.viewOrderDetailsEnhanced) {
+    window.viewOrderDetailsEnhanced = viewOrderDetailsEnhanced;
+    window.ensureEnhancedOrderModalExists = ensureEnhancedOrderModalExists;
+    window.showEnhancedOrderModal = showEnhancedOrderModal;
+    window.closeEnhancedOrderModal = closeEnhancedOrderModal;
+    window.confirmOrderFromEnhancedModal = confirmOrderFromEnhancedModal;
+    window.cancelOrderFromEnhancedModal = cancelOrderFromEnhancedModal;
+    window.getEnhancedStatusText = getEnhancedStatusText;
+}

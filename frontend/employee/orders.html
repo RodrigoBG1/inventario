@@ -206,9 +206,11 @@
                                     </div>
                                     <div class="payment-description">
                                         Pago inmediato en efectivo, tarjeta o transferencia al momento de la entrega.
+                                        ⚡ Se procesa automáticamente como venta completada.
                                     </div>
                                     <div class="payment-benefits">
                                         ✅ Mejores precios disponibles
+                                        ✅ Venta automática confirmada
                                     </div>
                                 </label>
                             </div>
@@ -224,9 +226,11 @@
                                     </div>
                                     <div class="payment-description">
                                         Pago diferido a 21 días naturales. Ideal para clientes establecidos.
+                                        ⚡ Se procesa automáticamente como venta completada.
                                     </div>
                                     <div class="payment-benefits">
-                                        📋 Requiere autorización comercial
+                                        📋 Cliente de confianza
+                                        ✅ Venta automática confirmada
                                     </div>
                                 </label>
                             </div>
@@ -884,7 +888,7 @@ function formatCurrency(amount) {
 async function handleCreateOrder() {
     if (isProcessing) return;
     
-    console.log('📤 Iniciando creación de pedido desde subalmacén...');
+    console.log('📤 Iniciando creación de pedido con AUTO-CONFIRMACIÓN...');
     
     // Validaciones
     if (!orderProducts || orderProducts.length === 0) {
@@ -916,7 +920,7 @@ async function handleCreateOrder() {
     try {
         if (submitBtn) {
             submitBtn.disabled = true;
-            submitBtn.textContent = '📤 Creando desde subalmacén...';
+            submitBtn.textContent = '⚡ Procesando Venta...'; // ✅ CAMBIO: Nuevo texto
         }
         
         // Preparar datos del pedido
@@ -947,39 +951,69 @@ async function handleCreateOrder() {
             }
         }
         
-        console.log('📤 Enviando pedido desde subalmacén:', formData);
+        console.log('📤 Enviando pedido con auto-confirmación:', formData);
         
-        // Enviar pedido - SIMPLIFIED ERROR HANDLING
-        const newOrder = await window.createOrder(formData);
+        // Enviar pedido - Este ahora se auto-confirma en el backend
+        const response = await window.createOrder(formData);
         
-        console.log('✅ Respuesta del servidor recibida:', newOrder);
+        console.log('✅ Respuesta del servidor recibida:', response);
         
-        // ALWAYS treat as success if we get here without exception
-        console.log('✅ Pedido creado exitosamente');
-        
-        if (window.showNotification) {
-            window.showNotification('¡Pedido desde subalmacén creado exitosamente!', 'success');
-        }
-        
-        // Mostrar confirmación
-        const methodText = currentPaymentMethod === 'cash' ? 'Contado' : 'Crédito 21 días';
-        const orderNumber = newOrder?.order_number || newOrder?.id || 'Generándose...';
-        const tripNumber = substoreInfo.trip_number;
-        
-        const confirmationMessage = `✅ PEDIDO CREADO DESDE SUBALMACÉN
+        // ✅ NUEVA LÓGICA: Manejar respuesta de auto-confirmación
+        if (response.auto_confirmed) {
+            console.log('🎉 Pedido auto-confirmado exitosamente');
+            
+            const methodText = currentPaymentMethod === 'cash' ? 'Contado' : 'Crédito 21 días';
+            const orderNumber = response.order?.order_number || response.order?.id || 'Generándose...';
+            const saleNumber = response.sale?.sale_number || 'Generándose...';
+            const tripNumber = substoreInfo.trip_number;
+            
+            // ✅ NUEVO: Mensaje de confirmación para venta completada
+            const confirmationMessage = `🎉 ¡VENTA COMPLETADA EXITOSAMENTE!
+
+📋 Pedido: ${orderNumber}
+💰 Venta: ${saleNumber}
+👤 Cliente: ${formData.client_info.name}
+💳 Modalidad: ${methodText}
+📦 Productos: ${orderProducts.length}
+💵 Total: ${formatCurrency(formData.total)}
+🚛 Viaje: ${tripNumber}
+
+✅ La venta ha sido procesada automáticamente
+✅ El inventario de tu subalmacén ha sido actualizado
+✅ El registro de venta ha sido creado
+
+¡Felicidades por tu venta! 🎊`;
+            
+            console.log('🎉 Mostrando confirmación de venta:', confirmationMessage);
+            alert(confirmationMessage);
+            
+            if (window.showNotification) {
+                window.showNotification('¡Venta completada automáticamente! 🎉', 'success');
+            }
+            
+        } else {
+            // Fallback para pedidos no auto-confirmados (admin)
+            console.log('📋 Pedido creado, requiere confirmación manual');
+            
+            const methodText = currentPaymentMethod === 'cash' ? 'Contado' : 'Crédito 21 días';
+            const orderNumber = response.order?.order_number || response.order?.id || 'Generándose...';
+            
+            const confirmationMessage = `✅ PEDIDO CREADO EXITOSAMENTE
 
 📋 Número: ${orderNumber}
 👤 Cliente: ${formData.client_info.name}
 💳 Modalidad: ${methodText}
 📦 Productos: ${orderProducts.length}
 💰 Total: ${formatCurrency(formData.total)}
-🚛 Viaje: ${tripNumber}
 
-Los productos se han reservado de tu subalmacén.
-El pedido debe ser confirmado por el administrador.`;
-        
-        console.log('📋 Mostrando confirmación:', confirmationMessage);
-        alert(confirmationMessage);
+⏳ El pedido requiere confirmación del administrador.`;
+            
+            alert(confirmationMessage);
+            
+            if (window.showNotification) {
+                window.showNotification('Pedido creado exitosamente', 'success');
+            }
+        }
         
         // Limpiar formulario
         clearOrderForm();
@@ -988,19 +1022,18 @@ El pedido debe ser confirmado por el administrador.`;
         console.log('🔄 Recargando productos del subalmacén...');
         try {
             await loadSubstoreProducts();
-            if (window.showNotification) {
-                window.showNotification('Productos del subalmacén actualizados', 'info');
+            if (window.showNotification && response.auto_confirmed) {
+                window.showNotification('Inventario actualizado - nuevos stocks disponibles', 'info');
             }
         } catch (reloadError) {
-            console.warn('⚠️ Error recargando productos, pero el pedido se creó correctamente:', reloadError);
-            // Don't show this as an error to the user since the order was successful
+            console.warn('⚠️ Error recargando productos, pero la venta se completó:', reloadError);
         }
         
     } catch (error) {
-        // ONLY show error if it's a REAL error (network issues, validation, etc.)
-        console.error('❌ Error real creando pedido desde subalmacén:', error);
+        // Manejo de errores mejorado
+        console.error('❌ Error procesando pedido:', error);
         
-        // Check if this is actually a real error or just a parsing issue
+        // Verificar si es un error real o falso positivo
         const isRealError = (
             error.message.includes('Failed to fetch') ||
             error.message.includes('NetworkError') ||
@@ -1022,67 +1055,65 @@ El pedido debe ser confirmado por el administrador.`;
 
 ${error.message}
 
-Los productos pueden haber sido vendidos mientras preparabas el pedido.`;
+Los productos pueden haber sido vendidos mientras preparabas el pedido.
+Actualiza la página para ver el stock actual.`;
             } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
                 errorMessage = `❌ Error de conexión:
 
 No se pudo conectar con el servidor.
-
 Verifica tu conexión a internet e intenta nuevamente.`;
             } else if (error.message.includes('401') || error.message.includes('403')) {
                 errorMessage = `❌ Error de autenticación:
 
 Tu sesión puede haber expirado.
-
 Intenta cerrar sesión y volver a iniciar.`;
             } else {
-                errorMessage = `❌ Error al crear el pedido:
+                errorMessage = `❌ Error procesando la venta:
 
 ${error.message}
 
 Intenta nuevamente en unos momentos.`;
             }
             
-            console.log('❌ Mostrando error real:', errorMessage);
             alert(errorMessage);
         } else {
-            // This is likely a false positive (parsing error, etc.) but the order was probably created
-            console.log('🤔 Posible falso positivo - tratando como éxito y verificando...');
+            // Posible falso positivo - tratar como éxito parcial
+            console.log('🤔 Posible falso positivo - verificando estado...');
             
             if (window.showNotification) {
-                window.showNotification('Pedido enviado al servidor. Verificando estado...', 'info');
+                window.showNotification('Venta enviada al servidor. Verificando estado...', 'info');
             }
             
-            // Wait a moment and reload to see if the order was actually created
             setTimeout(async () => {
                 try {
-                    // Clear the form as if it was successful
+                    // Limpiar formulario como si hubiera sido exitoso
                     clearOrderForm();
                     
-                    // Reload products to see if stock was updated
+                    // Recargar productos para verificar si se actualizó el stock
                     await loadSubstoreProducts();
                     
                     if (window.showNotification) {
-                        window.showNotification('Pedido procesado exitosamente', 'success');
+                        window.showNotification('Venta procesada exitosamente', 'success');
                     }
                     
-                    alert(`✅ PEDIDO PROCESADO
+                    alert(`✅ VENTA PROCESADA
 
-El pedido ha sido enviado al servidor.
+La venta ha sido enviada al servidor exitosamente.
 
 📋 Cliente: ${formData.client_info.name}
 💳 Modalidad: ${currentPaymentMethod === 'cash' ? 'Contado' : 'Crédito 21 días'}
 📦 Productos: ${orderProducts.length}
 💰 Total: ${formatCurrency(formData.total)}
 
-Verifica en la sección de pedidos que se haya creado correctamente.`);
+Verifica en la sección de ventas que se haya registrado correctamente.`);
                     
                 } catch (verifyError) {
                     console.error('Error verificando estado:', verifyError);
-                    // Just reload the page to refresh everything
+                    
                     if (window.showNotification) {
                         window.showNotification('Recargando página para actualizar datos...', 'info');
                     }
+                    
                     setTimeout(() => {
                         window.location.reload();
                     }, 2000);
@@ -1094,7 +1125,7 @@ Verifica en la sección de pedidos que se haya creado correctamente.`);
         isProcessing = false;
         if (submitBtn) {
             submitBtn.disabled = false;
-            submitBtn.textContent = '✅ Crear Pedido';
+            submitBtn.textContent = '⚡ Procesar Venta'; // ✅ CAMBIO: Nuevo texto del botón
         }
     }
 }
@@ -1281,6 +1312,29 @@ Mientras tanto, el administrador puede crear pedidos directamente desde el almac
                 window.location.href = '/';
             }
         }
+        function showAutoConfirmSuccess(orderData, saleData) {
+            const message = `🎉 ¡VENTA COMPLETADA! 
+            
+        Pedido: ${orderData.order_number}
+        Cliente: ${orderData.client_info.name}
+        Total: ${formatCurrency(orderData.total)}
+            
+        La venta ha sido procesada automáticamente.`;
+            
+            if (window.showNotification) {
+                window.showNotification(message, 'success');
+            }
+        }
+
+        function showOrderPendingMessage(orderData) {
+            const message = `📋 Pedido creado: ${orderData.order_number}
+            
+        ⏳ Requiere confirmación manual del administrador.`;
+            
+            if (window.showNotification) {
+                window.showNotification(message, 'info');
+            }
+        }
 
         // Hacer funciones globales
         window.addToOrder = addToOrder;
@@ -1289,6 +1343,8 @@ Mientras tanto, el administrador puede crear pedidos directamente desde el almac
         window.logout = logout;
         window.refreshSubstoreStatus = refreshSubstoreStatus;
         window.contactAdmin = contactAdmin;
+        window.showAutoConfirmSuccess = showAutoConfirmSuccess;
+        window.showOrderPendingMessage = showOrderPendingMessage;
 
         console.log('✅ Página de pedidos con subalmacén inicializada correctamente');
     </script>
