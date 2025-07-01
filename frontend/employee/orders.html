@@ -884,13 +884,87 @@ function formatCurrency(amount) {
     }).format(amount);
 }
 
-// Updated handleCreateOrder with proper error handling
+function updateOrderSummaryWithPayment() {
+    const total = orderProducts.reduce((sum, p) => sum + p.line_total, 0);
+    const initialPayment = parseFloat(document.getElementById('initial-payment')?.value) || 0;
+    const balance = Math.max(0, total - initialPayment);
+    const paymentPercentage = total > 0 ? (initialPayment / total * 100) : 0;
+    
+    const totalItems = orderProducts.reduce((sum, p) => sum + p.quantity, 0);
+    
+    const totalElement = document.getElementById('order-total');
+    const countElement = document.getElementById('cart-items-count');
+    
+    if (totalElement) {
+        totalElement.textContent = formatCurrency(total);
+    }
+    
+    if (countElement) {
+        const sourceText = document.querySelector('.substore-status') ? 'del subalmacén' : 'seleccionados';
+        countElement.innerHTML = `
+            ${totalItems} productos ${sourceText}
+            ${initialPayment > 0 ? `<br><small>Abono: ${formatCurrency(initialPayment)} | Por pagar: ${formatCurrency(balance)}</small>` : ''}
+        `;
+    }
+    
+    // Actualizar vista previa en el resumen
+    updatePaymentPreviewInSummary(total, initialPayment, balance, paymentPercentage);
+}
+
+function updatePaymentPreviewInSummary(total, paid, balance, percentage) {
+    // Buscar o crear sección de vista previa de pagos
+    let paymentPreview = document.getElementById('payment-preview-summary');
+    
+    if (!paymentPreview && paid > 0) {
+        const cartSummary = document.querySelector('.cart-summary');
+        if (cartSummary) {
+            paymentPreview = document.createElement('div');
+            paymentPreview.id = 'payment-preview-summary';
+            paymentPreview.className = 'payment-preview-summary';
+            cartSummary.appendChild(paymentPreview);
+        }
+    }
+    
+    if (paymentPreview) {
+        if (paid > 0) {
+            paymentPreview.innerHTML = `
+                <div class="payment-preview-header">💰 Información de Pago</div>
+                <div class="payment-preview-grid">
+                    <div class="payment-preview-item">
+                        <span>Total:</span>
+                        <span class="amount-total">${formatCurrency(total)}</span>
+                    </div>
+                    <div class="payment-preview-item">
+                        <span>Abono inicial:</span>
+                        <span class="amount-paid">${formatCurrency(paid)}</span>
+                    </div>
+                    <div class="payment-preview-item">
+                        <span>Por pagar:</span>
+                        <span class="amount-balance">${formatCurrency(balance)}</span>
+                    </div>
+                    <div class="payment-preview-item">
+                        <span>Pagado:</span>
+                        <span class="percentage">${percentage.toFixed(1)}%</span>
+                    </div>
+                </div>
+                <div class="payment-progress">
+                    <div class="progress-bar" style="width: ${Math.min(percentage, 100)}%"></div>
+                </div>
+            `;
+            paymentPreview.style.display = 'block';
+        } else {
+            paymentPreview.style.display = 'none';
+        }
+    }
+}
+
+
 async function handleCreateOrder() {
     if (isProcessing) return;
     
-    console.log('📤 Iniciando creación de pedido con AUTO-CONFIRMACIÓN...');
+    console.log('📤 Iniciando creación de pedido con abono inicial...');
     
-    // Validaciones
+    // Validaciones existentes
     if (!orderProducts || orderProducts.length === 0) {
         if (window.showNotification) {
             window.showNotification('Agrega al menos un producto del subalmacén', 'warning');
@@ -920,10 +994,22 @@ async function handleCreateOrder() {
     try {
         if (submitBtn) {
             submitBtn.disabled = true;
-            submitBtn.textContent = '⚡ Procesando Venta...'; // ✅ CAMBIO: Nuevo texto
+            submitBtn.textContent = '⚡ Procesando Venta...';
         }
         
-        // Preparar datos del pedido
+        // Obtener abono inicial
+        const initialPayment = parseFloat(document.getElementById('initial-payment')?.value) || 0;
+        const total = orderProducts.reduce((sum, p) => sum + p.line_total, 0);
+        
+        // Validar abono inicial
+        if (initialPayment > total) {
+            if (window.showNotification) {
+                window.showNotification('El abono inicial no puede ser mayor al total', 'warning');
+            }
+            return;
+        }
+        
+        // Preparar datos del pedido con información de pagos
         const formData = {
             client_info: {
                 name: clientName,
@@ -937,7 +1023,13 @@ async function handleCreateOrder() {
             trip_id: substoreInfo.id,
             location: currentLocation,
             notes: document.getElementById('order-notes')?.value?.trim() || '',
-            total: orderProducts.reduce((sum, p) => sum + p.line_total, 0)
+            total: total,
+            
+            // ===== NUEVA INFORMACIÓN DE PAGOS =====
+            paid_amount: initialPayment,
+            balance: total - initialPayment,
+            is_fully_paid: initialPayment >= total,
+            payment_status: initialPayment >= total ? 'paid' : (initialPayment > 0 ? 'partial' : 'pending')
         };
         
         // Manejar foto
@@ -951,14 +1043,14 @@ async function handleCreateOrder() {
             }
         }
         
-        console.log('📤 Enviando pedido con auto-confirmación:', formData);
+        console.log(' Enviando pedido con información de pagos:', formData);
         
-        // Enviar pedido - Este ahora se auto-confirma en el backend
+        // Enviar pedido
         const response = await window.createOrder(formData);
         
         console.log('✅ Respuesta del servidor recibida:', response);
         
-        // ✅ NUEVA LÓGICA: Manejar respuesta de auto-confirmación
+        // Manejar respuesta de auto-confirmación
         if (response.auto_confirmed) {
             console.log('🎉 Pedido auto-confirmado exitosamente');
             
@@ -967,22 +1059,33 @@ async function handleCreateOrder() {
             const saleNumber = response.sale?.sale_number || 'Generándose...';
             const tripNumber = substoreInfo.trip_number;
             
-            // ✅ NUEVO: Mensaje de confirmación para venta completada
+            // Mensaje de confirmación con información de pagos
+            let paymentInfo = '';
+            if (initialPayment > 0) {
+                const balance = total - initialPayment;
+                paymentInfo = `\n💰 Abono inicial: ${formatCurrency(initialPayment)}`;
+                if (balance > 0) {
+                    paymentInfo += `\n📋 Por pagar: ${formatCurrency(balance)}`;
+                } else {
+                    paymentInfo += `\n✅ Pedido TOTALMENTE PAGADO`;
+                }
+            }
+            
             const confirmationMessage = `🎉 ¡VENTA COMPLETADA EXITOSAMENTE!
 
-📋 Pedido: ${orderNumber}
-💰 Venta: ${saleNumber}
-👤 Cliente: ${formData.client_info.name}
-💳 Modalidad: ${methodText}
-📦 Productos: ${orderProducts.length}
-💵 Total: ${formatCurrency(formData.total)}
-🚛 Viaje: ${tripNumber}
+            Pedido: ${orderNumber}
+            Venta: ${saleNumber}
+            Cliente: ${formData.client_info.name}
+            Modalidad: ${methodText}
+            Productos: ${orderProducts.length}
+            Total: ${formatCurrency(formData.total)}${paymentInfo}
+            Viaje: ${tripNumber}
 
-✅ La venta ha sido procesada automáticamente
-✅ El inventario de tu subalmacén ha sido actualizado
-✅ El registro de venta ha sido creado
+            La venta ha sido procesada automáticamente
+            El inventario de tu subalmacén ha sido actualizado
+            El registro de venta ha sido creado
 
-¡Felicidades por tu venta! 🎊`;
+            ¡Felicidades por tu venta! 🎊`;
             
             console.log('🎉 Mostrando confirmación de venta:', confirmationMessage);
             alert(confirmationMessage);
@@ -992,21 +1095,28 @@ async function handleCreateOrder() {
             }
             
         } else {
-            // Fallback para pedidos no auto-confirmados (admin)
+            // Fallback para pedidos no auto-confirmados
             console.log('📋 Pedido creado, requiere confirmación manual');
             
             const methodText = currentPaymentMethod === 'cash' ? 'Contado' : 'Crédito 21 días';
             const orderNumber = response.order?.order_number || response.order?.id || 'Generándose...';
             
+            let paymentInfo = '';
+            if (initialPayment > 0) {
+                const balance = total - initialPayment;
+                paymentInfo = `\n💰 Abono inicial: ${formatCurrency(initialPayment)}`;
+                paymentInfo += `\n📋 Por pagar: ${formatCurrency(balance)}`;
+            }
+            
             const confirmationMessage = `✅ PEDIDO CREADO EXITOSAMENTE
 
-📋 Número: ${orderNumber}
-👤 Cliente: ${formData.client_info.name}
-💳 Modalidad: ${methodText}
-📦 Productos: ${orderProducts.length}
-💰 Total: ${formatCurrency(formData.total)}
+            📋 Número: ${orderNumber}
+            👤 Cliente: ${formData.client_info.name}
+            💳 Modalidad: ${methodText}
+            📦 Productos: ${orderProducts.length}
+            💰 Total: ${formatCurrency(formData.total)}${paymentInfo}
 
-⏳ El pedido requiere confirmación del administrador.`;
+            ⏳ El pedido requiere confirmación del administrador.`;
             
             alert(confirmationMessage);
             
@@ -1016,9 +1126,9 @@ async function handleCreateOrder() {
         }
         
         // Limpiar formulario
-        clearOrderForm();
+        clearOrderFormWithPayment();
         
-        // Recargar productos del subalmacén para mostrar nuevos stocks
+        // Recargar productos del subalmacén
         console.log('🔄 Recargando productos del subalmacén...');
         try {
             await loadSubstoreProducts();
@@ -1030,10 +1140,9 @@ async function handleCreateOrder() {
         }
         
     } catch (error) {
-        // Manejo de errores mejorado
         console.error('❌ Error procesando pedido:', error);
         
-        // Verificar si es un error real o falso positivo
+        // Manejo de errores (similar al código existente pero con información de pagos)
         const isRealError = (
             error.message.includes('Failed to fetch') ||
             error.message.includes('NetworkError') ||
@@ -1053,67 +1162,58 @@ async function handleCreateOrder() {
             if (error.message.includes('Stock insuficiente')) {
                 errorMessage = `❌ Stock insuficiente en tu subalmacén:
 
-${error.message}
+            ${error.message}
 
-Los productos pueden haber sido vendidos mientras preparabas el pedido.
-Actualiza la página para ver el stock actual.`;
-            } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
-                errorMessage = `❌ Error de conexión:
+            Los productos pueden haber sido vendidos mientras preparabas el pedido.
+            Actualiza la página para ver el stock actual.`;
+                        } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+                            errorMessage = `❌ Error de conexión:
 
-No se pudo conectar con el servidor.
-Verifica tu conexión a internet e intenta nuevamente.`;
-            } else if (error.message.includes('401') || error.message.includes('403')) {
-                errorMessage = `❌ Error de autenticación:
+            No se pudo conectar con el servidor.
+            Verifica tu conexión a internet e intenta nuevamente.`;
+                        } else {
+                            errorMessage = `❌ Error procesando la venta:
 
-Tu sesión puede haber expirado.
-Intenta cerrar sesión y volver a iniciar.`;
-            } else {
-                errorMessage = `❌ Error procesando la venta:
+            ${error.message}
 
-${error.message}
-
-Intenta nuevamente en unos momentos.`;
+            Intenta nuevamente en unos momentos.`;
             }
             
             alert(errorMessage);
         } else {
-            // Posible falso positivo - tratar como éxito parcial
+            // Posible falso positivo
             console.log('🤔 Posible falso positivo - verificando estado...');
-            
-            if (window.showNotification) {
-                window.showNotification('Venta enviada al servidor. Verificando estado...', 'info');
-            }
             
             setTimeout(async () => {
                 try {
-                    // Limpiar formulario como si hubiera sido exitoso
-                    clearOrderForm();
-                    
-                    // Recargar productos para verificar si se actualizó el stock
+                    clearOrderFormWithPayment();
                     await loadSubstoreProducts();
                     
                     if (window.showNotification) {
                         window.showNotification('Venta procesada exitosamente', 'success');
                     }
                     
-                    alert(`✅ VENTA PROCESADA
-
-La venta ha sido enviada al servidor exitosamente.
-
-📋 Cliente: ${formData.client_info.name}
-💳 Modalidad: ${currentPaymentMethod === 'cash' ? 'Contado' : 'Crédito 21 días'}
-📦 Productos: ${orderProducts.length}
-💰 Total: ${formatCurrency(formData.total)}
-
-Verifica en la sección de ventas que se haya registrado correctamente.`);
+                    const total = formData.total;
+                    const paid = formData.paid_amount;
                     
-                } catch (verifyError) {
-                    console.error('Error verificando estado:', verifyError);
-                    
-                    if (window.showNotification) {
-                        window.showNotification('Recargando página para actualizar datos...', 'info');
+                    let paymentInfo = '';
+                    if (paid > 0) {
+                        paymentInfo = `\n💰 Abono inicial: ${formatCurrency(paid)}\n📋 Por pagar: ${formatCurrency(total - paid)}`;
                     }
                     
+                    alert(`✅ VENTA PROCESADA
+
+                La venta ha sido enviada al servidor exitosamente.
+
+                📋 Cliente: ${formData.client_info.name}
+                💳 Modalidad: ${currentPaymentMethod === 'cash' ? 'Contado' : 'Crédito 21 días'}
+                📦 Productos: ${orderProducts.length}
+                💰 Total: ${formatCurrency(total)}${paymentInfo}
+
+                Verifica en la sección de ventas que se haya registrado correctamente.`);
+                                    
+                } catch (verifyError) {
+                    console.error('Error verificando estado:', verifyError);
                     setTimeout(() => {
                         window.location.reload();
                     }, 2000);
@@ -1125,228 +1225,289 @@ Verifica en la sección de ventas que se haya registrado correctamente.`);
         isProcessing = false;
         if (submitBtn) {
             submitBtn.disabled = false;
-            submitBtn.textContent = '⚡ Procesar Venta'; // ✅ CAMBIO: Nuevo texto del botón
+            submitBtn.textContent = '⚡ Procesar Venta';
         }
     }
 }
 
-        // Funciones auxiliares
-        function showOrderForm() {
-            document.getElementById('order-form-container').style.display = 'block';
+function addInitialPaymentField() {
+    const clientInfoSection = document.querySelector('.form-section:has(#client-name)');
+    if (!clientInfoSection) return;
+    
+    const paymentFieldHTML = `
+        <div class="form-group">
+            <label for="initial-payment">Abono Inicial (Opcional):</label>
+            <input type="number" id="initial-payment" step="0.01" min="0" 
+                   placeholder="0.00" onchange="updateOrderSummaryWithPayment()">
+            <small style="color: var(--secondary-color);">
+                💡 Ingresa el monto que abona el cliente al hacer el pedido
+            </small>
+        </div>
+    `;
+    
+    const formGrid = clientInfoSection.querySelector('.form-grid');
+    if (formGrid) {
+        formGrid.insertAdjacentHTML('beforeend', paymentFieldHTML);
+    }
+}
+// Funciones auxiliares
+function showOrderForm() {
+    document.getElementById('order-form-container').style.display = 'block';
+}
+
+function hideOrderForm() {
+    document.getElementById('order-form-container').style.display = 'none';
+}
+
+function refreshSubstoreStatus() {
+    console.log('🔄 Refrescando estado del subalmacén...');
+    loadSubstoreStatus();
+}
+
+function contactAdmin() {
+    alert(`📞 Contacta al Administrador
+
+    Para obtener productos en tu subalmacén:
+
+    1. Solicita al administrador que cree un nuevo viaje
+    2. El administrador debe asignarte productos específicos
+    3. Una vez asignados, podrás crear pedidos desde tu subalmacén
+
+    Mientras tanto, el administrador puede crear pedidos directamente desde el almacén principal.`);
+}
+
+function removeFromOrder(index) {
+    const product = orderProducts[index];
+    if (!product) return;
+    
+    if (confirm(`¿Remover ${product.name} del subalmacén?`)) {
+        orderProducts.splice(index, 1);
+        updateOrderTable();
+        if (window.showNotification) {
+            window.showNotification('Producto removido', 'info');
         }
+    }
+}
 
-        function hideOrderForm() {
-            document.getElementById('order-form-container').style.display = 'none';
-        }
-
-        function refreshSubstoreStatus() {
-            console.log('🔄 Refrescando estado del subalmacén...');
-            loadSubstoreStatus();
-        }
-
-        function contactAdmin() {
-            alert(`📞 Contacta al Administrador
-
-Para obtener productos en tu subalmacén:
-
-1. Solicita al administrador que cree un nuevo viaje
-2. El administrador debe asignarte productos específicos
-3. Una vez asignados, podrás crear pedidos desde tu subalmacén
-
-Mientras tanto, el administrador puede crear pedidos directamente desde el almacén principal.`);
-        }
-
-        function removeFromOrder(index) {
-            const product = orderProducts[index];
-            if (!product) return;
-            
-            if (confirm(`¿Remover ${product.name} del subalmacén?`)) {
-                orderProducts.splice(index, 1);
-                updateOrderTable();
-                if (window.showNotification) {
-                    window.showNotification('Producto removido', 'info');
-                }
+function clearOrderFormWithPayment() {
+    console.log('🧹 Limpiando formulario de pedido con información de pagos...');
+    
+    try {
+        // Limpiar productos del pedido
+        orderProducts = [];
+        updateOrderTable();
+        
+        // Limpiar campos del cliente
+        const clientFields = [
+            'client-name', 
+            'client-phone', 
+            'client-address', 
+            'client-email', 
+            'order-notes',
+            'initial-payment'  // ===== NUEVO: Limpiar campo de abono =====
+        ];
+        
+        clientFields.forEach(fieldId => {
+            const field = document.getElementById(fieldId);
+            if (field) {
+                field.value = '';
             }
-        }
-
-        function handleClearOrder() {
-            if (orderProducts.length === 0) return;
+        });
+        
+        // Limpiar foto
+        const photoInput = document.getElementById('order-photo');
+        const photoPreview = document.getElementById('photo-preview');
+        if (photoInput) photoInput.value = '';
+        if (photoPreview) photoPreview.innerHTML = '';
+        
+        // Reset método de pago
+        const cashRadio = document.getElementById('payment-cash');
+        if (cashRadio) {
+            cashRadio.checked = true;
+            currentPaymentMethod = 'cash';
             
-            if (confirm('¿Limpiar todo el pedido del subalmacén?')) {
-                orderProducts = [];
-                updateOrderTable();
-                
-                ['client-name', 'client-phone', 'client-address', 'client-email', 'order-notes'].forEach(id => {
-                    const field = document.getElementById(id);
-                    if (field) field.value = '';
-                });
-                
-                const photoInput = document.getElementById('order-photo');
-                const photoPreview = document.getElementById('photo-preview');
-                if (photoInput) photoInput.value = '';
-                if (photoPreview) photoPreview.innerHTML = '';
-                
-                if (window.showNotification) {
-                    window.showNotification('Pedido del subalmacén limpiado', 'success');
-                }
-            }
-        }
-
-        let searchTimeout;
-        function handleSearch(e) {
-            clearTimeout(searchTimeout);
-            searchTimeout = setTimeout(() => {
-                const term = e.target.value.toLowerCase().trim();
-                let filtered = substoreProducts;
-                
-                if (term) {
-                    filtered = substoreProducts.filter(p => 
-                        p.name.toLowerCase().includes(term) ||
-                        p.code.toLowerCase().includes(term) ||
-                        p.brand.toLowerCase().includes(term) ||
-                        p.viscosity.toLowerCase().includes(term)
-                    );
-                }
-                
-                displaySubstoreProducts(filtered);
-            }, 300);
-        }
-
-        function handlePhotoChange(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-            
-            if (file.size > 5 * 1024 * 1024) {
-                if (window.showNotification) {
-                    window.showNotification('Archivo muy grande (máx 5MB)', 'warning');
-                }
-                e.target.value = '';
-                return;
-            }
-            
-            if (!file.type.startsWith('image/')) {
-                if (window.showNotification) {
-                    window.showNotification('Solo imágenes permitidas', 'warning');
-                }
-                e.target.value = '';
-                return;
-            }
-            
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                document.getElementById('photo-preview').innerHTML = `
-                    <div style="position: relative; display: inline-block; margin-top: 1rem;">
-                        <img src="${e.target.result}" style="max-width: 200px; max-height: 200px; border-radius: 8px;">
-                        <button onclick="removePhoto()" style="position: absolute; top: -8px; right: -8px; background: #dc2626; color: white; border: none; border-radius: 50%; width: 24px; height: 24px; cursor: pointer;">×</button>
-                    </div>
-                `;
-            };
-            reader.readAsDataURL(file);
-        }
-
-        function removePhoto() {
-            const photoInput = document.getElementById('order-photo');
-            const photoPreview = document.getElementById('photo-preview');
-            if (photoInput) photoInput.value = '';
-            if (photoPreview) photoPreview.innerHTML = '';
-        }
-
-        function convertToBase64(file) {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = () => resolve(reader.result);
-                reader.onerror = reject;
-                reader.readAsDataURL(file);
+            document.querySelectorAll('.payment-preview-item {option').forEach(option => {
+                option.classList.remove('selected');
             });
+            cashRadio.closest('.payment-option')?.classList.add('selected');
         }
-
-        function setupMobile() {
-            if (!document.querySelector('.mobile-menu-btn')) {
-                const mobileBtn = document.createElement('button');
-                mobileBtn.className = 'mobile-menu-btn';
-                mobileBtn.innerHTML = '☰';
-                mobileBtn.onclick = toggleMobileMenu;
-                document.body.appendChild(mobileBtn);
-            }
-            
-            adjustForMobile();
-            window.addEventListener('resize', adjustForMobile);
-            document.addEventListener('click', handleOutsideClick);
+        
+        // Reset inputs de cantidad
+        document.querySelectorAll('.quantity-input').forEach(input => {
+            input.value = 1;
+        });
+        
+        // ===== NUEVO: Limpiar vista previa de pagos =====
+        const paymentPreview = document.getElementById('payment-preview-summary');
+        if (paymentPreview) {
+            paymentPreview.style.display = 'none';
         }
+        
+        console.log('✅ Formulario con información de pagos limpiado exitosamente');
+        
+    } catch (error) {
+        console.error('❌ Error limpiando formulario:', error);
+    }
+}
 
-        function toggleMobileMenu() {
-            const sidebar = document.getElementById('sidebar');
-            if (sidebar && window.innerWidth <= 768) {
-                sidebar.classList.toggle('active');
-            }
+let searchTimeout;
+function handleSearch(e) {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+        const term = e.target.value.toLowerCase().trim();
+        let filtered = substoreProducts;
+        
+        if (term) {
+            filtered = substoreProducts.filter(p => 
+                p.name.toLowerCase().includes(term) ||
+                p.code.toLowerCase().includes(term) ||
+                p.brand.toLowerCase().includes(term) ||
+                p.viscosity.toLowerCase().includes(term)
+            );
         }
+        
+        displaySubstoreProducts(filtered);
+    }, 300);
+}
 
-        function adjustForMobile() {
-            const mobileBtn = document.querySelector('.mobile-menu-btn');
-            if (mobileBtn) {
-                mobileBtn.style.display = window.innerWidth <= 768 ? 'block' : 'none';
-            }
+function handlePhotoChange(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    if (file.size > 5 * 1024 * 1024) {
+        if (window.showNotification) {
+            window.showNotification('Archivo muy grande (máx 5MB)', 'warning');
         }
-
-        function handleOutsideClick(e) {
-            if (window.innerWidth <= 768) {
-                const sidebar = document.getElementById('sidebar');
-                const menuBtn = document.querySelector('.mobile-menu-btn');
-                
-                if (sidebar && menuBtn && !sidebar.contains(e.target) && !menuBtn.contains(e.target) && sidebar.classList.contains('active')) {
-                    sidebar.classList.remove('active');
-                }
-            }
+        e.target.value = '';
+        return;
+    }
+    
+    if (!file.type.startsWith('image/')) {
+        if (window.showNotification) {
+            window.showNotification('Solo imágenes permitidas', 'warning');
         }
+        e.target.value = '';
+        return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        document.getElementById('photo-preview').innerHTML = `
+            <div style="position: relative; display: inline-block; margin-top: 1rem;">
+                <img src="${e.target.result}" style="max-width: 200px; max-height: 200px; border-radius: 8px;">
+                <button onclick="removePhoto()" style="position: absolute; top: -8px; right: -8px; background: #dc2626; color: white; border: none; border-radius: 50%; width: 24px; height: 24px; cursor: pointer;">×</button>
+            </div>
+        `;
+    };
+    reader.readAsDataURL(file);
+}
 
-        function formatCurrency(amount) {
-            return new Intl.NumberFormat('es-MX', {
-                style: 'currency',
-                currency: 'MXN'
-            }).format(amount);
+function removePhoto() {
+    const photoInput = document.getElementById('order-photo');
+    const photoPreview = document.getElementById('photo-preview');
+    if (photoInput) photoInput.value = '';
+    if (photoPreview) photoPreview.innerHTML = '';
+}
+
+function convertToBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+}
+
+function setupMobile() {
+    if (!document.querySelector('.mobile-menu-btn')) {
+        const mobileBtn = document.createElement('button');
+        mobileBtn.className = 'mobile-menu-btn';
+        mobileBtn.innerHTML = '☰';
+        mobileBtn.onclick = toggleMobileMenu;
+        document.body.appendChild(mobileBtn);
+    }
+    
+    adjustForMobile();
+    window.addEventListener('resize', adjustForMobile);
+    document.addEventListener('click', handleOutsideClick);
+}
+
+function toggleMobileMenu() {
+    const sidebar = document.getElementById('sidebar');
+    if (sidebar && window.innerWidth <= 768) {
+        sidebar.classList.toggle('active');
+    }
+}
+
+function adjustForMobile() {
+    const mobileBtn = document.querySelector('.mobile-menu-btn');
+    if (mobileBtn) {
+        mobileBtn.style.display = window.innerWidth <= 768 ? 'block' : 'none';
+    }
+}
+
+function handleOutsideClick(e) {
+    if (window.innerWidth <= 768) {
+        const sidebar = document.getElementById('sidebar');
+        const menuBtn = document.querySelector('.mobile-menu-btn');
+        
+        if (sidebar && menuBtn && !sidebar.contains(e.target) && !menuBtn.contains(e.target) && sidebar.classList.contains('active')) {
+            sidebar.classList.remove('active');
         }
+    }
+}
 
-        function logout() {
-            if (confirm('¿Cerrar sesión?')) {
-                localStorage.clear();
-                window.location.href = '/';
-            }
-        }
-        function showAutoConfirmSuccess(orderData, saleData) {
-            const message = `🎉 ¡VENTA COMPLETADA! 
-            
-        Pedido: ${orderData.order_number}
-        Cliente: ${orderData.client_info.name}
-        Total: ${formatCurrency(orderData.total)}
-            
-        La venta ha sido procesada automáticamente.`;
-            
-            if (window.showNotification) {
-                window.showNotification(message, 'success');
-            }
-        }
 
-        function showOrderPendingMessage(orderData) {
-            const message = `📋 Pedido creado: ${orderData.order_number}
-            
-        ⏳ Requiere confirmación manual del administrador.`;
-            
-            if (window.showNotification) {
-                window.showNotification(message, 'info');
-            }
-        }
+function formatCurrency(amount) {
+    return new Intl.NumberFormat('es-MX', {
+        style: 'currency',
+        currency: 'MXN'
+    }).format(amount);
+}
 
-        // Hacer funciones globales
-        window.addToOrder = addToOrder;
-        window.removeFromOrder = removeFromOrder;
-        window.removePhoto = removePhoto;
-        window.logout = logout;
-        window.refreshSubstoreStatus = refreshSubstoreStatus;
-        window.contactAdmin = contactAdmin;
-        window.showAutoConfirmSuccess = showAutoConfirmSuccess;
-        window.showOrderPendingMessage = showOrderPendingMessage;
+function logout() {
+    if (confirm('¿Cerrar sesión?')) {
+        localStorage.clear();
+        window.location.href = '/';
+    }
+}
+function showAutoConfirmSuccess(orderData, saleData) {
+    const message = `🎉 ¡VENTA COMPLETADA! 
+    
+    Pedido: ${orderData.order_number}
+    Cliente: ${orderData.client_info.name}
+    Total: ${formatCurrency(orderData.total)}
+        
+    La venta ha sido procesada automáticamente.`;
+        
+    if (window.showNotification) {
+        window.showNotification(message, 'success');
+    }
+}
 
-        console.log('✅ Página de pedidos con subalmacén inicializada correctamente');
+function showOrderPendingMessage(orderData) {
+    const message = `📋 Pedido creado: ${orderData.order_number}
+    
+⏳ Requiere confirmación manual del administrador.`;
+    
+    if (window.showNotification) {
+        window.showNotification(message, 'info');
+    }
+}
+
+// Hacer funciones globales
+window.addToOrder = addToOrder;
+window.removeFromOrder = removeFromOrder;
+window.removePhoto = removePhoto;
+window.logout = logout;
+window.refreshSubstoreStatus = refreshSubstoreStatus;
+window.contactAdmin = contactAdmin;
+window.showAutoConfirmSuccess = showAutoConfirmSuccess;
+window.showOrderPendingMessage = showOrderPendingMessage;
+
+
+
+console.log('✅ Página de pedidos con subalmacén inicializada correctamente');
     </script>
 </body>
 </html>

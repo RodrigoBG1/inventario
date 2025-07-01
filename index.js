@@ -163,7 +163,6 @@ function migrateProductPrices(product) {
 }
 
 
-
 // ===== NUEVA FUNCIÓN: ACTUALIZAR INVENTARIO =====
 async function updateInventoryStock(products, operation = 'subtract', notes = '') {
   console.log(`📦 Actualizando inventario (${operation}):`, products);
@@ -696,7 +695,6 @@ async function updateProduct(id, productData) {
   return fallbackDatabase.products[index];
 }
 
-
 async function deleteProduct(id) {
   if (supabase) {
     try {
@@ -746,13 +744,27 @@ async function getOrders(employeeId = null, role = null) {
 }
 
 async function createOrder(orderData) {
-  console.log('🔄 Creating order with data:', orderData);
+  console.log('🔄 Creating order with payment tracking:', orderData);
+  
+  // Calcular balance de pagos
+  const paymentBalance = calculatePaymentBalance(orderData.total, orderData.paid_amount || 0);
+  
+  // Preparar datos del pedido con información de pagos
+  const orderWithPayments = {
+    ...orderData,
+    paid_amount: paymentBalance.paid_amount,
+    balance: paymentBalance.balance,
+    is_fully_paid: paymentBalance.is_fully_paid,
+    payment_percentage: paymentBalance.payment_percentage,
+    payment_status: paymentBalance.is_fully_paid ? 'paid' : 'partial',
+    created_at: new Date().toISOString()
+  };
   
   if (supabase) {
     try {
       const { data, error } = await supabase
         .from('orders')
-        .insert([orderData])
+        .insert([orderWithPayments])
         .select()
         .single();
       
@@ -761,12 +773,10 @@ async function createOrder(orderData) {
         throw new Error(`Database error: ${error.message}`);
       }
       
-      console.log('✅ Order created in Supabase:', data);
+      console.log('✅ Order created in Supabase with payment tracking:', data);
       return data;
     } catch (error) {
       console.error('❌ Error creating order in Supabase:', error);
-      
-      // Don't fall back to memory for database errors, throw the error
       throw error;
     }
   }
@@ -774,13 +784,50 @@ async function createOrder(orderData) {
   // Fallback: create in memory
   const newOrder = {
     id: fallbackDatabase.orders.length + 1,
-    ...orderData,
-    created_at: new Date().toISOString()
+    ...orderWithPayments
   };
   
   fallbackDatabase.orders.push(newOrder);
-  console.log('✅ Order created in memory:', newOrder);
+  console.log('✅ Order created in memory with payment tracking:', newOrder);
   return newOrder;
+}
+
+// Función para calcular el saldo por pagar
+function calculatePaymentBalance(total, paid_amount = 0) {
+  const totalAmount = parseFloat(total) || 0;
+  const paidAmount = parseFloat(paid_amount) || 0;
+  const balance = totalAmount - paidAmount;
+  
+  return {
+    total: totalAmount,
+    paid_amount: paidAmount,
+    balance: Math.max(0, balance), // No permitir saldos negativos
+    is_fully_paid: balance <= 0,
+    payment_percentage: totalAmount > 0 ? (paidAmount / totalAmount * 100) : 0
+  };
+}
+
+// Función para validar un abono
+function validatePayment(total, current_paid, new_payment) {
+  const totalAmount = parseFloat(total) || 0;
+  const currentPaid = parseFloat(current_paid) || 0;
+  const newPayment = parseFloat(new_payment) || 0;
+  
+  if (newPayment < 0) {
+    throw new Error('El abono no puede ser negativo');
+  }
+  
+  const totalPaid = currentPaid + newPayment;
+  
+  if (totalPaid > totalAmount) {
+    throw new Error(`El abono excede el total. Máximo permitido: $${(totalAmount - currentPaid).toFixed(2)}`);
+  }
+  
+  return {
+    valid: true,
+    new_total_paid: totalPaid,
+    remaining_balance: totalAmount - totalPaid
+  };
 }
 
 // Función para obtener el viaje activo de un empleado
@@ -896,7 +943,6 @@ async function getEmployeeSubstoreProducts(employeeId) {
   };
 }
 
-
 async function getSales(employeeId = null, role = null) {
   if (supabase) {
     try {
@@ -947,6 +993,585 @@ const adminOnly = (req, res, next) => {
   next();
 };
 
+async function getTrips(status = null, employeeId = null) {
+  console.log('🔍 getTrips llamado con:', { status, employeeId });
+  
+  if (supabase) {
+    try {
+      let query = supabase.from('trips').select(`
+        *,
+        substore_inventory (
+          id, product_id, product_code, product_name, 
+          initial_quantity, current_quantity, sold_quantity, 
+          returned_quantity, price
+        )
+      `);
+      
+      if (status) query = query.eq('status', status);
+      if (employeeId) query = query.eq('employee_id', employeeId);
+      
+      const { data, error } = await query.order('created_at', { ascending: false });
+      
+      if (error) {
+        console.error('Error en Supabase getTrips:', error);
+        throw error;
+      }
+      
+      console.log('✅ Trips obtenidos de Supabase:', data?.length || 0);
+      return data || [];
+    } catch (error) {
+      console.error('❌ Error getting trips from Supabase:', error);
+      
+      // Fallback a memoria si falla Supabase
+      console.log('🔄 Usando fallback en memoria...');
+    }
+  }
+  
+  // Fallback: usar datos en memoria
+  let trips = fallbackDatabase.trips || [];
+  
+  // Aplicar filtros
+  if (status) {
+    trips = trips.filter(trip => trip.status === status);
+  }
+  if (employeeId) {
+    trips = trips.filter(trip => trip.employee_id === parseInt(employeeId));
+  }
+  
+  // Agregar inventario de subalmacén a cada trip
+  trips = trips.map(trip => ({
+    ...trip,
+    substore_inventory: (fallbackDatabase.substore_inventory || [])
+      .filter(item => item.trip_id === trip.id)
+  }));
+  
+  console.log('✅ Trips obtenidos de memoria:', trips.length);
+  return trips;
+}
+
+
+// Crear viaje
+async function createTrip(tripData) {
+  console.log('🚛 Creando nuevo viaje:', tripData);
+  
+  if (supabase) {
+    try {
+      // Crear el viaje en Supabase
+      const { data: trip, error: tripError } = await supabase
+        .from('trips')
+        .insert([{
+          trip_number: tripData.trip_number,
+          employee_id: tripData.employee_id,
+          employee_code: tripData.employee_code,
+          employee_name: tripData.employee_name,
+          status: 'active',
+          notes: tripData.notes || '',
+          start_date: new Date().toISOString()
+        }])
+        .select()
+        .single();
+      
+      if (tripError) {
+        console.error('Error creando trip en Supabase:', tripError);
+        throw tripError;
+      }
+      
+      console.log('✅ Viaje creado en Supabase:', trip.trip_number);
+      return trip;
+    } catch (error) {
+      console.error('❌ Error creating trip in Supabase:', error);
+      
+      // Continuar con fallback si falla Supabase
+      console.log('🔄 Usando fallback en memoria...');
+    }
+  }
+  
+  // Fallback: crear en memoria
+  const newTrip = {
+    id: (fallbackDatabase.trips?.length || 0) + 1,
+    trip_number: tripData.trip_number,
+    employee_id: tripData.employee_id,
+    employee_code: tripData.employee_code,
+    employee_name: tripData.employee_name,
+    status: 'active',
+    notes: tripData.notes || '',
+    start_date: new Date().toISOString(),
+    created_at: new Date().toISOString()
+  };
+  
+  fallbackDatabase.trips.push(newTrip);
+  console.log('✅ Viaje creado en memoria:', newTrip.trip_number);
+  return newTrip;
+}
+
+// Cargar productos al subalmacén
+async function loadProductsToSubstore(tripId, products) {
+  console.log('📦 Cargando productos al subalmacén:', { tripId, products });
+  
+  const loadedProducts = [];
+  
+  if (supabase) {
+    try {
+      // Procesar cada producto
+      for (const product of products) {
+        const { product_id, quantity, price } = product;
+        
+        // 1. Verificar stock disponible en almacén principal
+        const { data: mainProduct, error: getError } = await supabase
+          .from('products')
+          .select('id, code, name, stock')
+          .eq('id', product_id)
+          .single();
+        
+        if (getError || !mainProduct) {
+          throw new Error(`Producto ${product_id} no encontrado`);
+        }
+        
+        if (mainProduct.stock < quantity) {
+          throw new Error(`Stock insuficiente para ${mainProduct.name}. Disponible: ${mainProduct.stock}, solicitado: ${quantity}`);
+        }
+        
+        // 2. Reducir stock del almacén principal
+        const { error: updateError } = await supabase
+          .from('products')
+          .update({ stock: mainProduct.stock - quantity })
+          .eq('id', product_id);
+        
+        if (updateError) throw updateError;
+        
+        // 3. Agregar al subalmacén
+        const { data: substoreItem, error: substoreError } = await supabase
+          .from('substore_inventory')
+          .insert([{
+            trip_id: tripId,
+            product_id: product_id,
+            product_code: mainProduct.code,
+            product_name: mainProduct.name,
+            initial_quantity: quantity,
+            current_quantity: quantity,
+            sold_quantity: 0,
+            returned_quantity: 0,
+            price: price || mainProduct.price || 0
+          }])
+          .select()
+          .single();
+        
+        if (substoreError) throw substoreError;
+        
+        loadedProducts.push(substoreItem);
+        console.log(`✅ Producto ${mainProduct.name} cargado al subalmacén`);
+      }
+      
+      return { success: true, products: loadedProducts };
+      
+    } catch (error) {
+      console.error('❌ Error cargando productos al subalmacén (Supabase):', error);
+      
+      // Continuar con fallback
+      console.log('🔄 Usando fallback en memoria...');
+    }
+  }
+  
+  // Fallback: cargar en memoria
+  for (const product of products) {
+    const { product_id, quantity, price } = product;
+    
+    // Buscar producto en memoria
+    const mainProduct = fallbackDatabase.products.find(p => p.id === product_id);
+    if (!mainProduct) {
+      throw new Error(`Producto ${product_id} no encontrado`);
+    }
+    
+    if (mainProduct.stock < quantity) {
+      throw new Error(`Stock insuficiente para ${mainProduct.name}. Disponible: ${mainProduct.stock}, solicitado: ${quantity}`);
+    }
+    
+    // Reducir stock principal
+    mainProduct.stock -= quantity;
+    
+    // Agregar al subalmacén
+    const substoreItem = {
+      id: (fallbackDatabase.substore_inventory?.length || 0) + 1,
+      trip_id: tripId,
+      product_id: product_id,
+      product_code: mainProduct.code,
+      product_name: mainProduct.name,
+      initial_quantity: quantity,
+      current_quantity: quantity,
+      sold_quantity: 0,
+      returned_quantity: 0,
+      price: price || mainProduct.price || 0,
+      created_at: new Date().toISOString()
+    };
+    
+    fallbackDatabase.substore_inventory.push(substoreItem);
+    loadedProducts.push(substoreItem);
+    
+    console.log(`✅ Producto ${mainProduct.name} cargado al subalmacén (memoria)`);
+  }
+  
+  return { success: true, products: loadedProducts };
+}
+
+// Obtener inventario de subalmacén
+async function getSubstoreInventory(tripId) {
+  console.log('📦 getSubstoreInventory llamado para trip:', tripId);
+  
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('substore_inventory')
+        .select('*')
+        .eq('trip_id', tripId)
+        .order('product_code');
+      
+      if (error) {
+        console.error('Error obteniendo inventario de Supabase:', error);
+        throw error;
+      }
+      
+      console.log('✅ Inventario obtenido de Supabase:', data?.length || 0, 'items');
+      return data || [];
+    } catch (error) {
+      console.error('❌ Error getting substore inventory from Supabase:', error);
+      
+      // Continuar con fallback
+      console.log('🔄 Usando fallback en memoria...');
+    }
+  }
+  
+  // Fallback: obtener de memoria
+  const inventory = (fallbackDatabase.substore_inventory || [])
+    .filter(item => item.trip_id === parseInt(tripId));
+  
+  console.log('✅ Inventario obtenido de memoria:', inventory.length, 'items');
+  return inventory;
+}
+
+// Vender producto del subalmacén
+async function sellFromSubstore(tripId, productId, quantity, saleData) {
+  console.log('💰 Venta desde subalmacén:', { tripId, productId, quantity });
+  
+  if (supabase) {
+    try {
+      // 1. Obtener item del subalmacén
+      const { data: substoreItem, error: getError } = await supabase
+        .from('substore_inventory')
+        .select('*')
+        .eq('trip_id', tripId)
+        .eq('product_id', productId)
+        .single();
+      
+      if (getError || !substoreItem) {
+        throw new Error('Producto no encontrado en subalmacén');
+      }
+      
+      if (substoreItem.current_quantity < quantity) {
+        throw new Error(`Stock insuficiente en subalmacén. Disponible: ${substoreItem.current_quantity}`);
+      }
+      
+      // 2. Actualizar inventario del subalmacén
+      const newCurrentQuantity = substoreItem.current_quantity - quantity;
+      const newSoldQuantity = substoreItem.sold_quantity + quantity;
+      
+      const { error: updateError } = await supabase
+        .from('substore_inventory')
+        .update({
+          current_quantity: newCurrentQuantity,
+          sold_quantity: newSoldQuantity
+        })
+        .eq('id', substoreItem.id);
+      
+      if (updateError) throw updateError;
+      
+      // 3. Registrar movimiento del subalmacén
+      await supabase
+        .from('substore_movements')
+        .insert([{
+          trip_id: tripId,
+          product_id: productId,
+          product_code: substoreItem.product_code,
+          product_name: substoreItem.product_name,
+          movement_type: 'sale',
+          quantity: quantity,
+          previous_quantity: substoreItem.current_quantity,
+          new_quantity: newCurrentQuantity,
+          reference_id: saleData?.order_id || null,
+          reference_type: 'sale',
+          notes: `Venta - ${saleData?.client_info?.name || 'Cliente'}`
+        }]);
+      
+      console.log(`✅ Venta registrada en subalmacén`);
+      return { success: true };
+      
+    } catch (error) {
+      console.error('❌ Error en venta desde subalmacén:', error);
+      throw error;
+    }
+  } else {
+    // Fallback
+    const substoreItem = (fallbackDatabase.substore_inventory || [])
+      .find(item => item.trip_id === tripId && item.product_id === productId);
+    
+    if (!substoreItem) {
+      throw new Error('Producto no encontrado en subalmacén');
+    }
+    
+    if (substoreItem.current_quantity < quantity) {
+      throw new Error(`Stock insuficiente en subalmacén`);
+    }
+    
+    substoreItem.current_quantity -= quantity;
+    substoreItem.sold_quantity += quantity;
+    
+    return { success: true };
+  }
+}
+
+// Devolver productos al almacén principal
+async function returnToMainStore(tripId, products) {
+  console.log('🔄 Devolviendo productos al almacén principal:', { tripId, products });
+  
+  if (supabase) {
+    try {
+      for (const returnItem of products) {
+        const { product_id, quantity } = returnItem;
+        
+        // 1. Obtener item del subalmacén
+        const { data: substoreItem, error: getError } = await supabase
+          .from('substore_inventory')
+          .select('*')
+          .eq('trip_id', tripId)
+          .eq('product_id', product_id)
+          .single();
+        
+        if (getError || !substoreItem) {
+          throw new Error(`Producto ${product_id} no encontrado en subalmacén`);
+        }
+        
+        if (substoreItem.current_quantity < quantity) {
+          throw new Error(`Cantidad a devolver mayor que disponible en subalmacén`);
+        }
+        
+        // 2. Actualizar subalmacén
+        const { error: updateSubstoreError } = await supabase
+          .from('substore_inventory')
+          .update({
+            current_quantity: substoreItem.current_quantity - quantity,
+            returned_quantity: (substoreItem.returned_quantity || 0) + quantity
+          })
+          .eq('id', substoreItem.id);
+        
+        if (updateSubstoreError) throw updateSubstoreError;
+        
+        // 3. Actualizar almacén principal
+        const { data: mainProduct, error: getMainError } = await supabase
+          .from('products')
+          .select('stock')
+          .eq('id', product_id)
+          .single();
+        
+        if (getMainError) throw getMainError;
+        
+        const { error: updateMainError } = await supabase
+          .from('products')
+          .update({ stock: mainProduct.stock + quantity })
+          .eq('id', product_id);
+        
+        if (updateMainError) throw updateMainError;
+        
+        console.log(`✅ Producto ${substoreItem.product_name} devuelto al almacén principal`);
+      }
+      
+      return { success: true };
+      
+    } catch (error) {
+      console.error('❌ Error devolviendo productos (Supabase):', error);
+      throw error;
+    }
+  } else {
+    // Fallback: devolver en memoria
+    for (const returnItem of products) {
+      const { product_id, quantity } = returnItem;
+      
+      const substoreItem = fallbackDatabase.substore_inventory.find(
+        item => item.trip_id === parseInt(tripId) && item.product_id === product_id
+      );
+      
+      const mainProduct = fallbackDatabase.products.find(p => p.id === product_id);
+      
+      if (!substoreItem || !mainProduct) {
+        throw new Error(`Producto ${product_id} no encontrado`);
+      }
+      
+      if (substoreItem.current_quantity < quantity) {
+        throw new Error(`Cantidad a devolver mayor que disponible`);
+      }
+      
+      substoreItem.current_quantity -= quantity;
+      substoreItem.returned_quantity = (substoreItem.returned_quantity || 0) + quantity;
+      mainProduct.stock += quantity;
+      
+      console.log(`✅ Producto ${substoreItem.product_name} devuelto al almacén principal (memoria)`);
+    }
+    
+    return { success: true };
+  }
+}
+
+// Finalizar viaje
+async function completeTrip(tripId, returnProducts = []) {
+  console.log('🏁 Finalizando viaje:', tripId, 'con productos:', returnProducts);
+  
+  try {
+    // 1. Devolver productos si los hay
+    if (returnProducts.length > 0) {
+      await returnToMainStore(tripId, returnProducts);
+    }
+    
+    // 2. Actualizar estado del viaje
+    if (supabase) {
+      const { error } = await supabase
+        .from('trips')
+        .update({
+          status: 'completed',
+          end_date: new Date().toISOString()
+        })
+        .eq('id', tripId);
+      
+      if (error) {
+        console.error('Error actualizando trip en Supabase:', error);
+        throw error;
+      }
+      
+      console.log('✅ Trip finalizado en Supabase');
+    } else {
+      // Fallback: actualizar en memoria
+      const trip = fallbackDatabase.trips.find(t => t.id === parseInt(tripId));
+      if (trip) {
+        trip.status = 'completed';
+        trip.end_date = new Date().toISOString();
+        console.log('✅ Trip finalizado en memoria');
+      }
+    }
+    
+    return { success: true };
+    
+  } catch (error) {
+    console.error('❌ Error finalizando viaje:', error);
+    throw error;
+  }
+}
+
+// NUEVA función para confirmar pedido desde subalmacén
+async function confirmOrderFromSubstore(orderId, tripId, paymentInfo) {
+  console.log('🔄 Confirmando pedido desde subalmacén:', { orderId, tripId });
+  
+  try {
+    // 1. Obtener el pedido
+    let order;
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('id', orderId)
+        .single();
+      
+      if (error || !data) {
+        throw new Error('Pedido no encontrado');
+      }
+      order = data;
+    } else {
+      order = fallbackDatabase.orders.find(o => o.id === orderId);
+      if (!order) {
+        throw new Error('Pedido no encontrado');
+      }
+    }
+    
+    if (order.status === 'confirmed') {
+      throw new Error('El pedido ya está confirmado');
+    }
+    
+    // 2. Validar stock en subalmacén y procesar venta
+    if (order.products && Array.isArray(order.products)) {
+      for (const orderProduct of order.products) {
+        await sellFromSubstore(tripId, orderProduct.product_id, orderProduct.quantity, {
+          order_id: orderId,
+          client_info: order.client_info
+        });
+      }
+    }
+    
+    // 3. Actualizar pedido
+    if (supabase) {
+      const { data: updatedOrder, error: updateError } = await supabase
+        .from('orders')
+        .update({
+          status: 'confirmed',
+          trip_id: tripId,
+          confirmed_at: new Date().toISOString(),
+          payment_info: paymentInfo
+        })
+        .eq('id', orderId)
+        .select()
+        .single();
+      
+      if (updateError) throw updateError;
+      order = updatedOrder;
+    } else {
+      const orderIndex = fallbackDatabase.orders.findIndex(o => o.id === orderId);
+      fallbackDatabase.orders[orderIndex] = {
+        ...order,
+        status: 'confirmed',
+        trip_id: tripId,
+        confirmed_at: new Date().toISOString(),
+        payment_info: paymentInfo
+      };
+      order = fallbackDatabase.orders[orderIndex];
+    }
+    
+    // 4. Crear venta
+    const saleData = {
+      order_id: orderId,
+      trip_id: tripId,
+      sale_number: `SALE-${Date.now()}`,
+      employee_id: order.employee_id,
+      employee_code: order.employee_code,
+      client_info: order.client_info,
+      products: order.products,
+      total: order.total,
+      payment_info: paymentInfo,
+      location: order.location,
+      notes: order.notes,
+      created_at: new Date().toISOString()
+    };
+    
+    if (supabase) {
+      const { data: newSale, error: saleError } = await supabase
+        .from('sales')
+        .insert([saleData])
+        .select()
+        .single();
+      
+      if (saleError) {
+        console.warn('⚠️ Error creando venta:', saleError);
+      }
+      
+      return { order, sale: newSale };
+    } else {
+      const newSale = {
+        id: fallbackDatabase.sales.length + 1,
+        ...saleData
+      };
+      fallbackDatabase.sales.push(newSale);
+      return { order, sale: newSale };
+    }
+    
+  } catch (error) {
+    console.error('❌ Error confirmando pedido desde subalmacén:', error);
+    throw error;
+  }
+}
 // ========== ARCHIVOS ESTÁTICOS ==========
 app.use(express.static(path.join(__dirname, 'frontend')));
 
@@ -1258,6 +1883,282 @@ app.post("/api/products/bulk-pricing", auth, async (req, res) => {
   }
 });
 
+app.post("/api/orders/:id/payments", auth, async (req, res) => {
+  try {
+    const orderId = parseInt(req.params.id);
+    const { amount, payment_method, notes } = req.body;
+    
+    console.log('💰 Adding payment to order:', { orderId, amount, payment_method });
+    
+    // Validaciones
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ 
+        message: 'El monto del abono debe ser mayor a 0' 
+      });
+    }
+    
+    // Obtener el pedido
+    let order;
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('id', orderId)
+        .single();
+      
+      if (error || !data) {
+        return res.status(404).json({ message: 'Pedido no encontrado' });
+      }
+      order = data;
+    } else {
+      order = fallbackDatabase.orders.find(o => o.id === orderId);
+      if (!order) {
+        return res.status(404).json({ message: 'Pedido no encontrado' });
+      }
+    }
+    
+    // Verificar permisos
+    if (req.user.role !== 'admin' && order.employee_id !== req.user.id) {
+      return res.status(403).json({ 
+        message: 'No tienes permisos para agregar abonos a este pedido' 
+      });
+    }
+    
+    // Validar el abono
+    const validation = validatePayment(order.total, order.paid_amount || 0, amount);
+    
+    // Calcular nuevo balance
+    const newPaymentBalance = calculatePaymentBalance(order.total, validation.new_total_paid);
+    
+    // Crear registro del abono
+    const paymentRecord = {
+      order_id: orderId,
+      amount: parseFloat(amount),
+      payment_method: payment_method || 'efectivo',
+      notes: notes || '',
+      recorded_by: req.user.id,
+      recorded_by_code: req.user.employee_code,
+      created_at: new Date().toISOString()
+    };
+    
+    // Actualizar pedido
+    if (supabase) {
+      // Actualizar pedido en Supabase
+      const { data: updatedOrder, error: updateError } = await supabase
+        .from('orders')
+        .update({
+          paid_amount: newPaymentBalance.paid_amount,
+          balance: newPaymentBalance.balance,
+          is_fully_paid: newPaymentBalance.is_fully_paid,
+          payment_percentage: newPaymentBalance.payment_percentage,
+          payment_status: newPaymentBalance.is_fully_paid ? 'paid' : 'partial',
+          last_payment_at: new Date().toISOString()
+        })
+        .eq('id', orderId)
+        .select()
+        .single();
+      
+      if (updateError) throw updateError;
+      
+      // Registrar el abono
+      const { data: newPayment, error: paymentError } = await supabase
+        .from('order_payments')
+        .insert([paymentRecord])
+        .select()
+        .single();
+      
+      if (paymentError) {
+        console.warn('⚠️ Error registrando abono:', paymentError);
+      }
+      
+      res.json({
+        message: 'Abono registrado exitosamente',
+        order: updatedOrder,
+        payment: newPayment,
+        payment_summary: newPaymentBalance
+      });
+      
+    } else {
+      // Fallback: actualizar en memoria
+      const orderIndex = fallbackDatabase.orders.findIndex(o => o.id === orderId);
+      
+      fallbackDatabase.orders[orderIndex] = {
+        ...order,
+        paid_amount: newPaymentBalance.paid_amount,
+        balance: newPaymentBalance.balance,
+        is_fully_paid: newPaymentBalance.is_fully_paid,
+        payment_percentage: newPaymentBalance.payment_percentage,
+        payment_status: newPaymentBalance.is_fully_paid ? 'paid' : 'partial',
+        last_payment_at: new Date().toISOString()
+      };
+      
+      // Registrar abono en memoria
+      if (!fallbackDatabase.order_payments) {
+        fallbackDatabase.order_payments = [];
+      }
+      
+      const newPayment = {
+        id: fallbackDatabase.order_payments.length + 1,
+        ...paymentRecord
+      };
+      
+      fallbackDatabase.order_payments.push(newPayment);
+      
+      res.json({
+        message: 'Abono registrado exitosamente',
+        order: fallbackDatabase.orders[orderIndex],
+        payment: newPayment,
+        payment_summary: newPaymentBalance
+      });
+    }
+    
+  } catch (error) {
+    console.error('❌ Error adding payment to order:', error);
+    res.status(500).json({ 
+      message: 'Error registrando abono: ' + error.message,
+      error: error.message 
+    });
+  }
+});
+
+// GET - Obtener historial de abonos de un pedido
+app.get("/api/orders/:id/payments", auth, async (req, res) => {
+  try {
+    const orderId = parseInt(req.params.id);
+    
+    console.log('📋 Getting payment history for order:', orderId);
+    
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('order_payments')
+        .select('*')
+        .eq('order_id', orderId)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      res.json(data || []);
+    } else {
+      const payments = (fallbackDatabase.order_payments || [])
+        .filter(payment => payment.order_id === orderId)
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      
+      res.json(payments);
+    }
+    
+  } catch (error) {
+    console.error('Error getting payment history:', error);
+    res.status(500).json({ 
+      message: 'Error obteniendo historial de abonos', 
+      error: error.message 
+    });
+  }
+});
+
+// PUT - Actualizar abono directo en pedido
+app.put("/api/orders/:id/paid-amount", auth, async (req, res) => {
+  try {
+    const orderId = parseInt(req.params.id);
+    const { paid_amount } = req.body;
+    
+    console.log('💰 Updating paid amount for order:', { orderId, paid_amount });
+    
+    // Validaciones
+    if (paid_amount < 0) {
+      return res.status(400).json({ 
+        message: 'El monto abonado no puede ser negativo' 
+      });
+    }
+    
+    // Obtener el pedido
+    let order;
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('id', orderId)
+        .single();
+      
+      if (error || !data) {
+        return res.status(404).json({ message: 'Pedido no encontrado' });
+      }
+      order = data;
+    } else {
+      order = fallbackDatabase.orders.find(o => o.id === orderId);
+      if (!order) {
+        return res.status(404).json({ message: 'Pedido no encontrado' });
+      }
+    }
+    
+    // Verificar permisos
+    if (req.user.role !== 'admin' && order.employee_id !== req.user.id) {
+      return res.status(403).json({ 
+        message: 'No tienes permisos para modificar este pedido' 
+      });
+    }
+    
+    // Validar que no exceda el total
+    if (paid_amount > order.total) {
+      return res.status(400).json({ 
+        message: `El abono no puede exceder el total del pedido ($${order.total})` 
+      });
+    }
+    
+    // Calcular nuevo balance
+    const newPaymentBalance = calculatePaymentBalance(order.total, paid_amount);
+    
+    // Actualizar pedido
+    if (supabase) {
+      const { data: updatedOrder, error: updateError } = await supabase
+        .from('orders')
+        .update({
+          paid_amount: newPaymentBalance.paid_amount,
+          balance: newPaymentBalance.balance,
+          is_fully_paid: newPaymentBalance.is_fully_paid,
+          payment_percentage: newPaymentBalance.payment_percentage,
+          payment_status: newPaymentBalance.is_fully_paid ? 'paid' : 'partial',
+          last_payment_at: new Date().toISOString()
+        })
+        .eq('id', orderId)
+        .select()
+        .single();
+      
+      if (updateError) throw updateError;
+      
+      res.json({
+        message: 'Abono actualizado exitosamente',
+        order: updatedOrder,
+        payment_summary: newPaymentBalance
+      });
+      
+    } else {
+      // Fallback: actualizar en memoria
+      const orderIndex = fallbackDatabase.orders.findIndex(o => o.id === orderId);
+      
+      fallbackDatabase.orders[orderIndex] = {
+        ...order,
+        paid_amount: newPaymentBalance.paid_amount,
+        balance: newPaymentBalance.balance,
+        is_fully_paid: newPaymentBalance.is_fully_paid,
+        payment_percentage: newPaymentBalance.payment_percentage,
+        payment_status: newPaymentBalance.is_fully_paid ? 'paid' : 'partial',
+        last_payment_at: new Date().toISOString()
+      };
+      
+      res.json({
+        message: 'Abono actualizado exitosamente',
+        order: fallbackDatabase.orders[orderIndex],
+        payment_summary: newPaymentBalance
+      });
+    }
+    
+  } catch (error) {
+    console.error('❌ Error updating paid amount:', error);
+    res.status(500).json({ 
+      message: 'Error actualizando abono: ' + error.message,
+      error: error.message 
+    });
+  }
+});
 
 app.post("/api/products", auth, adminOnly, async (req, res) => {
   try {
@@ -2002,792 +2903,6 @@ app.get("/api/employee/substore-sales", auth, async (req, res) => {
   }
 });
 
-
-// ===== NUEVOS ENDPOINTS PARA GESTIÓN DE INVENTARIO =====
-
-// GET Inventory Movements - Historial de movimientos
-app.get("/api/inventory/movements", auth, adminOnly, async (req, res) => {
-  try {
-    console.log('📋 Obteniendo movimientos de inventario...');
-    
-    if (supabase) {
-      const { data, error } = await supabase
-        .from('inventory_movements')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(100); // Limitar a los últimos 100 movimientos
-      
-      if (error) throw error;
-      
-      res.json(data || []);
-    } else {
-      // Fallback: usar datos en memoria
-      const movements = fallbackDatabase.inventory_movements
-        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-        .slice(0, 100);
-      
-      res.json(movements);
-    }
-  } catch (error) {
-    console.error('Error obteniendo movimientos de inventario:', error);
-    res.status(500).json({ 
-      message: 'Error obteniendo movimientos de inventario', 
-      error: error.message 
-    });
-  }
-});
-
-// POST Manual Stock Adjustment - Ajuste manual de inventario
-app.post("/api/inventory/adjust", auth, adminOnly, async (req, res) => {
-  try {
-    const { product_id, quantity, operation, reason, notes } = req.body;
-    
-    console.log('🔧 Ajuste manual de inventario:', { product_id, quantity, operation, reason });
-    
-    // Validaciones
-    if (!product_id || !quantity || !operation || !reason) {
-      return res.status(400).json({
-        message: 'Faltan campos requeridos: product_id, quantity, operation, reason'
-      });
-    }
-    
-    if (!['add', 'subtract'].includes(operation)) {
-      return res.status(400).json({
-        message: 'Operación debe ser "add" o "subtract"'
-      });
-    }
-    
-    if (quantity <= 0) {
-      return res.status(400).json({
-        message: 'La cantidad debe ser mayor a 0'
-      });
-    }
-    
-    // Preparar datos para la actualización
-    const adjustmentProducts = [{
-      product_id: product_id,
-      quantity: quantity
-    }];
-    
-    const adjustmentNotes = `${notes || ''} - Ajuste manual por ${req.user.employee_code} (${reason})`.trim();
-    
-    // Realizar ajuste
-    const result = await updateInventoryStock(adjustmentProducts, operation, adjustmentNotes);
-    
-    console.log('✅ Ajuste manual completado');
-    
-    res.json({
-      message: 'Ajuste de inventario completado exitosamente',
-      adjustment: {
-        product_id,
-        quantity,
-        operation,
-        reason,
-        notes: adjustmentNotes,
-        performed_by: req.user.employee_code,
-        timestamp: new Date().toISOString()
-      },
-      inventory_update: result
-    });
-    
-  } catch (error) {
-    console.error('Error en ajuste manual de inventario:', error);
-    res.status(500).json({
-      message: 'Error realizando ajuste de inventario: ' + error.message,
-      error: error.message
-    });
-  }
-});
-
-
-async function getTrips(status = null, employeeId = null) {
-  console.log('🔍 getTrips llamado con:', { status, employeeId });
-  
-  if (supabase) {
-    try {
-      let query = supabase.from('trips').select(`
-        *,
-        substore_inventory (
-          id, product_id, product_code, product_name, 
-          initial_quantity, current_quantity, sold_quantity, 
-          returned_quantity, price
-        )
-      `);
-      
-      if (status) query = query.eq('status', status);
-      if (employeeId) query = query.eq('employee_id', employeeId);
-      
-      const { data, error } = await query.order('created_at', { ascending: false });
-      
-      if (error) {
-        console.error('Error en Supabase getTrips:', error);
-        throw error;
-      }
-      
-      console.log('✅ Trips obtenidos de Supabase:', data?.length || 0);
-      return data || [];
-    } catch (error) {
-      console.error('❌ Error getting trips from Supabase:', error);
-      
-      // Fallback a memoria si falla Supabase
-      console.log('🔄 Usando fallback en memoria...');
-    }
-  }
-  
-  // Fallback: usar datos en memoria
-  let trips = fallbackDatabase.trips || [];
-  
-  // Aplicar filtros
-  if (status) {
-    trips = trips.filter(trip => trip.status === status);
-  }
-  if (employeeId) {
-    trips = trips.filter(trip => trip.employee_id === parseInt(employeeId));
-  }
-  
-  // Agregar inventario de subalmacén a cada trip
-  trips = trips.map(trip => ({
-    ...trip,
-    substore_inventory: (fallbackDatabase.substore_inventory || [])
-      .filter(item => item.trip_id === trip.id)
-  }));
-  
-  console.log('✅ Trips obtenidos de memoria:', trips.length);
-  return trips;
-}
-
-
-// Crear viaje
-async function createTrip(tripData) {
-  console.log('🚛 Creando nuevo viaje:', tripData);
-  
-  if (supabase) {
-    try {
-      // Crear el viaje en Supabase
-      const { data: trip, error: tripError } = await supabase
-        .from('trips')
-        .insert([{
-          trip_number: tripData.trip_number,
-          employee_id: tripData.employee_id,
-          employee_code: tripData.employee_code,
-          employee_name: tripData.employee_name,
-          status: 'active',
-          notes: tripData.notes || '',
-          start_date: new Date().toISOString()
-        }])
-        .select()
-        .single();
-      
-      if (tripError) {
-        console.error('Error creando trip en Supabase:', tripError);
-        throw tripError;
-      }
-      
-      console.log('✅ Viaje creado en Supabase:', trip.trip_number);
-      return trip;
-    } catch (error) {
-      console.error('❌ Error creating trip in Supabase:', error);
-      
-      // Continuar con fallback si falla Supabase
-      console.log('🔄 Usando fallback en memoria...');
-    }
-  }
-  
-  // Fallback: crear en memoria
-  const newTrip = {
-    id: (fallbackDatabase.trips?.length || 0) + 1,
-    trip_number: tripData.trip_number,
-    employee_id: tripData.employee_id,
-    employee_code: tripData.employee_code,
-    employee_name: tripData.employee_name,
-    status: 'active',
-    notes: tripData.notes || '',
-    start_date: new Date().toISOString(),
-    created_at: new Date().toISOString()
-  };
-  
-  fallbackDatabase.trips.push(newTrip);
-  console.log('✅ Viaje creado en memoria:', newTrip.trip_number);
-  return newTrip;
-}
-
-// Cargar productos al subalmacén
-async function loadProductsToSubstore(tripId, products) {
-  console.log('📦 Cargando productos al subalmacén:', { tripId, products });
-  
-  const loadedProducts = [];
-  
-  if (supabase) {
-    try {
-      // Procesar cada producto
-      for (const product of products) {
-        const { product_id, quantity, price } = product;
-        
-        // 1. Verificar stock disponible en almacén principal
-        const { data: mainProduct, error: getError } = await supabase
-          .from('products')
-          .select('id, code, name, stock')
-          .eq('id', product_id)
-          .single();
-        
-        if (getError || !mainProduct) {
-          throw new Error(`Producto ${product_id} no encontrado`);
-        }
-        
-        if (mainProduct.stock < quantity) {
-          throw new Error(`Stock insuficiente para ${mainProduct.name}. Disponible: ${mainProduct.stock}, solicitado: ${quantity}`);
-        }
-        
-        // 2. Reducir stock del almacén principal
-        const { error: updateError } = await supabase
-          .from('products')
-          .update({ stock: mainProduct.stock - quantity })
-          .eq('id', product_id);
-        
-        if (updateError) throw updateError;
-        
-        // 3. Agregar al subalmacén
-        const { data: substoreItem, error: substoreError } = await supabase
-          .from('substore_inventory')
-          .insert([{
-            trip_id: tripId,
-            product_id: product_id,
-            product_code: mainProduct.code,
-            product_name: mainProduct.name,
-            initial_quantity: quantity,
-            current_quantity: quantity,
-            sold_quantity: 0,
-            returned_quantity: 0,
-            price: price || mainProduct.price || 0
-          }])
-          .select()
-          .single();
-        
-        if (substoreError) throw substoreError;
-        
-        loadedProducts.push(substoreItem);
-        console.log(`✅ Producto ${mainProduct.name} cargado al subalmacén`);
-      }
-      
-      return { success: true, products: loadedProducts };
-      
-    } catch (error) {
-      console.error('❌ Error cargando productos al subalmacén (Supabase):', error);
-      
-      // Continuar con fallback
-      console.log('🔄 Usando fallback en memoria...');
-    }
-  }
-  
-  // Fallback: cargar en memoria
-  for (const product of products) {
-    const { product_id, quantity, price } = product;
-    
-    // Buscar producto en memoria
-    const mainProduct = fallbackDatabase.products.find(p => p.id === product_id);
-    if (!mainProduct) {
-      throw new Error(`Producto ${product_id} no encontrado`);
-    }
-    
-    if (mainProduct.stock < quantity) {
-      throw new Error(`Stock insuficiente para ${mainProduct.name}. Disponible: ${mainProduct.stock}, solicitado: ${quantity}`);
-    }
-    
-    // Reducir stock principal
-    mainProduct.stock -= quantity;
-    
-    // Agregar al subalmacén
-    const substoreItem = {
-      id: (fallbackDatabase.substore_inventory?.length || 0) + 1,
-      trip_id: tripId,
-      product_id: product_id,
-      product_code: mainProduct.code,
-      product_name: mainProduct.name,
-      initial_quantity: quantity,
-      current_quantity: quantity,
-      sold_quantity: 0,
-      returned_quantity: 0,
-      price: price || mainProduct.price || 0,
-      created_at: new Date().toISOString()
-    };
-    
-    fallbackDatabase.substore_inventory.push(substoreItem);
-    loadedProducts.push(substoreItem);
-    
-    console.log(`✅ Producto ${mainProduct.name} cargado al subalmacén (memoria)`);
-  }
-  
-  return { success: true, products: loadedProducts };
-}
-
-// Obtener inventario de subalmacén
-async function getSubstoreInventory(tripId) {
-  console.log('📦 getSubstoreInventory llamado para trip:', tripId);
-  
-  if (supabase) {
-    try {
-      const { data, error } = await supabase
-        .from('substore_inventory')
-        .select('*')
-        .eq('trip_id', tripId)
-        .order('product_code');
-      
-      if (error) {
-        console.error('Error obteniendo inventario de Supabase:', error);
-        throw error;
-      }
-      
-      console.log('✅ Inventario obtenido de Supabase:', data?.length || 0, 'items');
-      return data || [];
-    } catch (error) {
-      console.error('❌ Error getting substore inventory from Supabase:', error);
-      
-      // Continuar con fallback
-      console.log('🔄 Usando fallback en memoria...');
-    }
-  }
-  
-  // Fallback: obtener de memoria
-  const inventory = (fallbackDatabase.substore_inventory || [])
-    .filter(item => item.trip_id === parseInt(tripId));
-  
-  console.log('✅ Inventario obtenido de memoria:', inventory.length, 'items');
-  return inventory;
-}
-
-// Vender producto del subalmacén
-async function sellFromSubstore(tripId, productId, quantity, saleData) {
-  console.log('💰 Venta desde subalmacén:', { tripId, productId, quantity });
-  
-  if (supabase) {
-    try {
-      // 1. Obtener item del subalmacén
-      const { data: substoreItem, error: getError } = await supabase
-        .from('substore_inventory')
-        .select('*')
-        .eq('trip_id', tripId)
-        .eq('product_id', productId)
-        .single();
-      
-      if (getError || !substoreItem) {
-        throw new Error('Producto no encontrado en subalmacén');
-      }
-      
-      if (substoreItem.current_quantity < quantity) {
-        throw new Error(`Stock insuficiente en subalmacén. Disponible: ${substoreItem.current_quantity}`);
-      }
-      
-      // 2. Actualizar inventario del subalmacén
-      const newCurrentQuantity = substoreItem.current_quantity - quantity;
-      const newSoldQuantity = substoreItem.sold_quantity + quantity;
-      
-      const { error: updateError } = await supabase
-        .from('substore_inventory')
-        .update({
-          current_quantity: newCurrentQuantity,
-          sold_quantity: newSoldQuantity
-        })
-        .eq('id', substoreItem.id);
-      
-      if (updateError) throw updateError;
-      
-      // 3. Registrar movimiento del subalmacén
-      await supabase
-        .from('substore_movements')
-        .insert([{
-          trip_id: tripId,
-          product_id: productId,
-          product_code: substoreItem.product_code,
-          product_name: substoreItem.product_name,
-          movement_type: 'sale',
-          quantity: quantity,
-          previous_quantity: substoreItem.current_quantity,
-          new_quantity: newCurrentQuantity,
-          reference_id: saleData?.order_id || null,
-          reference_type: 'sale',
-          notes: `Venta - ${saleData?.client_info?.name || 'Cliente'}`
-        }]);
-      
-      console.log(`✅ Venta registrada en subalmacén`);
-      return { success: true };
-      
-    } catch (error) {
-      console.error('❌ Error en venta desde subalmacén:', error);
-      throw error;
-    }
-  } else {
-    // Fallback
-    const substoreItem = (fallbackDatabase.substore_inventory || [])
-      .find(item => item.trip_id === tripId && item.product_id === productId);
-    
-    if (!substoreItem) {
-      throw new Error('Producto no encontrado en subalmacén');
-    }
-    
-    if (substoreItem.current_quantity < quantity) {
-      throw new Error(`Stock insuficiente en subalmacén`);
-    }
-    
-    substoreItem.current_quantity -= quantity;
-    substoreItem.sold_quantity += quantity;
-    
-    return { success: true };
-  }
-}
-
-// Devolver productos al almacén principal
-async function returnToMainStore(tripId, products) {
-  console.log('🔄 Devolviendo productos al almacén principal:', { tripId, products });
-  
-  if (supabase) {
-    try {
-      for (const returnItem of products) {
-        const { product_id, quantity } = returnItem;
-        
-        // 1. Obtener item del subalmacén
-        const { data: substoreItem, error: getError } = await supabase
-          .from('substore_inventory')
-          .select('*')
-          .eq('trip_id', tripId)
-          .eq('product_id', product_id)
-          .single();
-        
-        if (getError || !substoreItem) {
-          throw new Error(`Producto ${product_id} no encontrado en subalmacén`);
-        }
-        
-        if (substoreItem.current_quantity < quantity) {
-          throw new Error(`Cantidad a devolver mayor que disponible en subalmacén`);
-        }
-        
-        // 2. Actualizar subalmacén
-        const { error: updateSubstoreError } = await supabase
-          .from('substore_inventory')
-          .update({
-            current_quantity: substoreItem.current_quantity - quantity,
-            returned_quantity: (substoreItem.returned_quantity || 0) + quantity
-          })
-          .eq('id', substoreItem.id);
-        
-        if (updateSubstoreError) throw updateSubstoreError;
-        
-        // 3. Actualizar almacén principal
-        const { data: mainProduct, error: getMainError } = await supabase
-          .from('products')
-          .select('stock')
-          .eq('id', product_id)
-          .single();
-        
-        if (getMainError) throw getMainError;
-        
-        const { error: updateMainError } = await supabase
-          .from('products')
-          .update({ stock: mainProduct.stock + quantity })
-          .eq('id', product_id);
-        
-        if (updateMainError) throw updateMainError;
-        
-        console.log(`✅ Producto ${substoreItem.product_name} devuelto al almacén principal`);
-      }
-      
-      return { success: true };
-      
-    } catch (error) {
-      console.error('❌ Error devolviendo productos (Supabase):', error);
-      throw error;
-    }
-  } else {
-    // Fallback: devolver en memoria
-    for (const returnItem of products) {
-      const { product_id, quantity } = returnItem;
-      
-      const substoreItem = fallbackDatabase.substore_inventory.find(
-        item => item.trip_id === parseInt(tripId) && item.product_id === product_id
-      );
-      
-      const mainProduct = fallbackDatabase.products.find(p => p.id === product_id);
-      
-      if (!substoreItem || !mainProduct) {
-        throw new Error(`Producto ${product_id} no encontrado`);
-      }
-      
-      if (substoreItem.current_quantity < quantity) {
-        throw new Error(`Cantidad a devolver mayor que disponible`);
-      }
-      
-      substoreItem.current_quantity -= quantity;
-      substoreItem.returned_quantity = (substoreItem.returned_quantity || 0) + quantity;
-      mainProduct.stock += quantity;
-      
-      console.log(`✅ Producto ${substoreItem.product_name} devuelto al almacén principal (memoria)`);
-    }
-    
-    return { success: true };
-  }
-}
-
-// Finalizar viaje
-async function completeTrip(tripId, returnProducts = []) {
-  console.log('🏁 Finalizando viaje:', tripId, 'con productos:', returnProducts);
-  
-  try {
-    // 1. Devolver productos si los hay
-    if (returnProducts.length > 0) {
-      await returnToMainStore(tripId, returnProducts);
-    }
-    
-    // 2. Actualizar estado del viaje
-    if (supabase) {
-      const { error } = await supabase
-        .from('trips')
-        .update({
-          status: 'completed',
-          end_date: new Date().toISOString()
-        })
-        .eq('id', tripId);
-      
-      if (error) {
-        console.error('Error actualizando trip en Supabase:', error);
-        throw error;
-      }
-      
-      console.log('✅ Trip finalizado en Supabase');
-    } else {
-      // Fallback: actualizar en memoria
-      const trip = fallbackDatabase.trips.find(t => t.id === parseInt(tripId));
-      if (trip) {
-        trip.status = 'completed';
-        trip.end_date = new Date().toISOString();
-        console.log('✅ Trip finalizado en memoria');
-      }
-    }
-    
-    return { success: true };
-    
-  } catch (error) {
-    console.error('❌ Error finalizando viaje:', error);
-    throw error;
-  }
-}
-
-
-
-// Agregar al final de index.js, antes de las rutas de API:
-// Inicializar base de datos fallback con tablas de subalmacenes
-if (!fallbackDatabase.trips) {
-  fallbackDatabase.trips = [];
-}
-if (!fallbackDatabase.substore_inventory) {
-  fallbackDatabase.substore_inventory = [];
-}
-if (!fallbackDatabase.substore_movements) {
-  fallbackDatabase.substore_movements = [];
-}
-
-// ===== DEBUG ENDPOINTS =====
-app.get("/api/orders/:id/debug", auth, async (req, res) => {
-  try {
-    const orderId = parseInt(req.params.id);
-    
-    console.log('🔍 DEBUG ORDER ENDPOINT:');
-    console.log('- Order ID:', orderId);
-    console.log('- User:', req.user);
-    
-    let supabaseResult = null;
-    let memoryResult = null;
-    
-    if (supabase) {
-      try {
-        const { data: order, error } = await supabase
-          .from('orders')
-          .select('*')
-          .eq('id', orderId)
-          .single();
-        
-        supabaseResult = {
-          found: !!order,
-          error: error?.message || null,
-          data: order || null
-        };
-      } catch (err) {
-        supabaseResult = {
-          found: false,
-          error: err.message,
-          data: null
-        };
-      }
-    }
-    
-    const memoryOrder = fallbackDatabase.orders.find(o => o.id === orderId);
-    memoryResult = {
-      found: !!memoryOrder,
-      data: memoryOrder || null,
-      total_orders: fallbackDatabase.orders.length
-    };
-    
-    res.json({
-      message: 'Debug exitoso',
-      orderId: orderId,
-      user: req.user,
-      supabase: supabaseResult,
-      memory: memoryResult,
-      available_endpoints: [
-        'GET /api/orders/:id/debug',
-        'PUT /api/orders/:id/confirm',
-        'PUT /api/orders/:id/cancel',
-        'GET /api/orders/:id',
-        'GET /api/inventory/movements',
-        'POST /api/inventory/adjust'
-      ],
-      server_info: {
-        timestamp: new Date().toISOString(),
-        node_version: process.version,
-        supabase_connected: !!supabase
-      }
-    });
-    
-  } catch (error) {
-    console.error('Error en debug endpoint:', error);
-    res.status(500).json({
-      message: 'Debug falló',
-      error: error.message
-    });
-  }
-});
-
-app.get("/api/routes-debug", (req, res) => {
-  try {
-    const routes = [];
-    
-    // Extraer rutas manualmente
-    app._router.stack.forEach((middleware) => {
-      if (middleware.route) {
-        const methods = Object.keys(middleware.route.methods);
-        routes.push({
-          method: methods[0].toUpperCase(),
-          path: middleware.route.path
-        });
-      }
-    });
-    
-    const orderRoutes = routes.filter(r => r.path.includes('orders'));
-    const inventoryRoutes = routes.filter(r => r.path.includes('inventory'));
-    
-    res.json({
-      message: 'Rutas disponibles',
-      total_routes: routes.length,
-      all_routes: routes,
-      order_routes: orderRoutes,
-      inventory_routes: inventoryRoutes,
-      confirm_route_exists: routes.some(r => r.path.includes('confirm')),
-      timestamp: new Date().toISOString(),
-      server_info: {
-        node_version: process.version,
-        environment: process.env.NODE_ENV || 'development',
-        supabase_connected: !!supabase,
-        fallback_orders: fallbackDatabase.orders.length
-      }
-    });
-  } catch (error) {
-    res.status(500).json({
-      message: 'Error extrayendo rutas',
-      error: error.message,
-      manual_routes: [
-        { method: 'GET', path: '/api/orders' },
-        { method: 'POST', path: '/api/orders' },
-        { method: 'PUT', path: '/api/orders/:id/confirm' },
-        { method: 'PUT', path: '/api/orders/:id/cancel' },
-        { method: 'GET', path: '/api/orders/:id' },
-        { method: 'GET', path: '/api/orders/:id/debug' },
-        { method: 'GET', path: '/api/inventory/movements' },
-        { method: 'POST', path: '/api/inventory/adjust' }
-      ]
-    });
-  }
-});
-
-// API Routes - Ventas
-app.get("/api/sales", auth, async (req, res) => {
-  try {
-    const sales = await getSales(req.user.id, req.user.role);
-    res.json(sales);
-  } catch (error) {
-    console.error('Error in GET /api/sales:', error);
-    res.status(500).json({ message: 'Error obteniendo ventas', error: error.message });
-  }
-});
-
-// API Routes - Reportes
-app.get("/api/reports/sales-by-employee", auth, adminOnly, async (req, res) => {
-  try {
-    if (supabase) {
-      const { data, error } = await supabase
-        .from('sales_by_employee')
-        .select('*');
-      
-      if (error) throw error;
-      res.json(data || []);
-    } else {
-      // Fallback para datos en memoria
-      const employees = await getEmployees();
-      const sales = await getSales();
-      
-      const salesByEmployee = employees.map(emp => {
-        const employeeSales = sales.filter(sale => sale.employee_id === emp.id);
-        return {
-          employee_id: emp.id,
-          employee_code: emp.employee_code,
-          name: emp.name,
-          total_sales: employeeSales.length,
-          total_amount: employeeSales.reduce((sum, sale) => sum + sale.total, 0)
-        };
-      });
-      res.json(salesByEmployee);
-    }
-  } catch (error) {
-    console.error('Error in GET /api/reports/sales-by-employee:', error);
-    res.status(500).json({ message: 'Error obteniendo reporte', error: error.message });
-  }
-});
-
-app.get("/api/reports/inventory", auth, adminOnly, async (req, res) => {
-  try {
-    const products = await getProducts();
-    res.json({
-      products: products,
-      low_stock: products.filter(p => p.stock < 10),
-      movements: []
-    });
-  } catch (error) {
-    console.error('Error in GET /api/reports/inventory:', error);
-    res.status(500).json({ message: 'Error obteniendo inventario', error: error.message });
-  }
-});
-
-// ========== RUTAS DEL FRONTEND ==========
-
-// Página principal
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, 'frontend', 'index.html'));
-});
-
-// Rutas específicas del frontend
-app.get("/admin/dashboard.html", (req, res) => {
-  res.sendFile(path.join(__dirname, 'frontend', 'admin', 'dashboard.html'));
-});
-
-app.get("/admin/products.html", (req, res) => {
-  res.sendFile(path.join(__dirname, 'frontend', 'admin', 'products.html'));
-});
-
-app.get("/admin/employees.html", (req, res) => {
-  res.sendFile(path.join(__dirname, 'frontend', 'admin', 'employees.html'));
-});
-
-app.get("/admin/subalmacenes.html", (req, res) => {
-  res.sendFile(path.join(__dirname, 'frontend', 'admin', 'subalmacenes.html'));
-});
-
 app.post("/api/employees", auth, adminOnly, async (req, res) => {
   try {
     console.log('🔄 POST /api/employees - Creando empleado:', req.body);
@@ -2896,6 +3011,99 @@ app.put("/api/employees/:id", auth, adminOnly, async (req, res) => {
   }
 });
 
+// GET Inventory Movements - Historial de movimientos
+app.get("/api/inventory/movements", auth, adminOnly, async (req, res) => {
+  try {
+    console.log('📋 Obteniendo movimientos de inventario...');
+    
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('inventory_movements')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(100); // Limitar a los últimos 100 movimientos
+      
+      if (error) throw error;
+      
+      res.json(data || []);
+    } else {
+      // Fallback: usar datos en memoria
+      const movements = fallbackDatabase.inventory_movements
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+        .slice(0, 100);
+      
+      res.json(movements);
+    }
+  } catch (error) {
+    console.error('Error obteniendo movimientos de inventario:', error);
+    res.status(500).json({ 
+      message: 'Error obteniendo movimientos de inventario', 
+      error: error.message 
+    });
+  }
+});
+
+// POST Manual Stock Adjustment - Ajuste manual de inventario
+app.post("/api/inventory/adjust", auth, adminOnly, async (req, res) => {
+  try {
+    const { product_id, quantity, operation, reason, notes } = req.body;
+    
+    console.log('🔧 Ajuste manual de inventario:', { product_id, quantity, operation, reason });
+    
+    // Validaciones
+    if (!product_id || !quantity || !operation || !reason) {
+      return res.status(400).json({
+        message: 'Faltan campos requeridos: product_id, quantity, operation, reason'
+      });
+    }
+    
+    if (!['add', 'subtract'].includes(operation)) {
+      return res.status(400).json({
+        message: 'Operación debe ser "add" o "subtract"'
+      });
+    }
+    
+    if (quantity <= 0) {
+      return res.status(400).json({
+        message: 'La cantidad debe ser mayor a 0'
+      });
+    }
+    
+    // Preparar datos para la actualización
+    const adjustmentProducts = [{
+      product_id: product_id,
+      quantity: quantity
+    }];
+    
+    const adjustmentNotes = `${notes || ''} - Ajuste manual por ${req.user.employee_code} (${reason})`.trim();
+    
+    // Realizar ajuste
+    const result = await updateInventoryStock(adjustmentProducts, operation, adjustmentNotes);
+    
+    console.log('✅ Ajuste manual completado');
+    
+    res.json({
+      message: 'Ajuste de inventario completado exitosamente',
+      adjustment: {
+        product_id,
+        quantity,
+        operation,
+        reason,
+        notes: adjustmentNotes,
+        performed_by: req.user.employee_code,
+        timestamp: new Date().toISOString()
+      },
+      inventory_update: result
+    });
+    
+  } catch (error) {
+    console.error('Error en ajuste manual de inventario:', error);
+    res.status(500).json({
+      message: 'Error realizando ajuste de inventario: ' + error.message,
+      error: error.message
+    });
+  }
+});
 // ========== ROUTES - TRIPS/VIAJES ==========
 
 // GET - Obtener todos los viajes
@@ -3240,121 +3448,221 @@ app.get("/api/trips/:id/inventory", auth, async (req, res) => {
     });
   }
 });
+// Inicializar base de datos fallback con tablas de subalmacenes
+if (!fallbackDatabase.trips) {
+  fallbackDatabase.trips = [];
+}
+if (!fallbackDatabase.substore_inventory) {
+  fallbackDatabase.substore_inventory = [];
+}
+if (!fallbackDatabase.substore_movements) {
+  fallbackDatabase.substore_movements = [];
+}
 
-// ========== ACTUALIZAR CONFIRMACIÓN DE PEDIDOS PARA SUBALMACENES ==========
-
-// Modificar la ruta existente de confirmación de pedidos
-// (Agregar esta lógica a la función confirmOrder existente)
-
-// NUEVA función para confirmar pedido desde subalmacén
-async function confirmOrderFromSubstore(orderId, tripId, paymentInfo) {
-  console.log('🔄 Confirmando pedido desde subalmacén:', { orderId, tripId });
-  
+// ===== DEBUG ENDPOINTS =====
+app.get("/api/orders/:id/debug", auth, async (req, res) => {
   try {
-    // 1. Obtener el pedido
-    let order;
+    const orderId = parseInt(req.params.id);
+    
+    console.log('🔍 DEBUG ORDER ENDPOINT:');
+    console.log('- Order ID:', orderId);
+    console.log('- User:', req.user);
+    
+    let supabaseResult = null;
+    let memoryResult = null;
+    
     if (supabase) {
-      const { data, error } = await supabase
-        .from('orders')
-        .select('*')
-        .eq('id', orderId)
-        .single();
-      
-      if (error || !data) {
-        throw new Error('Pedido no encontrado');
-      }
-      order = data;
-    } else {
-      order = fallbackDatabase.orders.find(o => o.id === orderId);
-      if (!order) {
-        throw new Error('Pedido no encontrado');
-      }
-    }
-    
-    if (order.status === 'confirmed') {
-      throw new Error('El pedido ya está confirmado');
-    }
-    
-    // 2. Validar stock en subalmacén y procesar venta
-    if (order.products && Array.isArray(order.products)) {
-      for (const orderProduct of order.products) {
-        await sellFromSubstore(tripId, orderProduct.product_id, orderProduct.quantity, {
-          order_id: orderId,
-          client_info: order.client_info
-        });
+      try {
+        const { data: order, error } = await supabase
+          .from('orders')
+          .select('*')
+          .eq('id', orderId)
+          .single();
+        
+        supabaseResult = {
+          found: !!order,
+          error: error?.message || null,
+          data: order || null
+        };
+      } catch (err) {
+        supabaseResult = {
+          found: false,
+          error: err.message,
+          data: null
+        };
       }
     }
     
-    // 3. Actualizar pedido
-    if (supabase) {
-      const { data: updatedOrder, error: updateError } = await supabase
-        .from('orders')
-        .update({
-          status: 'confirmed',
-          trip_id: tripId,
-          confirmed_at: new Date().toISOString(),
-          payment_info: paymentInfo
-        })
-        .eq('id', orderId)
-        .select()
-        .single();
-      
-      if (updateError) throw updateError;
-      order = updatedOrder;
-    } else {
-      const orderIndex = fallbackDatabase.orders.findIndex(o => o.id === orderId);
-      fallbackDatabase.orders[orderIndex] = {
-        ...order,
-        status: 'confirmed',
-        trip_id: tripId,
-        confirmed_at: new Date().toISOString(),
-        payment_info: paymentInfo
-      };
-      order = fallbackDatabase.orders[orderIndex];
-    }
-    
-    // 4. Crear venta
-    const saleData = {
-      order_id: orderId,
-      trip_id: tripId,
-      sale_number: `SALE-${Date.now()}`,
-      employee_id: order.employee_id,
-      employee_code: order.employee_code,
-      client_info: order.client_info,
-      products: order.products,
-      total: order.total,
-      payment_info: paymentInfo,
-      location: order.location,
-      notes: order.notes,
-      created_at: new Date().toISOString()
+    const memoryOrder = fallbackDatabase.orders.find(o => o.id === orderId);
+    memoryResult = {
+      found: !!memoryOrder,
+      data: memoryOrder || null,
+      total_orders: fallbackDatabase.orders.length
     };
     
-    if (supabase) {
-      const { data: newSale, error: saleError } = await supabase
-        .from('sales')
-        .insert([saleData])
-        .select()
-        .single();
-      
-      if (saleError) {
-        console.warn('⚠️ Error creando venta:', saleError);
+    res.json({
+      message: 'Debug exitoso',
+      orderId: orderId,
+      user: req.user,
+      supabase: supabaseResult,
+      memory: memoryResult,
+      available_endpoints: [
+        'GET /api/orders/:id/debug',
+        'PUT /api/orders/:id/confirm',
+        'PUT /api/orders/:id/cancel',
+        'GET /api/orders/:id',
+        'GET /api/inventory/movements',
+        'POST /api/inventory/adjust'
+      ],
+      server_info: {
+        timestamp: new Date().toISOString(),
+        node_version: process.version,
+        supabase_connected: !!supabase
       }
-      
-      return { order, sale: newSale };
-    } else {
-      const newSale = {
-        id: fallbackDatabase.sales.length + 1,
-        ...saleData
-      };
-      fallbackDatabase.sales.push(newSale);
-      return { order, sale: newSale };
-    }
+    });
     
   } catch (error) {
-    console.error('❌ Error confirmando pedido desde subalmacén:', error);
-    throw error;
+    console.error('Error en debug endpoint:', error);
+    res.status(500).json({
+      message: 'Debug falló',
+      error: error.message
+    });
   }
-}
+});
+
+app.get("/api/routes-debug", (req, res) => {
+  try {
+    const routes = [];
+    
+    // Extraer rutas manualmente
+    app._router.stack.forEach((middleware) => {
+      if (middleware.route) {
+        const methods = Object.keys(middleware.route.methods);
+        routes.push({
+          method: methods[0].toUpperCase(),
+          path: middleware.route.path
+        });
+      }
+    });
+    
+    const orderRoutes = routes.filter(r => r.path.includes('orders'));
+    const inventoryRoutes = routes.filter(r => r.path.includes('inventory'));
+    
+    res.json({
+      message: 'Rutas disponibles',
+      total_routes: routes.length,
+      all_routes: routes,
+      order_routes: orderRoutes,
+      inventory_routes: inventoryRoutes,
+      confirm_route_exists: routes.some(r => r.path.includes('confirm')),
+      timestamp: new Date().toISOString(),
+      server_info: {
+        node_version: process.version,
+        environment: process.env.NODE_ENV || 'development',
+        supabase_connected: !!supabase,
+        fallback_orders: fallbackDatabase.orders.length
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: 'Error extrayendo rutas',
+      error: error.message,
+      manual_routes: [
+        { method: 'GET', path: '/api/orders' },
+        { method: 'POST', path: '/api/orders' },
+        { method: 'PUT', path: '/api/orders/:id/confirm' },
+        { method: 'PUT', path: '/api/orders/:id/cancel' },
+        { method: 'GET', path: '/api/orders/:id' },
+        { method: 'GET', path: '/api/orders/:id/debug' },
+        { method: 'GET', path: '/api/inventory/movements' },
+        { method: 'POST', path: '/api/inventory/adjust' }
+      ]
+    });
+  }
+});
+
+// API Routes - Ventas
+app.get("/api/sales", auth, async (req, res) => {
+  try {
+    const sales = await getSales(req.user.id, req.user.role);
+    res.json(sales);
+  } catch (error) {
+    console.error('Error in GET /api/sales:', error);
+    res.status(500).json({ message: 'Error obteniendo ventas', error: error.message });
+  }
+});
+
+// API Routes - Reportes
+app.get("/api/reports/sales-by-employee", auth, adminOnly, async (req, res) => {
+  try {
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('sales_by_employee')
+        .select('*');
+      
+      if (error) throw error;
+      res.json(data || []);
+    } else {
+      // Fallback para datos en memoria
+      const employees = await getEmployees();
+      const sales = await getSales();
+      
+      const salesByEmployee = employees.map(emp => {
+        const employeeSales = sales.filter(sale => sale.employee_id === emp.id);
+        return {
+          employee_id: emp.id,
+          employee_code: emp.employee_code,
+          name: emp.name,
+          total_sales: employeeSales.length,
+          total_amount: employeeSales.reduce((sum, sale) => sum + sale.total, 0)
+        };
+      });
+      res.json(salesByEmployee);
+    }
+  } catch (error) {
+    console.error('Error in GET /api/reports/sales-by-employee:', error);
+    res.status(500).json({ message: 'Error obteniendo reporte', error: error.message });
+  }
+});
+
+app.get("/api/reports/inventory", auth, adminOnly, async (req, res) => {
+  try {
+    const products = await getProducts();
+    res.json({
+      products: products,
+      low_stock: products.filter(p => p.stock < 10),
+      movements: []
+    });
+  } catch (error) {
+    console.error('Error in GET /api/reports/inventory:', error);
+    res.status(500).json({ message: 'Error obteniendo inventario', error: error.message });
+  }
+});
+
+// ========== RUTAS DEL FRONTEND ==========
+
+// Página principal
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, 'frontend', 'index.html'));
+});
+
+// Rutas específicas del frontend
+app.get("/admin/dashboard.html", (req, res) => {
+  res.sendFile(path.join(__dirname, 'frontend', 'admin', 'dashboard.html'));
+});
+
+app.get("/admin/products.html", (req, res) => {
+  res.sendFile(path.join(__dirname, 'frontend', 'admin', 'products.html'));
+});
+
+app.get("/admin/employees.html", (req, res) => {
+  res.sendFile(path.join(__dirname, 'frontend', 'admin', 'employees.html'));
+});
+
+app.get("/admin/subalmacenes.html", (req, res) => {
+  res.sendFile(path.join(__dirname, 'frontend', 'admin', 'subalmacenes.html'));
+});
+
 
 // RUTA para confirmar pedido desde subalmacén
 app.put("/api/orders/:id/confirm-substore", auth, async (req, res) => {
@@ -3506,8 +3814,6 @@ app.get("/api/reports/trip-inventory", auth, adminOnly, async (req, res) => {
   }
 });
 
-
-
 app.get("/admin/orders.html", (req, res) => {
   res.sendFile(path.join(__dirname, 'frontend', 'admin', 'orders.html'));
 });
@@ -3557,7 +3863,6 @@ app.get("*", (req, res) => {
 
 // ===== RUTAS DE API PARA SUBALMACENES =====
 // Agregar estas rutas al archivo index.js después de las rutas existentes
-
 
 
 // Manejo de errores

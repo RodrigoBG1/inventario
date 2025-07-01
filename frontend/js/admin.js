@@ -725,10 +725,10 @@ function displayProducts() {
             <td>
                 <div class="action-buttons">
                     <button class="btn btn-sm btn-edit" onclick="editProduct(${product.id})">
-                        ✏️ Editar
+                         Editar
                     </button>
                     <button class="btn btn-sm btn-delete" onclick="deleteProductConfirm(${product.id})">
-                        🗑️ Eliminar
+                        Eliminar
                     </button>
                 </div>
             </td>
@@ -777,10 +777,10 @@ function displayFilteredProducts(filteredProducts) {
             <td>
                 <div class="action-buttons">
                     <button class="btn btn-sm btn-edit" onclick="editProduct(${product.id})">
-                        ✏️ Editar
+                         Editar
                     </button>
                     <button class="btn btn-sm btn-delete" onclick="deleteProductConfirm(${product.id})">
-                        🗑️ Eliminar
+                         Eliminar
                     </button>
                 </div>
             </td>
@@ -897,11 +897,11 @@ function displayEmployees() {
             <td>
                 <div class="action-buttons">
                     <button class="btn btn-sm btn-edit" onclick="editEmployee(${employee.id})" title="Editar empleado">
-                        ✏️ Editar
+                         Editar
                     </button>
                     ${employee.role !== 'admin' ? `
                         <button class="btn btn-sm btn-danger" onclick="deleteEmployeeConfirm(${employee.id})" title="Eliminar empleado">
-                            🗑️ Eliminar
+                             Eliminar
                         </button>
                     ` : ''}
                 </div>
@@ -958,16 +958,25 @@ async function loadOrdersPage() {
     }
 }
 
-function displayOrders() {
+function displayOrdersWithPayments() {
     const tbody = document.querySelector('#orders-table tbody');
     if (!tbody) return;
     
     tbody.innerHTML = orders.map(order => {
-        // ✅ NUEVO: Determinar tipo de confirmación
+        // Calcular información de pagos
+        const total = parseFloat(order.total) || 0;
+        const paidAmount = parseFloat(order.paid_amount) || 0;
+        const balance = total - paidAmount;
+        const paymentPercentage = total > 0 ? (paidAmount / total * 100) : 0;
+        
+        // Determinar clases CSS según el estado de pago
+        const paymentStatusClass = balance <= 0 ? 'payment-complete' : 
+                                  paidAmount > 0 ? 'payment-partial' : 'payment-pending';
+        
+        // Determinar tipo de confirmación y estilos
         const isAutoConfirmed = order.auto_confirmed || order.status === 'confirmed';
         const requiresAction = order.status === 'hold' && !order.auto_confirmed;
         
-        // ✅ NUEVO: Estilos y badges para diferentes tipos de órdenes
         let statusBadge = '';
         let actionButtons = '';
         
@@ -981,6 +990,9 @@ function displayOrders() {
             actionButtons = `
                 <button class="btn btn-sm btn-primary" onclick="viewOrderDetails(${order.id})">
                     👁️ Ver
+                </button>
+                <button class="btn btn-sm btn-success" onclick="openPaymentModal(${order.id})">
+                    💰 Abono
                 </button>
             `;
         } else if (order.status === 'hold') {
@@ -996,6 +1008,9 @@ function displayOrders() {
                 <button class="btn btn-sm btn-primary" onclick="viewOrderDetails(${order.id})">
                     👁️ Ver
                 </button>
+                <button class="btn btn-sm btn-success" onclick="openPaymentModal(${order.id})">
+                    💰 Abono
+                </button>
             `;
         } else if (order.status === 'cancelled') {
             statusBadge = `<span class="status-badge status-cancelled">❌ Cancelada</span>`;
@@ -1007,7 +1022,7 @@ function displayOrders() {
             `;
         }
         
-        // ✅ NUEVO: Indicador de fuente de inventario
+        // Indicador de fuente de inventario
         const inventorySource = order.inventory_source === 'substore' ? 
             `<small style="color: #059669;">🚛 Subalmacén</small>` : 
             `<small style="color: #2563eb;">🏪 Almacén Principal</small>`;
@@ -1020,7 +1035,19 @@ function displayOrders() {
                 </td>
                 <td>${order.employee_code}</td>
                 <td>${order.client_info?.name || 'Sin cliente'}</td>
-                <td>${window.formatCurrency ? window.formatCurrency(order.total) : `${order.total}`}</td>
+                <td>
+                    <div><strong>${window.formatCurrency ? window.formatCurrency(total) : `$${total.toFixed(2)}`}</strong></div>
+                    <small>Abonado: ${window.formatCurrency ? window.formatCurrency(paidAmount) : `$${paidAmount.toFixed(2)}`}</small>
+                </td>
+                <td>
+                    <div class="payment-status ${paymentStatusClass}">
+                        <span class="balance-amount">${window.formatCurrency ? window.formatCurrency(balance) : `$${balance.toFixed(2)}`}</span>
+                        <div class="payment-progress">
+                            <div class="progress-bar" style="width: ${Math.min(paymentPercentage, 100)}%"></div>
+                        </div>
+                        <small>${paymentPercentage.toFixed(1)}% pagado</small>
+                    </div>
+                </td>
                 <td>${statusBadge}</td>
                 <td>${window.formatDate ? window.formatDate(order.created_at) : order.created_at}</td>
                 <td>
@@ -1031,6 +1058,307 @@ function displayOrders() {
             </tr>
         `;
     }).join('');
+}
+
+
+function openPaymentModal(orderId) {
+    const order = orders.find(o => o.id === orderId);
+    if (!order) {
+        if (window.showNotification) {
+            window.showNotification('Pedido no encontrado', 'error');
+        }
+        return;
+    }
+    
+    const total = parseFloat(order.total) || 0;
+    const paidAmount = parseFloat(order.paid_amount) || 0;
+    const balance = total - paidAmount;
+    
+    // Crear modal si no existe
+    if (!document.getElementById('payment-modal')) {
+        createPaymentModal();
+    }
+    
+    // Llenar información del pedido
+    document.getElementById('payment-order-number').textContent = order.order_number;
+    document.getElementById('payment-client-name').textContent = order.client_info?.name || 'Sin cliente';
+    document.getElementById('payment-total').textContent = formatCurrency(total);
+    document.getElementById('payment-paid').textContent = formatCurrency(paidAmount);
+    document.getElementById('payment-balance').textContent = formatCurrency(balance);
+    
+    // Configurar formulario
+    document.getElementById('payment-amount').value = '';
+    document.getElementById('payment-amount').max = balance;
+    document.getElementById('payment-method-select').value = 'efectivo';
+    document.getElementById('payment-notes').value = '';
+    
+    // Configurar botón de envío
+    const submitBtn = document.getElementById('submit-payment-btn');
+    submitBtn.onclick = () => submitPayment(orderId);
+    
+    // Cargar historial de abonos
+    loadPaymentHistory(orderId);
+    
+    // Mostrar modal
+    document.getElementById('payment-modal').style.display = 'block';
+}
+
+function createPaymentModal() {
+    const modalHTML = `
+        <div id="payment-modal" class="modal">
+            <div class="modal-content" style="max-width: 800px;">
+                <div class="modal-header">
+                    <h3>💰 Gestión de Abonos</h3>
+                    <span class="close" onclick="closePaymentModal()">&times;</span>
+                </div>
+                <div style="padding: 1.5rem;">
+                    <!-- Información del Pedido -->
+                    <div class="payment-info-section">
+                        <h4>📋 Información del Pedido</h4>
+                        <div class="payment-info-grid">
+                            <div class="payment-info-item">
+                                <label>Número:</label>
+                                <span id="payment-order-number">-</span>
+                            </div>
+                            <div class="payment-info-item">
+                                <label>Cliente:</label>
+                                <span id="payment-client-name">-</span>
+                            </div>
+                            <div class="payment-info-item">
+                                <label>Total:</label>
+                                <span id="payment-total" class="amount-total">$0.00</span>
+                            </div>
+                            <div class="payment-info-item">
+                                <label>Abonado:</label>
+                                <span id="payment-paid" class="amount-paid">$0.00</span>
+                            </div>
+                            <div class="payment-info-item">
+                                <label>Por Pagar:</label>
+                                <span id="payment-balance" class="amount-balance">$0.00</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Formulario de Nuevo Abono -->
+                    <div class="payment-form-section">
+                        <h4>💳 Registrar Nuevo Abono</h4>
+                        <form id="payment-form">
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label for="payment-amount">Monto del Abono:</label>
+                                    <input type="number" id="payment-amount" step="0.01" min="0" required
+                                           placeholder="0.00" onchange="updatePaymentPreview()">
+                                </div>
+                                <div class="form-group">
+                                    <label for="payment-method-select">Método de Pago:</label>
+                                    <select id="payment-method-select">
+                                        <option value="efectivo">💵 Efectivo</option>
+                                        <option value="tarjeta">💳 Tarjeta</option>
+                                        <option value="transferencia">🏦 Transferencia</option>
+                                        <option value="cheque">📝 Cheque</option>
+                                    </select>
+                                </div>
+                                <div class="form-group" style="grid-column: 1 / -1;">
+                                    <label for="payment-notes">Notas (Opcional):</label>
+                                    <textarea id="payment-notes" rows="2" 
+                                              placeholder="Referencia del pago, observaciones..."></textarea>
+                                </div>
+                            </div>
+                            
+                            <!-- Vista Previa del Abono -->
+                            <div id="payment-preview" class="payment-preview" style="display: none;">
+                                <h5>Vista Previa:</h5>
+                                <div class="preview-grid">
+                                    <div>Nuevo Total Abonado: <span id="preview-new-paid">$0.00</span></div>
+                                    <div>Nuevo Saldo: <span id="preview-new-balance">$0.00</span></div>
+                                    <div>Porcentaje Pagado: <span id="preview-percentage">0%</span></div>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                    
+                    <!-- Historial de Abonos -->
+                    <div class="payment-history-section">
+                        <h4>📋 Historial de Abonos</h4>
+                        <div id="payment-history" class="payment-history-list">
+                            <div class="loading">Cargando historial...</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closePaymentModal()">
+                        Cancelar
+                    </button>
+                    <button type="button" id="submit-payment-btn" class="btn btn-success">
+                        💰 Registrar Abono
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+}
+
+function closePaymentModal() {
+    document.getElementById('payment-modal').style.display = 'none';
+}
+
+function updatePaymentPreview() {
+    const amount = parseFloat(document.getElementById('payment-amount').value) || 0;
+    const currentPaid = parseFloat(document.getElementById('payment-paid').textContent.replace(/[$,]/g, '')) || 0;
+    const total = parseFloat(document.getElementById('payment-total').textContent.replace(/[$,]/g, '')) || 0;
+    
+    if (amount <= 0) {
+        document.getElementById('payment-preview').style.display = 'none';
+        return;
+    }
+    
+    const newPaid = currentPaid + amount;
+    const newBalance = Math.max(0, total - newPaid);
+    const percentage = total > 0 ? (newPaid / total * 100) : 0;
+    
+    document.getElementById('preview-new-paid').textContent = formatCurrency(newPaid);
+    document.getElementById('preview-new-balance').textContent = formatCurrency(newBalance);
+    document.getElementById('preview-percentage').textContent = percentage.toFixed(1) + '%';
+    
+    document.getElementById('payment-preview').style.display = 'block';
+}
+
+async function submitPayment(orderId) {
+    const amount = parseFloat(document.getElementById('payment-amount').value);
+    const paymentMethod = document.getElementById('payment-method-select').value;
+    const notes = document.getElementById('payment-notes').value.trim();
+    
+    if (!amount || amount <= 0) {
+        if (window.showNotification) {
+            window.showNotification('Ingresa un monto válido', 'warning');
+        }
+        return;
+    }
+    
+    const submitBtn = document.getElementById('submit-payment-btn');
+    const originalText = submitBtn.textContent;
+    
+    try {
+        submitBtn.disabled = true;
+        submitBtn.textContent = '💰 Registrando...';
+        
+        const response = await fetch(`${window.API_BASE_URL}/api/orders/${orderId}/payments`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            body: JSON.stringify({
+                amount: amount,
+                payment_method: paymentMethod,
+                notes: notes
+            })
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Error registrando abono');
+        }
+        
+        const result = await response.json();
+        
+        if (window.showNotification) {
+            window.showNotification('Abono registrado exitosamente', 'success');
+        }
+        
+        // Actualizar la orden en memoria
+        const orderIndex = orders.findIndex(o => o.id === orderId);
+        if (orderIndex >= 0 && result.order) {
+            orders[orderIndex] = result.order;
+        }
+        
+        // Actualizar la tabla de pedidos
+        displayOrdersWithPayments();
+        
+        // Actualizar información en el modal
+        document.getElementById('payment-paid').textContent = formatCurrency(result.order.paid_amount);
+        document.getElementById('payment-balance').textContent = formatCurrency(result.order.balance);
+        
+        // Limpiar formulario
+        document.getElementById('payment-form').reset();
+        document.getElementById('payment-preview').style.display = 'none';
+        
+        // Recargar historial
+        loadPaymentHistory(orderId);
+        
+    } catch (error) {
+        console.error('Error registrando abono:', error);
+        if (window.showNotification) {
+            window.showNotification('Error: ' + error.message, 'error');
+        }
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText;
+    }
+}
+
+async function loadPaymentHistory(orderId) {
+    const container = document.getElementById('payment-history');
+    
+    try {
+        container.innerHTML = '<div class="loading">Cargando historial...</div>';
+        
+        const response = await fetch(`${window.API_BASE_URL}/api/orders/${orderId}/payments`, {
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error('Error cargando historial');
+        }
+        
+        const payments = await response.json();
+        
+        if (payments.length === 0) {
+            container.innerHTML = `
+                <div class="no-payments">
+                    💰 No hay abonos registrados para este pedido
+                </div>
+            `;
+            return;
+        }
+        
+        container.innerHTML = payments.map(payment => `
+            <div class="payment-item">
+                <div class="payment-header">
+                    <span class="payment-amount">${formatCurrency(payment.amount)}</span>
+                    <span class="payment-method">${getPaymentMethodIcon(payment.payment_method)} ${payment.payment_method}</span>
+                    <span class="payment-date">${formatDate(payment.created_at)}</span>
+                </div>
+                <div class="payment-details">
+                    <span>Por: ${payment.recorded_by_code}</span>
+                    ${payment.notes ? `<span class="payment-notes">📝 ${payment.notes}</span>` : ''}
+                </div>
+            </div>
+        `).join('');
+        
+    } catch (error) {
+        console.error('Error cargando historial de pagos:', error);
+        container.innerHTML = `
+            <div class="error-message">
+                ❌ Error cargando historial: ${error.message}
+            </div>
+        `;
+    }
+}
+
+function getPaymentMethodIcon(method) {
+    const icons = {
+        'efectivo': '💵',
+        'tarjeta': '💳',
+        'transferencia': '🏦',
+        'cheque': '📝'
+    };
+    return icons[method] || '💰';
 }
 
 function viewOrderDetails(orderId) {
@@ -2277,4 +2605,11 @@ if (!window.viewOrderDetailsEnhanced) {
     window.confirmOrderFromEnhancedModal = confirmOrderFromEnhancedModal;
     window.cancelOrderFromEnhancedModal = cancelOrderFromEnhancedModal;
     window.getEnhancedStatusText = getEnhancedStatusText;
+    window.displayOrders = displayOrdersWithPayments;
+    window.openPaymentModal = openPaymentModal;
+    window.closePaymentModal = closePaymentModal;
+    window.updatePaymentPreview = updatePaymentPreview;
+    window.submitPayment = submitPayment;
+    window.loadPaymentHistory = loadPaymentHistory;
+    window.getPaymentMethodIcon = getPaymentMethodIcon;
 }

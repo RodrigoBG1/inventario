@@ -45,9 +45,10 @@
                     <thead>
                         <tr>
                             <th>Número</th>
-                            <th>vendedor</th>
+                            <th>Vendedor</th>
                             <th>Cliente</th>
                             <th>Total</th>
+                            <th>Por Pagar</th> 
                             <th>Estado</th>
                             <th>Fecha</th>
                             <th>Acciones</th>
@@ -93,5 +94,23 @@
     <script src="../js/api.js"></script>
     <script src="../js/admin.js"></script>
     <script src="../js/order-details-modal.js"></script>
+    <script>
+        // Asegurar que se use la  función con información de pagos
+        document.addEventListener('DOMContentLoaded', function() {
+            // Reemplazar la función displayOrders si aún no se ha hecho
+            if (typeof displayOrdersWithPayments !== 'undefined') {
+                window.displayOrders = displayOrdersWithPayments;
+                console.log('✅ Función displayOrders actualizada para incluir información de pagos');
+            }
+            
+            // Re-cargar pedidos con la nueva funcionalidad después de un delay
+            setTimeout(() => {
+                if (typeof loadOrdersPage === 'function') {
+                    console.log('🔄 Recargando pedidos con nueva funcionalidad de pagos...');
+                    loadOrdersPage();
+                }
+            }, 3000);
+        });
+</script>
 </body>
 </html>
