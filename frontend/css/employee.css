@@ -975,3 +975,327 @@
         border-color: #4b5563;
     }
 }
+
+        /* Estilos específicos para subalmacén */
+        .substore-status {
+            background: linear-gradient(135deg, #1e40af, #2563eb);
+            color: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .substore-status.no-trip {
+            background: linear-gradient(135deg, #dc2626, #ef4444);
+        }
+
+        .substore-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .substore-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin: 0;
+        }
+
+        .trip-number {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.875rem;
+        }
+
+        .substore-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .substore-stat {
+            text-align: center;
+            padding: 1rem;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            display: block;
+            margin-bottom: 0.25rem;
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            opacity: 0.9;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .substore-product-card {
+            border-left: 4px solid var(--primary-color);
+            position: relative;
+        }
+
+        .substore-badge {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            background: var(--success-color);
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .substore-info {
+            background: #f0f9ff;
+            border: 1px solid #0ea5e9;
+            border-radius: 6px;
+            padding: 0.75rem;
+            margin-top: 0.5rem;
+            font-size: 0.85rem;
+        }
+
+        .substore-info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.25rem;
+        }
+
+        .substore-info-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .no-trip-message {
+            text-align: center;
+            padding: 3rem 2rem;
+            background: #fef2f2;
+            border-radius: 8px;
+            border: 1px solid #fecaca;
+            margin: 2rem 0;
+        }
+
+        .no-trip-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .no-trip-title {
+            color: #dc2626;
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+
+        .no-trip-description {
+            color: #7f1d1d;
+            margin-bottom: 1.5rem;
+            line-height: 1.6;
+        }
+
+        .contact-admin {
+            background: #dc2626;
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        /* === NUEVOS ESTILOS PARA OPCIONES DE PAGO === */
+        .payment-options-section {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: var(--card-shadow);
+            border: 2px solid var(--primary-color);
+        }
+
+        .payment-section-title {
+            background: var(--primary-color);
+            color: white;
+            padding: 0.75rem 1rem;
+            margin: -1.5rem -1.5rem 1.5rem -1.5rem;
+            font-weight: 600;
+            border-radius: 6px 6px 0 0;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .payment-method-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .payment-method-option {
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 1rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: white;
+            position: relative;
+        }
+
+        .payment-method-option:hover {
+            border-color: var(--primary-color);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(37, 99, 235, 0.1);
+        }
+
+        .payment-method-option.selected {
+            border-color: var(--primary-color);
+            background: #f0f9ff;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .payment-method-option input[type="radio"] {
+            position: absolute;
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .payment-method-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .payment-icon {
+            font-size: 1.5rem;
+            padding: 0.5rem;
+            background: var(--primary-color);
+            color: white;
+            border-radius: 6px;
+        }
+
+        .payment-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-color);
+        }
+
+        .payment-description {
+            color: var(--secondary-color);
+            font-size: 0.875rem;
+            line-height: 1.4;
+            margin-bottom: 0.5rem;
+        }
+
+        .payment-features {
+            font-size: 0.8rem;
+            color: var(--success-color);
+        }
+
+        .initial-payment-section {
+            background: #fef3c7;
+            border: 1px solid #f59e0b;
+            border-radius: 6px;
+            padding: 1rem;
+            margin-top: 1rem;
+            display: none;
+        }
+
+        .initial-payment-section.show {
+            display: block;
+        }
+
+        .initial-payment-label {
+            font-weight: 600;
+            color: #92400e;
+            margin-bottom: 0.5rem;
+            display: block;
+        }
+
+        .initial-payment-input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #f59e0b;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: 600;
+            text-align: center;
+        }
+
+        .initial-payment-input:focus {
+            outline: none;
+            border-color: #d97706;
+            box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.1);
+        }
+
+        .payment-summary {
+            background: #f0f9ff;
+            border: 1px solid var(--primary-color);
+            border-radius: 6px;
+            padding: 1rem;
+            margin-top: 1rem;
+            display: none;
+        }
+
+        .payment-summary.show {
+            display: block;
+        }
+
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .summary-row:last-child {
+            margin-bottom: 0;
+            font-weight: 600;
+            font-size: 1rem;
+            border-top: 1px solid var(--primary-color);
+            padding-top: 0.5rem;
+            margin-top: 0.5rem;
+        }
+
+        @media (max-width: 768px) {
+            .substore-header {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .substore-stats {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .payment-method-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .payment-method-option {
+                padding: 0.75rem;
+            }
+
+            .payment-icon {
+                font-size: 1.2rem;
+                padding: 0.4rem;
+            }
+
+            .payment-title {
+                font-size: 1rem;
+            }
+        }
