@@ -28,12 +28,25 @@
             <header class="content-header">
                 <h1>Gestión de Pedidos</h1>
                 <div class="filter-controls">
-                    <select id="status-filter" onchange="filterOrders()">
+                    <!-- NUEVA BARRA DE BÚSQUEDA -->
+                    <div class="search-container">
+                        <input type="text" 
+                            id="client-search" 
+                            placeholder="🔍 Buscar por cliente, pedido o empleado..."
+                            class="search-input">
+                    </div>
+                    
+                    <!-- FILTRO DE ESTADO ACTUALIZADO -->
+                    <select id="status-filter">
                         <option value="">Todos los estados</option>
-                        <option value="hold">En espera</option>
-                        <option value="confirmed">Confirmados</option>
-                        <option value="cancelled">Cancelados</option>
+                        <option value="paid">✅ Pagados</option>
+                        <option value="not_paid">💰 No Pagados</option>
                     </select>
+                    
+                    <!-- BOTONES DE ACCIÓN -->
+                    <button class="btn btn-secondary" onclick="clearOrderFilters()" title="Limpiar filtros">
+                        🧹 Limpiar
+                    </button>
                     <button class="btn btn-primary" onclick="loadOrdersPage()" title="Actualizar lista">
                         🔄 Actualizar
                     </button>
@@ -111,6 +124,39 @@
                 }
             }, 3000);
         });
+</script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Asegurar que se use la función con información de pagos actualizada
+        if (typeof displayOrdersWithPayments !== 'undefined') {
+            window.displayOrders = displayOrdersWithPayments;
+            console.log('✅ Función displayOrders actualizada para nuevo sistema de estados');
+        }
+        
+        // Setup de filtros mejorados
+        if (typeof setupOrderFilters === 'function') {
+            setupOrderFilters();
+        }
+        
+        // Re-cargar pedidos con la nueva funcionalidad después de un delay
+        setTimeout(() => {
+            if (typeof loadOrdersPage === 'function') {
+                console.log('🔄 Recargando pedidos con nuevo sistema de pagos...');
+                loadOrdersPage();
+            }
+        }, 2000);
+    });
+
+    // Función auxiliar para limpiar filtros desde cualquier parte
+    function resetAllFilters() {
+        clearOrderFilters();
+        if (window.showNotification) {
+            window.showNotification('Filtros limpiados', 'info');
+        }
+    }
+
+    // Hacer función global
+window.resetAllFilters = resetAllFilters;
 </script>
 </body>
 </html>

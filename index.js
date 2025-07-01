@@ -744,19 +744,27 @@ async function getOrders(employeeId = null, role = null) {
 }
 
 async function createOrder(orderData) {
-  console.log('🔄 Creating order with payment tracking:', orderData);
+  console.log('🔄 Creating order with simplified payment status:', orderData);
   
   // Calcular balance de pagos
   const paymentBalance = calculatePaymentBalance(orderData.total, orderData.paid_amount || 0);
   
-  // Preparar datos del pedido con información de pagos
+  // ===== NUEVO SISTEMA: Solo 2 estados =====
+  // payment_status: 'paid' | 'not_paid'
+  const paymentStatus = paymentBalance.is_fully_paid ? 'paid' : 'not_paid';
+  
+  // Preparar datos del pedido con información de pagos simplificada
   const orderWithPayments = {
     ...orderData,
     paid_amount: paymentBalance.paid_amount,
     balance: paymentBalance.balance,
     is_fully_paid: paymentBalance.is_fully_paid,
     payment_percentage: paymentBalance.payment_percentage,
-    payment_status: paymentBalance.is_fully_paid ? 'paid' : 'partial',
+    payment_status: paymentStatus, // ✅ NUEVO: Solo 'paid' o 'not_paid'
+    
+    // Mantener compatibilidad con el sistema anterior
+    status: paymentBalance.is_fully_paid ? 'confirmed' : 'hold',
+    
     created_at: new Date().toISOString()
   };
   
@@ -773,7 +781,7 @@ async function createOrder(orderData) {
         throw new Error(`Database error: ${error.message}`);
       }
       
-      console.log('✅ Order created in Supabase with payment tracking:', data);
+      console.log('✅ Order created with simplified payment status:', data);
       return data;
     } catch (error) {
       console.error('❌ Error creating order in Supabase:', error);
@@ -788,7 +796,7 @@ async function createOrder(orderData) {
   };
   
   fallbackDatabase.orders.push(newOrder);
-  console.log('✅ Order created in memory with payment tracking:', newOrder);
+  console.log('✅ Order created in memory with simplified payment status:', newOrder);
   return newOrder;
 }
 
@@ -827,6 +835,36 @@ function validatePayment(total, current_paid, new_payment) {
     valid: true,
     new_total_paid: totalPaid,
     remaining_balance: totalAmount - totalPaid
+  };
+}
+
+// Función para validar abono (ya existe pero agregamos validaciones extras)
+function validatePaymentAmount(total, currentPaid, newPayment, allowOverpayment = false) {
+  const totalAmount = parseFloat(total) || 0;
+  const currentPaidAmount = parseFloat(currentPaid) || 0;
+  const newPaymentAmount = parseFloat(newPayment) || 0;
+  
+  if (newPaymentAmount <= 0) {
+    throw new Error('El monto del abono debe ser mayor a 0');
+  }
+  
+  if (newPaymentAmount > 999999.99) {
+    throw new Error('El monto del abono es demasiado grande');
+  }
+  
+  const totalAfterPayment = currentPaidAmount + newPaymentAmount;
+  
+  if (!allowOverpayment && totalAfterPayment > totalAmount) {
+    const maxAllowed = totalAmount - currentPaidAmount;
+    throw new Error(`El abono excede el saldo pendiente. Máximo permitido: $${maxAllowed.toFixed(2)}`);
+  }
+  
+  return {
+    valid: true,
+    new_total_paid: totalAfterPayment,
+    remaining_balance: Math.max(0, totalAmount - totalAfterPayment),
+    is_overpayment: totalAfterPayment > totalAmount,
+    overpayment_amount: Math.max(0, totalAfterPayment - totalAmount)
   };
 }
 
@@ -943,6 +981,49 @@ async function getEmployeeSubstoreProducts(employeeId) {
   };
 }
 
+// Función helper para obtener pagos recientes de un empleado
+async function getRecentPaymentsByEmployee(employeeId, limit = 5) {
+  try {
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('order_payments')
+        .select(`
+          *,
+          orders (
+            order_number,
+            client_info
+          )
+        `)
+        .eq('recorded_by', employeeId)
+        .order('created_at', { ascending: false })
+        .limit(limit);
+      
+      if (error) throw error;
+      return data || [];
+    } else {
+      // Fallback
+      const payments = (fallbackDatabase.order_payments || [])
+        .filter(payment => payment.recorded_by === employeeId)
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+        .slice(0, limit);
+      
+      return payments.map(payment => {
+        const order = fallbackDatabase.orders.find(o => o.id === payment.order_id);
+        return {
+          ...payment,
+          order: order ? {
+            order_number: order.order_number,
+            client_info: order.client_info
+          } : null
+        };
+      });
+    }
+  } catch (error) {
+    console.error('Error obteniendo pagos recientes:', error);
+    return [];
+  }
+}
+
 async function getSales(employeeId = null, role = null) {
   if (supabase) {
     try {
@@ -1048,7 +1129,6 @@ async function getTrips(status = null, employeeId = null) {
   console.log('✅ Trips obtenidos de memoria:', trips.length);
   return trips;
 }
-
 
 // Crear viaje
 async function createTrip(tripData) {
@@ -2054,6 +2134,87 @@ app.get("/api/orders/:id/payments", auth, async (req, res) => {
   }
 });
 
+// PUT - Actualizar información de contacto del cliente
+app.put("/api/orders/:id/client-info", auth, async (req, res) => {
+  try {
+    const orderId = parseInt(req.params.id);
+    const { client_info } = req.body;
+    
+    console.log('📝 Actualizando información del cliente:', orderId);
+    
+    if (!client_info || !client_info.name) {
+      return res.status(400).json({ 
+        message: 'El nombre del cliente es requerido' 
+      });
+    }
+    
+    // Obtener la orden
+    let order;
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('id', orderId)
+        .single();
+      
+      if (error || !data) {
+        return res.status(404).json({ message: 'Orden no encontrada' });
+      }
+      order = data;
+    } else {
+      order = fallbackDatabase.orders.find(o => o.id === orderId);
+      if (!order) {
+        return res.status(404).json({ message: 'Orden no encontrada' });
+      }
+    }
+    
+    // Verificar permisos
+    if (req.user.role !== 'admin' && order.employee_id !== req.user.id) {
+      return res.status(403).json({ 
+        message: 'No tienes permisos para modificar esta orden' 
+      });
+    }
+    
+    // Actualizar información del cliente
+    const updatedClientInfo = {
+      ...order.client_info,
+      ...client_info
+    };
+    
+    if (supabase) {
+      const { data: updatedOrder, error: updateError } = await supabase
+        .from('orders')
+        .update({ client_info: updatedClientInfo })
+        .eq('id', orderId)
+        .select()
+        .single();
+      
+      if (updateError) throw updateError;
+      
+      res.json({
+        message: 'Información del cliente actualizada',
+        order: updatedOrder
+      });
+    } else {
+      // Fallback: actualizar en memoria
+      const orderIndex = fallbackDatabase.orders.findIndex(o => o.id === orderId);
+      fallbackDatabase.orders[orderIndex].client_info = updatedClientInfo;
+      
+      res.json({
+        message: 'Información del cliente actualizada',
+        order: fallbackDatabase.orders[orderIndex]
+      });
+    }
+    
+  } catch (error) {
+    console.error('❌ Error actualizando información del cliente:', error);
+    res.status(500).json({ 
+      message: 'Error actualizando información del cliente', 
+      error: error.message 
+    });
+  }
+});
+
 // PUT - Actualizar abono directo en pedido
 app.put("/api/orders/:id/paid-amount", auth, async (req, res) => {
   try {
@@ -2160,6 +2321,99 @@ app.put("/api/orders/:id/paid-amount", auth, async (req, res) => {
   }
 });
 
+// GET - Estadísticas de cobranza para empleado
+app.get("/api/employee/collection-stats", auth, async (req, res) => {
+  try {
+    if (req.user.role !== 'employee') {
+      return res.status(403).json({ message: 'Solo para empleados' });
+    }
+    
+    const { period = 'month' } = req.query; // month, week, year
+    
+    console.log('📊 Calculando estadísticas de cobranza:', period);
+    
+    const orders = await getOrders(req.user.id, req.user.role);
+    const confirmedOrders = orders.filter(o => o.status === 'confirmed');
+    
+    // Filtrar por período
+    const now = new Date();
+    const startDate = new Date();
+    
+    switch (period) {
+      case 'week':
+        startDate.setDate(now.getDate() - 7);
+        break;
+      case 'month':
+        startDate.setMonth(now.getMonth() - 1);
+        break;
+      case 'year':
+        startDate.setFullYear(now.getFullYear() - 1);
+        break;
+    }
+    
+    const periodOrders = confirmedOrders.filter(order => 
+      new Date(order.created_at) >= startDate
+    );
+    
+    // Calcular métricas
+    const totalSales = periodOrders.reduce((sum, order) => 
+      sum + (parseFloat(order.total) || 0), 0
+    );
+    
+    const totalCollected = periodOrders.reduce((sum, order) => 
+      sum + (parseFloat(order.paid_amount) || 0), 0
+    );
+    
+    const totalPending = totalSales - totalCollected;
+    
+    const collectionRate = totalSales > 0 ? (totalCollected / totalSales * 100) : 0;
+    
+    // Órdenes por estado de pago
+    const fullyPaid = periodOrders.filter(order => {
+      const balance = (parseFloat(order.total) || 0) - (parseFloat(order.paid_amount) || 0);
+      return balance <= 0;
+    }).length;
+    
+    const partiallyPaid = periodOrders.filter(order => {
+      const total = parseFloat(order.total) || 0;
+      const paid = parseFloat(order.paid_amount) || 0;
+      return paid > 0 && paid < total;
+    }).length;
+    
+    const unpaid = periodOrders.length - fullyPaid - partiallyPaid;
+    
+    res.json({
+      period,
+      start_date: startDate.toISOString(),
+      end_date: now.toISOString(),
+      metrics: {
+        total_orders: periodOrders.length,
+        total_sales: totalSales,
+        total_collected: totalCollected,
+        total_pending: totalPending,
+        collection_rate: collectionRate
+      },
+      orders_by_payment_status: {
+        fully_paid: fullyPaid,
+        partially_paid: partiallyPaid,
+        unpaid: unpaid
+      },
+      commission_info: {
+        commission_rate: req.user.commission_rate || 0.05,
+        estimated_commission: totalCollected * (req.user.commission_rate || 0.05)
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ Error calculando estadísticas de cobranza:', error);
+    res.status(500).json({ 
+      message: 'Error al calcular estadísticas', 
+      error: error.message 
+    });
+  }
+});
+
+
 app.post("/api/products", auth, adminOnly, async (req, res) => {
   try {
     const newProduct = await createProduct(req.body);
@@ -2208,16 +2462,68 @@ app.get("/api/employees", auth, adminOnly, async (req, res) => {
 // GET Orders - Lista de pedidos
 app.get("/api/orders", auth, async (req, res) => {
   try {
-    console.log('🔍 GET /api/orders - User:', req.user?.role);
+    console.log('🔍 GET /api/orders with new filters - User:', req.user?.role);
+    
+    const { payment_status, client_search } = req.query;
     
     let orders = await getOrders(req.user.id, req.user.role);
     
-    // Add auto-confirmation indicators
-    orders = orders.map(order => ({
-      ...order,
-      confirmation_type: order.auto_confirmed ? 'automatic' : 'manual',
-      requires_admin_action: order.status === 'hold' && !order.auto_confirmed
-    }));
+    // ===== NUEVO: Aplicar filtros del lado del servidor =====
+    
+    // Filtro por estado de pago
+    if (payment_status) {
+      orders = orders.filter(order => {
+        const total = parseFloat(order.total) || 0;
+        const paidAmount = parseFloat(order.paid_amount) || 0;
+        const balance = total - paidAmount;
+        
+        if (payment_status === 'paid') {
+          return balance <= 0; // Pagado completamente
+        } else if (payment_status === 'not_paid') {
+          return balance > 0; // No pagado (incluye parciales)
+        }
+        return true;
+      });
+    }
+    
+    // Filtro por búsqueda de cliente
+    if (client_search && client_search.trim()) {
+      const searchTerm = client_search.toLowerCase().trim();
+      orders = orders.filter(order => {
+        const clientName = order.client_info?.name?.toLowerCase() || '';
+        const orderNumber = order.order_number?.toLowerCase() || '';
+        const employeeCode = order.employee_code?.toLowerCase() || '';
+        
+        return clientName.includes(searchTerm) || 
+               orderNumber.includes(searchTerm) ||
+               employeeCode.includes(searchTerm);
+      });
+    }
+    
+    // Agregar indicadores de estado simplificados
+    orders = orders.map(order => {
+      const total = parseFloat(order.total) || 0;
+      const paidAmount = parseFloat(order.paid_amount) || 0;
+      const balance = total - paidAmount;
+      
+      return {
+        ...order,
+        payment_status: balance <= 0 ? 'paid' : 'not_paid',
+        is_paid: balance <= 0,
+        balance: balance,
+        payment_percentage: total > 0 ? (paidAmount / total * 100) : 0,
+        
+        // Mantener campos para compatibilidad
+        auto_confirmed: order.auto_confirmed || false,
+        requires_admin_action: false // Ya no usamos este concepto
+      };
+    });
+    
+    console.log('✅ Orders filtered:', {
+      total: orders.length,
+      paid: orders.filter(o => o.payment_status === 'paid').length,
+      not_paid: orders.filter(o => o.payment_status === 'not_paid').length
+    });
     
     res.json(orders);
   } catch (error) {
@@ -2522,6 +2828,133 @@ app.post("/api/orders", auth, async (req, res) => {
   }
 });
 
+app.get("/api/orders/stats", auth, async (req, res) => {
+  try {
+    console.log('📊 Getting order statistics with new payment system');
+    
+    let orders = await getOrders(req.user.id, req.user.role);
+    
+    // Calcular estadísticas por estado de pago
+    const paidOrders = orders.filter(order => {
+      const total = parseFloat(order.total) || 0;
+      const paidAmount = parseFloat(order.paid_amount) || 0;
+      const balance = total - paidAmount;
+      return balance <= 0;
+    });
+    
+    const notPaidOrders = orders.filter(order => {
+      const total = parseFloat(order.total) || 0;
+      const paidAmount = parseFloat(order.paid_amount) || 0;
+      const balance = total - paidAmount;
+      return balance > 0;
+    });
+    
+    // Calcular totales financieros
+    const totalRevenue = paidOrders.reduce((sum, order) => sum + (parseFloat(order.total) || 0), 0);
+    const pendingRevenue = notPaidOrders.reduce((sum, order) => {
+      const total = parseFloat(order.total) || 0;
+      const paidAmount = parseFloat(order.paid_amount) || 0;
+      return sum + (total - paidAmount);
+    }, 0);
+    
+    const partiallyPaidOrders = notPaidOrders.filter(order => (parseFloat(order.paid_amount) || 0) > 0);
+    
+    const stats = {
+      total_orders: orders.length,
+      paid_orders: paidOrders.length,
+      not_paid_orders: notPaidOrders.length,
+      partially_paid_orders: partiallyPaidOrders.length,
+      
+      // Financieros
+      total_revenue: totalRevenue,
+      pending_revenue: pendingRevenue,
+      collected_revenue: orders.reduce((sum, order) => sum + (parseFloat(order.paid_amount) || 0), 0),
+      
+      // Porcentajes
+      paid_percentage: orders.length > 0 ? (paidOrders.length / orders.length * 100) : 0,
+      collection_rate: totalRevenue > 0 ? (totalRevenue / (totalRevenue + pendingRevenue) * 100) : 0,
+      
+      // Por fuente de inventario
+      main_store_orders: orders.filter(o => o.inventory_source !== 'substore').length,
+      substore_orders: orders.filter(o => o.inventory_source === 'substore').length,
+      
+      last_updated: new Date().toISOString()
+    };
+    
+    console.log('📊 Order statistics calculated:', stats);
+    res.json(stats);
+    
+  } catch (error) {
+    console.error('Error getting order statistics:', error);
+    res.status(500).json({ 
+      message: 'Error obteniendo estadísticas', 
+      error: error.message 
+    });
+  }
+});
+
+app.get("/api/orders/search", auth, async (req, res) => {
+  try {
+    const { client_name, status } = req.query;
+    
+    console.log('🔍 Búsqueda de órdenes:', { client_name, status, employee: req.user.employee_code });
+    
+    if (!client_name || client_name.trim().length < 2) {
+      return res.status(400).json({ 
+        message: 'El nombre del cliente debe tener al menos 2 caracteres' 
+      });
+    }
+    
+    let orders = await getOrders(req.user.id, req.user.role);
+    
+    // Filtrar por nombre del cliente
+    const filteredOrders = orders.filter(order => 
+      order.client_info && 
+      order.client_info.name && 
+      order.client_info.name.toLowerCase().includes(client_name.toLowerCase().trim())
+    );
+    
+    // Filtrar por estado si se especifica
+    if (status) {
+      filteredOrders = filteredOrders.filter(order => order.status === status);
+    }
+    
+    // Agregar información de pagos calculada
+    const ordersWithPayments = filteredOrders.map(order => {
+      const total = parseFloat(order.total) || 0;
+      const paidAmount = parseFloat(order.paid_amount) || 0;
+      const balance = total - paidAmount;
+      const paymentPercentage = total > 0 ? (paidAmount / total * 100) : 0;
+      
+      return {
+        ...order,
+        payment_summary: {
+          total,
+          paid_amount: paidAmount,
+          balance,
+          payment_percentage: paymentPercentage,
+          is_fully_paid: balance <= 0,
+          payment_status: balance <= 0 ? 'paid' : (paidAmount > 0 ? 'partial' : 'pending')
+        }
+      };
+    });
+    
+    console.log('✅ Órdenes encontradas:', ordersWithPayments.length);
+    
+    res.json({
+      search_term: client_name,
+      total_found: ordersWithPayments.length,
+      orders: ordersWithPayments
+    });
+    
+  } catch (error) {
+    console.error('❌ Error en búsqueda de órdenes:', error);
+    res.status(500).json({ 
+      message: 'Error al buscar órdenes', 
+      error: error.message 
+    });
+  }
+});
 
 // PUT Confirm Order - CON GESTIÓN AUTOMÁTICA DE INVENTARIO
 app.put("/api/orders/:id/confirm", auth, adminOnly, async (req, res) => {
@@ -2529,7 +2962,7 @@ app.put("/api/orders/:id/confirm", auth, adminOnly, async (req, res) => {
     const orderId = parseInt(req.params.id);
     const { payment_info } = req.body;
     
-    console.log(`🔄 CONFIRMAR PEDIDO (CON SUBALMACÉN) - Order ID: ${orderId}`);
+    console.log(`🔄 CONFIRMAR PEDIDO CON NUEVO SISTEMA - Order ID: ${orderId}`);
     
     // Validaciones básicas
     if (!orderId || isNaN(orderId)) {
@@ -2560,26 +2993,31 @@ app.put("/api/orders/:id/confirm", auth, adminOnly, async (req, res) => {
       }
     }
     
-    if (order.status === 'confirmed') {
-      return res.status(400).json({ message: 'El pedido ya está confirmado' });
+    // ===== NUEVO: Verificar si ya está pagado =====
+    const total = parseFloat(order.total) || 0;
+    const currentPaid = parseFloat(order.paid_amount) || 0;
+    const balance = total - currentPaid;
+    
+    if (balance <= 0) {
+      return res.status(400).json({ 
+        message: 'El pedido ya está completamente pagado',
+        payment_status: 'paid',
+        current_balance: balance
+      });
     }
     
     console.log('📦 Fuente de inventario:', order.inventory_source || 'main_store');
     
     let inventoryUpdate = null;
     
-    // Procesar según la fuente del inventario
+    // Procesar según la fuente del inventario (sin cambios)
     if (order.inventory_source === 'substore' && order.trip_id) {
-      // ===== CONFIRMAR DESDE SUBALMACÉN =====
       console.log('🚛 Confirmando pedido desde subalmacén, trip:', order.trip_id);
       
-      // Validar y actualizar inventario del subalmacén
       if (order.products && Array.isArray(order.products)) {
         for (const orderProduct of order.products) {
           const { product_id, quantity } = orderProduct;
-          
           console.log(`📦 Vendiendo desde subalmacén: ${product_id} x ${quantity}`);
-          
           await sellFromSubstore(order.trip_id, product_id, quantity, {
             order_id: orderId,
             client_info: order.client_info
@@ -2592,12 +3030,9 @@ app.put("/api/orders/:id/confirm", auth, adminOnly, async (req, res) => {
           products_updated: order.products.length
         };
       }
-      
     } else {
-      // ===== CONFIRMAR DESDE ALMACÉN PRINCIPAL =====
       console.log('🏪 Confirmando pedido desde almacén principal');
       
-      // Validar stock en almacén principal
       if (order.products && Array.isArray(order.products)) {
         const stockValidation = await validateStockAvailability(order.products);
         
@@ -2609,7 +3044,6 @@ app.put("/api/orders/:id/confirm", auth, adminOnly, async (req, res) => {
           });
         }
         
-        // Actualizar inventario del almacén principal
         inventoryUpdate = await updateInventoryStock(
           order.products, 
           'subtract', 
@@ -2618,15 +3052,36 @@ app.put("/api/orders/:id/confirm", auth, adminOnly, async (req, res) => {
       }
     }
     
+    // ===== NUEVO: Marcar como pagado según el método de confirmación =====
+    let newPaidAmount = currentPaid;
+    let newPaymentStatus = 'not_paid';
+    
+    // Si se confirma manualmente, asumir que se paga completo
+    if (payment_info.mark_as_paid !== false) {
+      newPaidAmount = total;
+      newPaymentStatus = 'paid';
+    }
+    
+    const newBalance = total - newPaidAmount;
+    
     // Actualizar estado del pedido
+    const updateData = {
+      status: 'confirmed',
+      confirmed_at: new Date().toISOString(),
+      payment_info: payment_info,
+      
+      // ===== NUEVO SISTEMA DE PAGOS =====
+      paid_amount: newPaidAmount,
+      balance: newBalance,
+      is_fully_paid: newBalance <= 0,
+      payment_status: newPaymentStatus,
+      payment_percentage: total > 0 ? (newPaidAmount / total * 100) : 0
+    };
+    
     if (supabase) {
       const { data: updatedOrder, error: updateError } = await supabase
         .from('orders')
-        .update({ 
-          status: 'confirmed',
-          confirmed_at: new Date().toISOString(),
-          payment_info: payment_info
-        })
+        .update(updateData)
         .eq('id', orderId)
         .select()
         .single();
@@ -2637,14 +3092,12 @@ app.put("/api/orders/:id/confirm", auth, adminOnly, async (req, res) => {
       const orderIndex = fallbackDatabase.orders.findIndex(o => o.id === orderId);
       fallbackDatabase.orders[orderIndex] = {
         ...order,
-        status: 'confirmed',
-        confirmed_at: new Date().toISOString(),
-        payment_info: payment_info
+        ...updateData
       };
       order = fallbackDatabase.orders[orderIndex];
     }
     
-    // Crear registro de venta
+    // Crear registro de venta (sin cambios)
     const saleData = {
       order_id: orderId,
       trip_id: order.trip_id || null,
@@ -2678,18 +3131,26 @@ app.put("/api/orders/:id/confirm", auth, adminOnly, async (req, res) => {
       fallbackDatabase.sales.push(newSale);
     }
     
-    console.log(`✅ Pedido ${orderId} confirmado exitosamente desde ${order.inventory_source || 'main_store'}`);
+    console.log(`✅ Pedido ${orderId} confirmado con nuevo sistema desde ${order.inventory_source || 'main_store'}`);
+    console.log(`💰 Estado de pago: ${newPaymentStatus} (${newPaidAmount}/${total})`);
     
     res.json({ 
       message: 'Pedido confirmado exitosamente',
       order: order,
       sale: newSale,
       inventory_update: inventoryUpdate,
-      inventory_source: order.inventory_source || 'main_store'
+      inventory_source: order.inventory_source || 'main_store',
+      payment_summary: {
+        previous_paid: currentPaid,
+        new_paid: newPaidAmount,
+        total: total,
+        balance: newBalance,
+        status: newPaymentStatus
+      }
     });
     
   } catch (error) {
-    console.error('❌ ERROR en confirmación de pedido con subalmacén:', error);
+    console.error('❌ ERROR en confirmación con nuevo sistema:', error);
     res.status(500).json({ 
       message: 'Error interno del servidor al confirmar pedido', 
       error: error.message
@@ -2791,6 +3252,118 @@ app.put("/api/orders/:id/cancel", auth, adminOnly, async (req, res) => {
   }
 });
 
+app.put("/api/orders/:id/mark-paid", auth, async (req, res) => {
+  try {
+    const orderId = parseInt(req.params.id);
+    const { payment_method = 'efectivo', notes = '' } = req.body;
+    
+    console.log('💰 Marcando pedido como pagado completamente:', orderId);
+    
+    // Obtener el pedido
+    let order;
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('id', orderId)
+        .single();
+      
+      if (error || !data) {
+        return res.status(404).json({ message: 'Pedido no encontrado' });
+      }
+      order = data;
+    } else {
+      order = fallbackDatabase.orders.find(o => o.id === orderId);
+      if (!order) {
+        return res.status(404).json({ message: 'Pedido no encontrado' });
+      }
+    }
+    
+    // Verificar permisos
+    if (req.user.role !== 'admin' && order.employee_id !== req.user.id) {
+      return res.status(403).json({ 
+        message: 'No tienes permisos para modificar este pedido' 
+      });
+    }
+    
+    const total = parseFloat(order.total) || 0;
+    const currentPaid = parseFloat(order.paid_amount) || 0;
+    
+    if (currentPaid >= total) {
+      return res.status(400).json({ 
+        message: 'El pedido ya está completamente pagado',
+        current_status: 'paid'
+      });
+    }
+    
+    // Actualizar como pagado completamente
+    const updateData = {
+      paid_amount: total,
+      balance: 0,
+      is_fully_paid: true,
+      payment_status: 'paid',
+      payment_percentage: 100,
+      last_payment_at: new Date().toISOString()
+    };
+    
+    if (supabase) {
+      const { data: updatedOrder, error: updateError } = await supabase
+        .from('orders')
+        .update(updateData)
+        .eq('id', orderId)
+        .select()
+        .single();
+      
+      if (updateError) throw updateError;
+      
+      // Registrar el pago completo
+      const paymentRecord = {
+        order_id: orderId,
+        amount: total - currentPaid,
+        payment_method: payment_method,
+        notes: notes || 'Marcado como pagado completamente',
+        recorded_by: req.user.id,
+        recorded_by_code: req.user.employee_code,
+        created_at: new Date().toISOString()
+      };
+      
+      await supabase
+        .from('order_payments')
+        .insert([paymentRecord]);
+      
+      res.json({
+        message: 'Pedido marcado como pagado completamente',
+        order: updatedOrder,
+        payment_added: total - currentPaid
+      });
+      
+    } else {
+      // Fallback: actualizar en memoria
+      const orderIndex = fallbackDatabase.orders.findIndex(o => o.id === orderId);
+      
+      fallbackDatabase.orders[orderIndex] = {
+        ...order,
+        ...updateData
+      };
+      
+      res.json({
+        message: 'Pedido marcado como pagado completamente',
+        order: fallbackDatabase.orders[orderIndex],
+        payment_added: total - currentPaid
+      });
+    }
+    
+  } catch (error) {
+    console.error('❌ Error marking order as paid:', error);
+    res.status(500).json({ 
+      message: 'Error marcando como pagado: ' + error.message,
+      error: error.message 
+    });
+  }
+});
+
+
+
 // GET Order Details - Obtener detalles de un pedido específico
 app.get("/api/orders/:id", auth, async (req, res) => {
   try {
@@ -2835,6 +3408,152 @@ app.get("/api/orders/:id", auth, async (req, res) => {
     console.error('Error obteniendo detalles del pedido:', error);
     res.status(500).json({ 
       message: 'Error al obtener detalles del pedido', 
+      error: error.message 
+    });
+  }
+});
+// GET - Obtener resumen de pagos del empleado
+app.get("/api/employee/payments-summary", auth, async (req, res) => {
+  try {
+    if (req.user.role !== 'employee') {
+      return res.status(403).json({ message: 'Solo para empleados' });
+    }
+    
+    console.log('📊 Obteniendo resumen de pagos para empleado:', req.user.employee_code);
+    
+    const orders = await getOrders(req.user.id, req.user.role);
+    
+    // Calcular estadísticas de pagos
+    const totalOrders = orders.length;
+    const confirmedOrders = orders.filter(o => o.status === 'confirmed');
+    
+    let totalSales = 0;
+    let totalPaid = 0;
+    let totalPending = 0;
+    let fullyPaidOrders = 0;
+    let partialPaidOrders = 0;
+    let unpaidOrders = 0;
+    
+    confirmedOrders.forEach(order => {
+      const total = parseFloat(order.total) || 0;
+      const paid = parseFloat(order.paid_amount) || 0;
+      const balance = total - paid;
+      
+      totalSales += total;
+      totalPaid += paid;
+      totalPending += balance;
+      
+      if (balance <= 0) {
+        fullyPaidOrders++;
+      } else if (paid > 0) {
+        partialPaidOrders++;
+      } else {
+        unpaidOrders++;
+      }
+    });
+    
+    const summary = {
+      orders_summary: {
+        total_orders: totalOrders,
+        confirmed_orders: confirmedOrders.length,
+        pending_orders: orders.filter(o => o.status === 'hold').length
+      },
+      payments_summary: {
+        total_sales: totalSales,
+        total_paid: totalPaid,
+        total_pending: totalPending,
+        collection_percentage: totalSales > 0 ? (totalPaid / totalSales * 100) : 0
+      },
+      orders_by_payment_status: {
+        fully_paid: fullyPaidOrders,
+        partially_paid: partialPaidOrders,
+        unpaid: unpaidOrders
+      },
+      recent_payments: await getRecentPaymentsByEmployee(req.user.id)
+    };
+    
+    res.json(summary);
+    
+  } catch (error) {
+    console.error('❌ Error obteniendo resumen de pagos:', error);
+    res.status(500).json({ 
+      message: 'Error al obtener resumen de pagos', 
+      error: error.message 
+    });
+  }
+});
+
+// GET - Obtener historial de abonos del empleado
+app.get("/api/employee/payments-history", auth, async (req, res) => {
+  try {
+    if (req.user.role !== 'employee') {
+      return res.status(403).json({ message: 'Solo para empleados' });
+    }
+    
+    const { limit = 50, offset = 0 } = req.query;
+    
+    console.log('📋 Obteniendo historial de abonos para empleado:', req.user.employee_code);
+    
+    if (supabase) {
+      // Obtener pagos donde el empleado fue quien los registró
+      const { data, error } = await supabase
+        .from('order_payments')
+        .select(`
+          *,
+          orders (
+            order_number,
+            client_info,
+            total
+          )
+        `)
+        .eq('recorded_by', req.user.id)
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1);
+      
+      if (error) throw error;
+      
+      res.json({
+        payments: data || [],
+        pagination: {
+          limit: parseInt(limit),
+          offset: parseInt(offset),
+          total: data?.length || 0
+        }
+      });
+    } else {
+      // Fallback: buscar en memoria
+      const payments = (fallbackDatabase.order_payments || [])
+        .filter(payment => payment.recorded_by === req.user.id)
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+        .slice(offset, offset + limit);
+      
+      // Agregar información de la orden
+      const paymentsWithOrders = payments.map(payment => {
+        const order = fallbackDatabase.orders.find(o => o.id === payment.order_id);
+        return {
+          ...payment,
+          order: order ? {
+            order_number: order.order_number,
+            client_info: order.client_info,
+            total: order.total
+          } : null
+        };
+      });
+      
+      res.json({
+        payments: paymentsWithOrders,
+        pagination: {
+          limit: parseInt(limit),
+          offset: parseInt(offset),
+          total: paymentsWithOrders.length
+        }
+      });
+    }
+    
+  } catch (error) {
+    console.error('❌ Error obteniendo historial de abonos:', error);
+    res.status(500).json({ 
+      message: 'Error al obtener historial de abonos', 
       error: error.message 
     });
   }

@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mis Ventas - Sistema de Aceites</title>
+    <title>Pagos - Sistema de Aceites</title>
     <link rel="stylesheet" href="../css/style.css">
     <link rel="stylesheet" href="../css/employee.css">
 </head>
 <body>
     <div class="employee-container">
-        <nav class="sidebar">
+        <nav class="sidebar" id="sidebar">
             <div class="sidebar-header">
                 <h2>Panel Empleado</h2>
                 <span id="user-name"></span>
@@ -17,118 +17,786 @@
             <ul class="nav-menu">
                 <li><a href="dashboard.html">Inicio</a></li>
                 <li><a href="orders.html">Crear Pedido</a></li>
-                <li><a href="sales.html" class="active">Mis Ventas</a></li>
+                <li><a href="payments.html" class="active">Pagos</a></li>
+                <li><a href="sales.html">Mis Ventas</a></li>
                 <li><a href="#" onclick="logout()">Cerrar Sesión</a></li>
             </ul>
         </nav>
 
         <main class="main-content">
-            <header class="content-header">
-                <h1>Mis Ventas</h1>
-            </header>
+            <!-- Botón de menú móvil -->
+            <button class="mobile-menu-btn" onclick="toggleMobileMenu()" style="display: none;">☰</button>
 
-            <!-- Resumen de Ventas -->
-            <div class="sales-summary">
-                <div class="summary-grid">
-                    <div class="summary-item">
-                        <span class="summary-value" id="total-sales-count">0</span>
-                        <span class="summary-label">Total Ventas</span>
-                    </div>
-                    <div class="summary-item">
-                        <span class="summary-value" id="total-sales-amount">$0</span>
-                        <span class="summary-label">Monto Total</span>
-                    </div>
-                    <div class="summary-item">
-                        <span class="summary-value" id="monthly-sales-amount">$0</span>
-                        <span class="summary-label">Ventas del Mes</span>
-                    </div>
-                    <div class="summary-item">
-                        <span class="summary-value" id="commission-amount">$0</span>
-                        <span class="summary-label">Comisiones</span>
+            <div class="payments-container">
+                <header class="content-header">
+                    <h1>💰 Gestión de Pagos</h1>
+                    <p>Busca órdenes de tus clientes y registra abonos</p>
+                </header>
+
+                <!-- Sección de búsqueda -->
+                <div class="search-section">
+                    <h3>🔍 Buscar Órdenes</h3>
+                    <div class="search-form">
+                        <div class="form-group">
+                            <label for="client-search" class="form-label">Nombre del Cliente</label>
+                            <input type="text" 
+                                   id="client-search" 
+                                   class="search-input" 
+                                   placeholder="Buscar por nombre del cliente..."
+                                   onkeypress="handleSearchKeyPress(event)">
+                        </div>
+                        <button class="search-btn" onclick="searchOrders()">
+                            🔍 Buscar
+                        </button>
                     </div>
                 </div>
-            </div>
 
-            <!-- Filtros -->
-            <div class="sales-filters">
-                <div class="filter-group">
-                    <label>Desde:</label>
-                    <input type="date" id="filter-start-date">
+                <!-- Resultados de búsqueda -->
+                <div id="search-results">
+                    <div class="no-orders">
+                        <div class="no-orders-icon">🔍</div>
+                        <h3>Busca órdenes por cliente</h3>
+                        <p>Ingresa el nombre del cliente para ver sus órdenes y gestionar pagos</p>
+                    </div>
                 </div>
-                <div class="filter-group">
-                    <label>Hasta:</label>
-                    <input type="date" id="filter-end-date">
-                </div>
-                <div class="filter-group">
-                    <label>Estado:</label>
-                    <select id="filter-status">
-                        <option value="">Todos</option>
-                        <option value="confirmed">Confirmadas</option>
-                        <option value="pending">Pendientes</option>
-                    </select>
-                </div>
-                <button class="btn btn-primary" onclick="filterSales()">
-                    🔍 Filtrar
-                </button>
-            </div>
-
-            <!-- Tabla de Ventas -->
-            <div class="sales-container">
-                <table id="sales-table">
-                    <thead>
-                        <tr>
-                            <th>Número</th>
-                            <th>Cliente</th>
-                            <th>Total</th>
-                            <th>Método Pago</th>
-                            <th>Fecha</th>
-                            <th>Comisión</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody></tbody>
-                </table>
-            </div>
-
-            <!-- Mis Pedidos Pendientes -->
-            <div class="pending-orders">
-                <h3>Mis Pedidos Pendientes</h3>
-                <table id="pending-orders-table">
-                    <thead>
-                        <tr>
-                            <th>Número</th>
-                            <th>Cliente</th>
-                            <th>Total</th>
-                            <th>Estado</th>
-                            <th>Fecha</th>
-                        </tr>
-                    </thead>
-                    <tbody></tbody>
-                </table>
             </div>
         </main>
     </div>
 
-    <!-- Modal para detalles de venta -->
-    <div id="sale-details-modal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Detalles de Venta</h3>
-                <span class="close" onclick="closeSaleDetailsModal()">&times;</span>
+    <!-- Modal de pago -->
+    <div id="paymentModal" class="payment-modal">
+        <div class="payment-modal-content">
+            <div class="payment-modal-header">
+                <h3 class="payment-modal-title">💰 Registrar Abono</h3>
+                <button class="close-modal" onclick="closePaymentModal()">×</button>
             </div>
-            <div id="sale-details-content"></div>
-            <div class="modal-actions">
-                <button type="button" class="btn btn-secondary" onclick="closeSaleDetailsModal()">
-                    Cerrar
+            
+            <div class="payment-modal-body">
+                <!-- Resumen de la orden -->
+                <div class="order-summary">
+                    <h4>📋 Información de la Orden</h4>
+                    <div class="payment-summary">
+                        <div class="payment-item">
+                            <div class="payment-label">Orden</div>
+                            <div class="payment-value" id="modal-order-number">-</div>
+                        </div>
+                        <div class="payment-item">
+                            <div class="payment-label">Cliente</div>
+                            <div class="payment-value" id="modal-client-name">-</div>
+                        </div>
+                        <div class="payment-item">
+                            <div class="payment-label">Total</div>
+                            <div class="payment-value total" id="modal-order-total">$0.00</div>
+                        </div>
+                        <div class="payment-item">
+                            <div class="payment-label">Abonado</div>
+                            <div class="payment-value paid" id="modal-paid-amount">$0.00</div>
+                        </div>
+                        <div class="payment-item">
+                            <div class="payment-label">Saldo</div>
+                            <div class="payment-value pending" id="modal-balance">$0.00</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Formulario de pago -->
+                <form class="payment-form" id="payment-form">
+                    <div class="form-group">
+                        <label for="payment-amount" class="form-label">💵 Monto del Abono</label>
+                        <input type="number" 
+                               id="payment-amount" 
+                               class="form-input amount-input" 
+                               step="0.01" 
+                               min="0" 
+                               placeholder="0.00"
+                               required>
+                        <small style="color: var(--secondary-color);">
+                            Máximo: <span id="max-payment">$0.00</span>
+                        </small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="payment-method" class="form-label">💳 Método de Pago</label>
+                        <select id="payment-method" class="form-input" required>
+                            <option value="efectivo">💵 Efectivo</option>
+                            <option value="tarjeta">💳 Tarjeta</option>
+                            <option value="transferencia">🏦 Transferencia</option>
+                            <option value="cheque">📝 Cheque</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="payment-notes" class="form-label">📝 Notas (Opcional)</label>
+                        <textarea id="payment-notes" 
+                                  class="form-input" 
+                                  rows="3" 
+                                  placeholder="Referencia del pago, observaciones..."></textarea>
+                    </div>
+                </form>
+            </div>
+
+            <div class="payment-modal-footer">
+                <button class="btn-cancel" onclick="closePaymentModal()">
+                    ❌ Cancelar
+                </button>
+                <button class="btn-save" onclick="savePayment()">
+                    💾 Registrar Abono
                 </button>
             </div>
         </div>
     </div>
 
-    <!-- Scripts en orden correcto -->
+    <!-- Scripts -->
     <script src="../js/config.js"></script>
     <script src="../js/auth.js"></script>
     <script src="../js/api.js"></script>
-    <script src="../js/admin.js"></script>
+    
+    <script>
+        console.log('💰 Iniciando página de pagos para empleados');
+
+        // Variables globales
+        let currentOrders = [];
+        let currentOrder = null;
+        let isProcessing = false;
+
+        // Inicialización
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('📋 Inicializando página de pagos...');
+            
+            const user = checkAuth();
+            if (!user) return;
+            
+            if (user.role !== 'employee') {
+                alert('Esta página es solo para empleados.');
+                window.location.href = '/';
+                return;
+            }
+            
+            const userNameElement = document.getElementById('user-name');
+            if (userNameElement) userNameElement.textContent = user.name;
+            
+            setupMobile();
+            setupEventListeners();
+            
+            console.log('✅ Página de pagos inicializada');
+        });
+
+        // Event listeners
+        function setupEventListeners() {
+            // Enter en búsqueda
+            document.getElementById('client-search').addEventListener('input', debounce(searchOrders, 300));
+            
+            // Validación del monto en el modal
+            document.getElementById('payment-amount').addEventListener('input', validatePaymentAmount);
+        }
+
+        // Búsqueda de órdenes
+        async function searchOrders() {
+            const searchTerm = document.getElementById('client-search').value.trim();
+            
+            if (searchTerm.length < 2) {
+                displayNoResults('Ingresa al menos 2 caracteres para buscar');
+                return;
+            }
+            
+            displayLoading();
+            
+            try {
+                console.log('🔍 Buscando órdenes para cliente:', searchTerm);
+                
+                // Obtener órdenes del empleado
+                const response = await fetch(`${window.API_BASE_URL}/api/orders`, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Error ${response.status}: ${response.statusText}`);
+                }
+                
+                const allOrders = await response.json();
+                
+                // Filtrar por nombre del cliente
+                const filteredOrders = allOrders.filter(order => 
+                    order.client_info && 
+                    order.client_info.name && 
+                    order.client_info.name.toLowerCase().includes(searchTerm.toLowerCase())
+                );
+                
+                currentOrders = filteredOrders;
+                displayOrders(filteredOrders);
+                
+                console.log('✅ Órdenes encontradas:', filteredOrders.length);
+                
+            } catch (error) {
+                console.error('❌ Error buscando órdenes:', error);
+                displayError('Error al buscar órdenes: ' + error.message);
+            }
+        }
+
+        // Mostrar órdenes
+        function displayOrders(orders) {
+            const container = document.getElementById('search-results');
+            
+            if (orders.length === 0) {
+                container.innerHTML = `
+                    <div class="no-orders">
+                        <div class="no-orders-icon">😔</div>
+                        <h3>No se encontraron órdenes</h3>
+                        <p>No hay órdenes para el cliente buscado</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            const ordersHtml = orders.map(order => {
+                const total = parseFloat(order.total) || 0;
+                const paidAmount = parseFloat(order.paid_amount) || 0;
+                const balance = total - paidAmount;
+                const percentage = total > 0 ? (paidAmount / total * 100) : 0;
+                
+                const statusClass = order.status === 'confirmed' ? 'status-confirmed' : 'status-hold';
+                const statusText = order.status === 'confirmed' ? 'Confirmada' : 'Pendiente';
+                
+                return `
+                    <div class="order-card">
+                        <div class="order-header">
+                            <div class="order-info">
+                                <div class="order-number">${order.order_number || `#${order.id}`}</div>
+                                <div class="client-name">${order.client_info?.name || 'Sin cliente'}</div>
+                                <div class="order-date">${formatDate(order.created_at)}</div>
+                            </div>
+                            <div class="order-status ${statusClass}">
+                                ${statusText}
+                            </div>
+                        </div>
+                        
+                        <div class="order-body">
+                            <div class="payment-summary">
+                                <div class="payment-item">
+                                    <div class="payment-label">Total</div>
+                                    <div class="payment-value total">${formatCurrency(total)}</div>
+                                </div>
+                                <div class="payment-item">
+                                    <div class="payment-label">Abonado</div>
+                                    <div class="payment-value paid">${formatCurrency(paidAmount)}</div>
+                                </div>
+                                <div class="payment-item">
+                                    <div class="payment-label">Saldo</div>
+                                    <div class="payment-value pending">${formatCurrency(balance)}</div>
+                                </div>
+                            </div>
+                            
+                            <div class="payment-progress">
+                                <div class="progress-label">
+                                    <span>Progreso de pago</span>
+                                    <span>${percentage.toFixed(1)}%</span>
+                                </div>
+                                <div class="progress-bar-container">
+                                    <div class="progress-bar" style="width: ${Math.min(percentage, 100)}%"></div>
+                                </div>
+                            </div>
+                            
+                            <div class="payment-actions">
+                                <button class="btn-details" onclick="viewOrderDetails(${order.id})">
+                                    👁️ Ver Detalles
+                                </button>
+                                ${balance > 0 ? `
+                                    <button class="btn-payment" onclick="openPaymentModal(${order.id})">
+                                        💰 Agregar Abono
+                                    </button>
+                                ` : `
+                                    <span style="color: var(--success-color); font-weight: 600;">
+                                        ✅ Pagado Completamente
+                                    </span>
+                                `}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            container.innerHTML = `<div class="orders-grid">${ordersHtml}</div>`;
+        }
+
+        // Modal de pago
+        function openPaymentModal(orderId) {
+            const order = currentOrders.find(o => o.id === orderId);
+            
+            if (!order) {
+                if (window.showNotification) {
+                    window.showNotification('Orden no encontrada', 'error');
+                }
+                return;
+            }
+            
+            currentOrder = order;
+            
+            const total = parseFloat(order.total) || 0;
+            const paidAmount = parseFloat(order.paid_amount) || 0;
+            const balance = total - paidAmount;
+            
+            // Llenar información de la orden
+            document.getElementById('modal-order-number').textContent = order.order_number || `#${order.id}`;
+            document.getElementById('modal-client-name').textContent = order.client_info?.name || 'Sin cliente';
+            document.getElementById('modal-order-total').textContent = formatCurrency(total);
+            document.getElementById('modal-paid-amount').textContent = formatCurrency(paidAmount);
+            document.getElementById('modal-balance').textContent = formatCurrency(balance);
+            document.getElementById('max-payment').textContent = formatCurrency(balance);
+            
+            // Configurar límite del input
+            document.getElementById('payment-amount').max = balance;
+            document.getElementById('payment-amount').value = '';
+            
+            // Limpiar formulario
+            document.getElementById('payment-method').value = 'efectivo';
+            document.getElementById('payment-notes').value = '';
+            
+            // Mostrar modal
+            document.getElementById('paymentModal').classList.add('show');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closePaymentModal() {
+            document.getElementById('paymentModal').classList.remove('show');
+            document.body.style.overflow = 'auto';
+            currentOrder = null;
+        }
+
+        // Validar monto del abono
+        function validatePaymentAmount() {
+            if (!currentOrder) return;
+            
+            const input = document.getElementById('payment-amount');
+            const amount = parseFloat(input.value) || 0;
+            const total = parseFloat(currentOrder.total) || 0;
+            const paidAmount = parseFloat(currentOrder.paid_amount) || 0;
+            const maxAmount = total - paidAmount;
+            
+            if (amount > maxAmount) {
+                input.value = maxAmount.toFixed(2);
+                if (window.showNotification) {
+                    window.showNotification(`El abono no puede exceder el saldo pendiente (${formatCurrency(maxAmount)})`, 'warning');
+                }
+            }
+        }
+
+        // Guardar abono
+        async function savePayment() {
+            if (isProcessing || !currentOrder) return;
+            
+            const amount = parseFloat(document.getElementById('payment-amount').value);
+            const paymentMethod = document.getElementById('payment-method').value;
+            const notes = document.getElementById('payment-notes').value.trim();
+            
+            // Validaciones
+            if (!amount || amount <= 0) {
+                if (window.showNotification) {
+                    window.showNotification('Ingresa un monto válido', 'warning');
+                }
+                return;
+            }
+            
+            const total = parseFloat(currentOrder.total) || 0;
+            const paidAmount = parseFloat(currentOrder.paid_amount) || 0;
+            const maxAmount = total - paidAmount;
+            
+            if (amount > maxAmount) {
+                if (window.showNotification) {
+                    window.showNotification(`El abono no puede exceder ${formatCurrency(maxAmount)}`, 'warning');
+                }
+                return;
+            }
+            
+            isProcessing = true;
+            const saveBtn = document.querySelector('.btn-save');
+            const originalText = saveBtn.textContent;
+            
+            try {
+                saveBtn.disabled = true;
+                saveBtn.textContent = '💰 Guardando...';
+                
+                console.log('💾 Guardando abono:', { orderId: currentOrder.id, amount, paymentMethod, notes });
+                
+                const response = await fetch(`${window.API_BASE_URL}/api/orders/${currentOrder.id}/payments`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
+                    body: JSON.stringify({
+                        amount: amount,
+                        payment_method: paymentMethod,
+                        notes: notes
+                    })
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || 'Error registrando abono');
+                }
+                
+                const result = await response.json();
+                
+                console.log('✅ Abono registrado exitosamente:', result);
+                
+                if (window.showNotification) {
+                    window.showNotification('Abono registrado exitosamente', 'success');
+                }
+                
+                // Actualizar la orden en memoria
+                if (result.order) {
+                    const orderIndex = currentOrders.findIndex(o => o.id === currentOrder.id);
+                    if (orderIndex >= 0) {
+                        currentOrders[orderIndex] = result.order;
+                    }
+                }
+                
+                // Cerrar modal
+                closePaymentModal();
+                
+                // Refrescar la vista
+                displayOrders(currentOrders);
+                
+                // Mostrar mensaje de éxito
+                const newBalance = parseFloat(result.order?.balance) || 0;
+                const isFullyPaid = newBalance <= 0;
+                
+                setTimeout(() => {
+                    alert(`✅ ABONO REGISTRADO EXITOSAMENTE
+
+💰 Monto: ${formatCurrency(amount)}
+💳 Método: ${paymentMethod}
+👤 Cliente: ${currentOrder.client_info?.name || 'Sin cliente'}
+📋 Orden: ${currentOrder.order_number || `#${currentOrder.id}`}
+💵 Nuevo saldo: ${formatCurrency(newBalance)}
+${isFullyPaid ? '🎉 ¡ORDEN COMPLETAMENTE PAGADA!' : ''}
+
+¡Gracias por registrar el pago!`);
+                }, 100);
+                
+            } catch (error) {
+                console.error('❌ Error registrando abono:', error);
+                
+                if (window.showNotification) {
+                    window.showNotification('Error: ' + error.message, 'error');
+                }
+                
+                alert(`❌ Error registrando abono:
+
+${error.message}
+
+Verifica la información e intenta nuevamente.`);
+                
+            } finally {
+                isProcessing = false;
+                saveBtn.disabled = false;
+                saveBtn.textContent = originalText;
+            }
+        }
+
+        // Ver detalles de la orden
+        function viewOrderDetails(orderId) {
+            const order = currentOrders.find(o => o.id === orderId);
+            
+            if (!order) {
+                if (window.showNotification) {
+                    window.showNotification('Orden no encontrada', 'error');
+                }
+                return;
+            }
+            
+            const total = parseFloat(order.total) || 0;
+            const paidAmount = parseFloat(order.paid_amount) || 0;
+            const balance = total - paidAmount;
+            
+            const products = order.products || [];
+            const productsList = products.map(p => 
+                `• ${p.name || 'Producto'} (${p.quantity || 0}) - ${formatCurrency((p.price || 0) * (p.quantity || 0))}`
+            ).join('\n');
+            
+            const details = `📋 DETALLES DE LA ORDEN
+
+🔢 Número: ${order.order_number || `#${order.id}`}
+👤 Cliente: ${order.client_info?.name || 'Sin cliente'}
+📞 Teléfono: ${order.client_info?.phone || 'No especificado'}
+📍 Dirección: ${order.client_info?.address || 'No especificada'}
+📅 Fecha: ${formatDate(order.created_at)}
+📦 Estado: ${order.status === 'confirmed' ? 'Confirmada' : 'Pendiente'}
+
+💰 INFORMACIÓN DE PAGOS:
+• Total: ${formatCurrency(total)}
+• Abonado: ${formatCurrency(paidAmount)}
+• Saldo: ${formatCurrency(balance)}
+• Estado: ${balance <= 0 ? 'COMPLETAMENTE PAGADO' : 'PENDIENTE'}
+
+📦 PRODUCTOS:
+${productsList || 'Sin productos'}
+
+📝 Notas: ${order.notes || 'Sin notas'}`;
+
+            alert(details);
+        }
+
+        // Funciones de utilidad
+        function displayLoading() {
+            document.getElementById('search-results').innerHTML = `
+                <div class="loading">
+                    <div style="text-align: center;">
+                        <div style="display: inline-block; width: 40px; height: 40px; border: 4px solid var(--primary-color); border-radius: 50%; border-top-color: transparent; animation: spin 1s linear infinite; margin-bottom: 1rem;"></div>
+                        <p>Buscando órdenes...</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        function displayNoResults(message) {
+            document.getElementById('search-results').innerHTML = `
+                <div class="no-orders">
+                    <div class="no-orders-icon">🔍</div>
+                    <h3>Sin resultados</h3>
+                    <p>${message}</p>
+                </div>
+            `;
+        }
+
+        function displayError(message) {
+            document.getElementById('search-results').innerHTML = `
+                <div class="no-orders">
+                    <div class="no-orders-icon">❌</div>
+                    <h3>Error</h3>
+                    <p>${message}</p>
+                    <button class="search-btn" onclick="searchOrders()" style="margin-top: 1rem;">
+                        🔄 Reintentar
+                    </button>
+                </div>
+            `;
+        }
+
+        function handleSearchKeyPress(event) {
+            if (event.key === 'Enter') {
+                searchOrders();
+            }
+        }
+
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        function formatDate(dateString) {
+            if (!dateString) return 'No especificada';
+            
+            try {
+                const date = new Date(dateString);
+                return date.toLocaleDateString('es-MX', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            } catch (error) {
+                return dateString;
+            }
+        }
+
+        function formatCurrency(amount) {
+            if (typeof amount !== 'number') amount = parseFloat(amount) || 0;
+            
+            return new Intl.NumberFormat('es-MX', {
+                style: 'currency',
+                currency: 'MXN'
+            }).format(amount);
+        }
+
+        // Configuración móvil
+        function setupMobile() {
+            if (!document.querySelector('.mobile-menu-btn')) {
+                const mobileBtn = document.createElement('button');
+                mobileBtn.className = 'mobile-menu-btn';
+                mobileBtn.innerHTML = '☰';
+                mobileBtn.onclick = toggleMobileMenu;
+                document.body.appendChild(mobileBtn);
+            }
+            
+            adjustForMobile();
+            window.addEventListener('resize', adjustForMobile);
+            document.addEventListener('click', handleOutsideClick);
+        }
+
+        function toggleMobileMenu() {
+            const sidebar = document.getElementById('sidebar');
+            if (sidebar && window.innerWidth <= 768) {
+                sidebar.classList.toggle('active');
+            }
+        }
+
+        function adjustForMobile() {
+            const mobileBtn = document.querySelector('.mobile-menu-btn');
+            if (mobileBtn) {
+                mobileBtn.style.display = window.innerWidth <= 768 ? 'block' : 'none';
+            }
+        }
+
+        function handleOutsideClick(e) {
+            if (window.innerWidth <= 768) {
+                const sidebar = document.getElementById('sidebar');
+                const menuBtn = document.querySelector('.mobile-menu-btn');
+                const paymentModal = document.getElementById('paymentModal');
+                
+                // Cerrar sidebar si se hace clic fuera
+                if (sidebar && menuBtn && !sidebar.contains(e.target) && !menuBtn.contains(e.target) && sidebar.classList.contains('active')) {
+                    sidebar.classList.remove('active');
+                }
+                
+                // Cerrar modal si se hace clic fuera
+                if (paymentModal && e.target === paymentModal) {
+                    closePaymentModal();
+                }
+            }
+        }
+
+        function logout() {
+            if (confirm('¿Cerrar sesión?')) {
+                localStorage.clear();
+                window.location.href = '/';
+            }
+        }
+
+        // Eventos globales
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                const modal = document.getElementById('paymentModal');
+                if (modal && modal.classList.contains('show')) {
+                    closePaymentModal();
+                }
+            }
+        });
+
+        // Hacer funciones globales
+        window.searchOrders = searchOrders;
+        window.openPaymentModal = openPaymentModal;
+        window.closePaymentModal = closePaymentModal;
+        window.savePayment = savePayment;
+        window.viewOrderDetails = viewOrderDetails;
+        window.handleSearchKeyPress = handleSearchKeyPress;
+        window.validatePaymentAmount = validatePaymentAmount;
+        window.toggleMobileMenu = toggleMobileMenu;
+        window.logout = logout;
+
+        console.log('✅ Página de pagos para empleados inicializada correctamente');
+    </script>
+
+    <style>
+        /* Animación de carga */
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Efectos hover mejorados */
+        .order-card:hover .order-header {
+            background: linear-gradient(135deg, #1d4ed8, #1e40af);
+        }
+
+        .order-card:hover .progress-bar {
+            box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+        }
+
+        /* Animaciones de entrada */
+        .order-card {
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Estilos para el modal en diferentes dispositivos */
+        @media (max-width: 480px) {
+            .payment-modal-content {
+                border-radius: 0;
+                height: 100vh;
+                max-height: 100vh;
+            }
+
+            .payment-summary {
+                grid-template-columns: 1fr;
+                gap: 0.75rem;
+            }
+
+            .form-input {
+                font-size: 16px; /* Prevenir zoom en iOS */
+            }
+        }
+
+        /* Estados de conectividad */
+        .offline-indicator {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: var(--danger-color);
+            color: white;
+            text-align: center;
+            padding: 0.5rem;
+            z-index: 10001;
+            display: none;
+        }
+
+        .offline-indicator.show {
+            display: block;
+        }
+
+        /* Mejoras de accesibilidad */
+        .btn-payment:focus,
+        .btn-details:focus,
+        .search-btn:focus {
+            outline: 2px solid var(--primary-color);
+            outline-offset: 2px;
+        }
+
+        /* Dark mode support */
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-color: #1f2937;
+                --text-color: #f3f4f6;
+                --border-color: #374151;
+                --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+            }
+
+            .order-card,
+            .search-section,
+            .payment-modal-content {
+                background: #374151;
+                color: #f3f4f6;
+            }
+
+            .payment-item {
+                background: #4b5563;
+            }
+
+            .order-summary {
+                background: #1f2937;
+                border-color: var(--primary-color);
+            }
+        }
+    </style>
 </body>
 </html>

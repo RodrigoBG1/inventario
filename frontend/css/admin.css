@@ -932,3 +932,39 @@
         width: var(--progress-width, 0%);
     }
 }
+
+.pending-payment-stat {
+    background: linear-gradient(135deg, #fef3c7, #fde68a);
+    border-left: 4px solid #f59e0b;
+}
+
+.pending-payment-stat .stat-number {
+    color: #d97706;
+}
+
+.all-paid-stat {
+    background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+    border-left: 4px solid #10b981;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 0.375rem;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.action-buttons .btn {
+    font-size: 0.75rem;
+    padding: 0.375rem 0.75rem;
+    border-radius: 4px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.25px;
+    transition: all 0.2s ease;
+}
+
+.action-buttons .btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}

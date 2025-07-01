@@ -563,44 +563,48 @@ function getUser() {
 
 // ===== RESTO DE FUNCIONES ADMIN =====
 function updateDashboardStats() {
-    console.log('📊 Actualizando estadísticas del dashboard con auto-confirmación...');
+    console.log('📊 Actualizando estadísticas del dashboard con nuevo sistema de pagos...');
     
     const totalProductsElement = document.getElementById('total-products');
     if (totalProductsElement) {
         totalProductsElement.textContent = products.length;
     }
     
-    // ✅ NUEVO: Separar pedidos pendientes de los auto-confirmados
-    const pendingOrders = orders.filter(order => order.status === 'hold' && !order.auto_confirmed).length;
-    const autoConfirmedOrders = orders.filter(order => order.auto_confirmed).length;
+    // ===== NUEVO: Contar pedidos por estado de pago =====
+    const notPaidOrders = orders.filter(order => {
+        const total = parseFloat(order.total) || 0;
+        const paidAmount = parseFloat(order.paid_amount) || 0;
+        const balance = total - paidAmount;
+        return balance > 0; // No pagados (incluye parciales)
+    }).length;
+    
+    const paidOrders = orders.filter(order => {
+        const total = parseFloat(order.total) || 0;
+        const paidAmount = parseFloat(order.paid_amount) || 0;
+        const balance = total - paidAmount;
+        return balance <= 0; // Pagados completamente
+    }).length;
     
     const pendingOrdersElement = document.getElementById('pending-orders');
     if (pendingOrdersElement) {
-        pendingOrdersElement.textContent = pendingOrders;
+        pendingOrdersElement.textContent = notPaidOrders;
         
-        // ✅ NUEVO: Cambiar color del card según la cantidad de pendientes
-        const parentCard = pendingOrdersElement.closest('.stat-card');
-        if (parentCard) {
-            if (pendingOrders > 0) {
-                parentCard.classList.add('pending-confirm-stat');
-                parentCard.classList.remove('auto-confirm-stat');
+        // Cambiar el título del card
+        const cardTitle = pendingOrdersElement.closest('.stat-card').querySelector('h3');
+        if (cardTitle) {
+            if (notPaidOrders > 0) {
+                cardTitle.innerHTML = `💰 Pedidos Sin Pagar <small>(${paidOrders} pagados)</small>`;
+                pendingOrdersElement.closest('.stat-card').classList.add('pending-payment-stat');
+                pendingOrdersElement.closest('.stat-card').classList.remove('all-paid-stat');
             } else {
-                parentCard.classList.add('auto-confirm-stat');
-                parentCard.classList.remove('pending-confirm-stat');
+                cardTitle.innerHTML = `✅ Todos Pagados <small>(${paidOrders} total)</small>`;
+                pendingOrdersElement.closest('.stat-card').classList.add('all-paid-stat');
+                pendingOrdersElement.closest('.stat-card').classList.remove('pending-payment-stat');
             }
         }
     }
     
-    // ✅ NUEVO: Actualizar título del card de pedidos pendientes
-    const pendingOrdersTitle = document.querySelector('#pending-orders').closest('.stat-card').querySelector('h3');
-    if (pendingOrdersTitle) {
-        if (pendingOrders > 0) {
-            pendingOrdersTitle.innerHTML = `⏳ Pedidos Pendientes <small>(${autoConfirmedOrders} auto-confirmados)</small>`;
-        } else {
-            pendingOrdersTitle.innerHTML = `✅ Pedidos al Día <small>(${autoConfirmedOrders} auto-confirmados)</small>`;
-        }
-    }
-    
+    // Resto de estadísticas sin cambios
     const currentMonth = new Date().getMonth();
     const currentYear = new Date().getFullYear();
     const monthlySales = sales
@@ -623,36 +627,35 @@ function updateDashboardStats() {
     
     console.log('📊 Estadísticas actualizadas:', {
         productos: products.length,
-        pedidos_pendientes: pendingOrders,
-        pedidos_auto_confirmados: autoConfirmedOrders,
+        pedidos_no_pagados: notPaidOrders,
+        pedidos_pagados: paidOrders,
         ventas_mes: monthlySales,
         empleados_activos: activeEmployees
     });
 }
 
+
 function updateRecentOrders() {
     const tbody = document.querySelector('#recent-orders-table tbody');
     if (!tbody) return;
     
-    console.log('📋 Actualizando pedidos recientes con indicadores de auto-confirmación...');
+    console.log('📋 Actualizando pedidos recientes con nuevo sistema de estados...');
     
     const recentOrders = orders
         .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
         .slice(0, 5);
     
     tbody.innerHTML = recentOrders.map(order => {
-        let statusBadge = '';
+        const total = parseFloat(order.total) || 0;
+        const paidAmount = parseFloat(order.paid_amount) || 0;
+        const balance = total - paidAmount;
+        const isPaid = balance <= 0;
         
-        if (order.status === 'confirmed') {
-            if (order.auto_confirmed) {
-                statusBadge = `<span class="status-badge status-auto-confirmed">⚡ Auto</span>`;
-            } else {
-                statusBadge = `<span class="status-badge status-confirmed">✅ Manual</span>`;
-            }
-        } else if (order.status === 'hold') {
-            statusBadge = `<span class="status-badge status-hold">⏳ Pendiente</span>`;
+        let statusBadge = '';
+        if (isPaid) {
+            statusBadge = `<span class="status-badge status-paid">✅ Pagado</span>`;
         } else {
-            statusBadge = `<span class="status-badge status-cancelled">❌ Cancelada</span>`;
+            statusBadge = `<span class="status-badge status-not-paid">💰 Pendiente</span>`;
         }
         
         const inventoryIcon = order.inventory_source === 'substore' ? '🚛' : '🏪';
@@ -969,55 +972,39 @@ function displayOrdersWithPayments() {
         const balance = total - paidAmount;
         const paymentPercentage = total > 0 ? (paidAmount / total * 100) : 0;
         
-        // Determinar clases CSS según el estado de pago
-        const paymentStatusClass = balance <= 0 ? 'payment-complete' : 
-                                  paidAmount > 0 ? 'payment-partial' : 'payment-pending';
+        // ===== NUEVO SISTEMA: Solo 2 estados =====
+        const isPaid = balance <= 0; // Pagado completamente
+        const isNotPaid = balance > 0; // No pagado (incluye parciales)
         
-        // Determinar tipo de confirmación y estilos
-        const isAutoConfirmed = order.auto_confirmed || order.status === 'confirmed';
-        const requiresAction = order.status === 'hold' && !order.auto_confirmed;
+        // Determinar clase CSS y badge según el estado de pago
+        const paymentStatusClass = isPaid ? 'payment-complete' : 'payment-pending';
         
         let statusBadge = '';
         let actionButtons = '';
         
-        if (order.status === 'confirmed') {
-            if (order.auto_confirmed) {
-                statusBadge = `<span class="status-badge status-auto-confirmed">⚡ Auto-Confirmada</span>`;
-            } else {
-                statusBadge = `<span class="status-badge status-confirmed">✅ Confirmada</span>`;
-            }
+        if (isPaid) {
+            statusBadge = `<span class="status-badge status-paid">✅ Pagado</span>`;
+            
+            actionButtons = `
+                <button class="btn btn-sm btn-primary" onclick="viewOrderDetails(${order.id})">
+                    👁️ Ver
+                </button>
+                <button class="btn btn-sm btn-secondary" onclick="printOrder(${order.id})">
+                    🖨️ Imprimir
+                </button>
+            `;
+        } else {
+            statusBadge = `<span class="status-badge status-not-paid">⏳ No Pagado</span>`;
             
             actionButtons = `
                 <button class="btn btn-sm btn-primary" onclick="viewOrderDetails(${order.id})">
                     👁️ Ver
                 </button>
                 <button class="btn btn-sm btn-success" onclick="openPaymentModal(${order.id})">
-                    💰 Abono
-                </button>
-            `;
-        } else if (order.status === 'hold') {
-            statusBadge = `<span class="status-badge status-hold">⏳ Pendiente</span>`;
-            
-            actionButtons = `
-                <button class="btn btn-sm btn-confirm" onclick="confirmOrderModal(${order.id})">
-                    ✅ Confirmar
+                    💰 Abonar
                 </button>
                 <button class="btn btn-sm btn-delete" onclick="cancelOrderModal(${order.id})">
                     ❌ Cancelar
-                </button>
-                <button class="btn btn-sm btn-primary" onclick="viewOrderDetails(${order.id})">
-                    👁️ Ver
-                </button>
-                <button class="btn btn-sm btn-success" onclick="openPaymentModal(${order.id})">
-                    💰 Abono
-                </button>
-            `;
-        } else if (order.status === 'cancelled') {
-            statusBadge = `<span class="status-badge status-cancelled">❌ Cancelada</span>`;
-            
-            actionButtons = `
-                <button class="btn btn-sm btn-primary" onclick="viewOrderDetails(${order.id})">
-                    👁️ Ver
                 </button>
             `;
         }
@@ -1028,7 +1015,7 @@ function displayOrdersWithPayments() {
             `<small style="color: #2563eb;">🏪 Almacén Principal</small>`;
         
         return `
-            <tr class="${requiresAction ? 'order-requires-action' : ''}">
+            <tr class="${isNotPaid ? 'order-requires-payment' : 'order-paid'}">
                 <td>
                     <div>${order.order_number}</div>
                     ${inventorySource}
@@ -1554,28 +1541,108 @@ async function updateEmployee(id, employeeData) {
 }
 function filterOrders() {
     const statusFilter = document.getElementById('status-filter')?.value;
-    const showOnlyPending = statusFilter === 'hold';
-    const showOnlyConfirmed = statusFilter === 'confirmed';
-    const showOnlyCancelled = statusFilter === 'cancelled';
+    const clientSearch = document.getElementById('client-search')?.value?.toLowerCase().trim();
+    
+    console.log('🔍 Filtrando pedidos:', { statusFilter, clientSearch });
     
     let filteredOrders = orders;
     
-    if (showOnlyPending) {
-        filteredOrders = orders.filter(order => order.status === 'hold');
-    } else if (showOnlyConfirmed) {
-        filteredOrders = orders.filter(order => order.status === 'confirmed');
-    } else if (showOnlyCancelled) {
-        filteredOrders = orders.filter(order => order.status === 'cancelled');
+    // Filtro por estado de pago
+    if (statusFilter) {
+        filteredOrders = filteredOrders.filter(order => {
+            const total = parseFloat(order.total) || 0;
+            const paidAmount = parseFloat(order.paid_amount) || 0;
+            const balance = total - paidAmount;
+            
+            if (statusFilter === 'paid') {
+                return balance <= 0; // Pagado completamente
+            } else if (statusFilter === 'not_paid') {
+                return balance > 0; // No pagado (incluye parciales)
+            }
+            return true;
+        });
     }
     
-    // Temporarily update the orders array for display
+    // Filtro por búsqueda de cliente
+    if (clientSearch) {
+        filteredOrders = filteredOrders.filter(order => {
+            const clientName = order.client_info?.name?.toLowerCase() || '';
+            const orderNumber = order.order_number?.toLowerCase() || '';
+            const employeeCode = order.employee_code?.toLowerCase() || '';
+            
+            return clientName.includes(clientSearch) || 
+                   orderNumber.includes(clientSearch) ||
+                   employeeCode.includes(clientSearch);
+        });
+    }
+    
+    // Actualizar la tabla con los pedidos filtrados
     const originalOrders = orders;
     orders = filteredOrders;
-    displayOrders();
+    displayOrdersWithPayments();
     orders = originalOrders;
     
-    console.log('🔍 Filtros aplicados. Mostrando', filteredOrders.length, 'de', orders.length, 'pedidos');
+    console.log('✅ Filtros aplicados. Mostrando', filteredOrders.length, 'de', orders.length, 'pedidos');
+    
+    // Mostrar mensaje si no hay resultados
+    if (filteredOrders.length === 0) {
+        const tbody = document.querySelector('#orders-table tbody');
+        if (tbody) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="8" style="text-align: center; padding: 2rem; color: #64748b;">
+                        🔍 No se encontraron pedidos que coincidan con los filtros aplicados
+                        <div style="margin-top: 1rem;">
+                            <button onclick="clearOrderFilters()" class="btn btn-secondary btn-sm">
+                                Limpiar Filtros
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }
+    }
 }
+
+function clearOrderFilters() {
+    const statusFilter = document.getElementById('status-filter');
+    const clientSearch = document.getElementById('client-search');
+    
+    if (statusFilter) statusFilter.value = '';
+    if (clientSearch) clientSearch.value = '';
+    
+    // Recargar todos los pedidos
+    displayOrdersWithPayments();
+    
+    console.log('🧹 Filtros limpiados');
+}
+
+function setupOrderFilters() {
+    console.log('🔧 Configurando filtros de pedidos...');
+    
+    // Event listener para filtro de estado
+    const statusFilter = document.getElementById('status-filter');
+    if (statusFilter) {
+        statusFilter.addEventListener('change', filterOrders);
+    }
+    
+    // Event listener para búsqueda de cliente
+    const clientSearch = document.getElementById('client-search');
+    if (clientSearch) {
+        clientSearch.addEventListener('input', debounce(filterOrders, 300));
+    }
+    
+    console.log('✅ Filtros de pedidos configurados');
+}
+
+function debounce(func, delay) {
+    let timeoutId;
+    return function (...args) {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => func.apply(this, args), delay);
+    };
+}
+
 
 function updateReports() {
     console.log('Actualizar reportes');
@@ -1627,6 +1694,24 @@ if (!window.confirmOrderModal) {
     window.filterOrders = filterOrders;
 }
 
+if (!window.filterOrders) {
+    window.filterOrders = filterOrders;
+    window.clearOrderFilters = clearOrderFilters;
+    window.setupOrderFilters = setupOrderFilters;
+    window.displayOrdersWithPayments = displayOrdersWithPayments;
+    window.displayOrders = displayOrdersWithPayments; // Alias para compatibilidad
+}
+
+// ===== INICIALIZACIÓN AUTOMÁTICA =====
+document.addEventListener('DOMContentLoaded', function() {
+    // Solo ejecutar en la página de pedidos
+    if (window.location.pathname.includes('orders.html') && window.location.pathname.includes('/admin/')) {
+        setTimeout(() => {
+            setupOrderFilters();
+            console.log('✅ Sistema de filtros de pedidos inicializado');
+        }, 1000);
+    }
+});
 // Event listener para el formulario de productos
 document.addEventListener('DOMContentLoaded', function() {
     const productForm = document.getElementById('product-form');
