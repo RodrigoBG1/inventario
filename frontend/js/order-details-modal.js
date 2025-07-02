@@ -928,7 +928,7 @@ function fillOrderActions(orderData) {
     } else if (status === 'confirmed') {
         container.innerHTML = `
             <button class="modal-btn btn-secondary" onclick="printOrder(${orderData.id})">
-                🖨️ Imprimir
+                Imprimir
             </button>
         `;
     } else {

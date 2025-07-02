@@ -760,7 +760,7 @@ async function createOrder(orderData) {
     balance: paymentBalance.balance,
     is_fully_paid: paymentBalance.is_fully_paid,
     payment_percentage: paymentBalance.payment_percentage,
-    payment_status: paymentStatus, // ✅ NUEVO: Solo 'paid' o 'not_paid'
+    payment_status: paymentStatus, //  NUEVO: Solo 'paid' o 'not_paid'
     
     // Mantener compatibilidad con el sistema anterior
     status: paymentBalance.is_fully_paid ? 'confirmed' : 'hold',
@@ -1132,7 +1132,7 @@ async function getTrips(status = null, employeeId = null) {
 
 // Crear viaje
 async function createTrip(tripData) {
-  console.log('🚛 Creando nuevo viaje:', tripData);
+  console.log(' Creando nuevo viaje:', tripData);
   
   if (supabase) {
     try {

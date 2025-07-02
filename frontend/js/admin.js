@@ -593,13 +593,9 @@ function updateDashboardStats() {
         const cardTitle = pendingOrdersElement.closest('.stat-card').querySelector('h3');
         if (cardTitle) {
             if (notPaidOrders > 0) {
-                cardTitle.innerHTML = `💰 Pedidos Sin Pagar <small>(${paidOrders} pagados)</small>`;
-                pendingOrdersElement.closest('.stat-card').classList.add('pending-payment-stat');
-                pendingOrdersElement.closest('.stat-card').classList.remove('all-paid-stat');
+                cardTitle.innerHTML = `Pedidos Sin Pagar <small>(${paidOrders} pagados)</small>`;
             } else {
-                cardTitle.innerHTML = `✅ Todos Pagados <small>(${paidOrders} total)</small>`;
-                pendingOrdersElement.closest('.stat-card').classList.add('all-paid-stat');
-                pendingOrdersElement.closest('.stat-card').classList.remove('pending-payment-stat');
+                cardTitle.innerHTML = `Todos Pagados <small>(${paidOrders} total)</small>`;
             }
         }
     }
@@ -653,12 +649,12 @@ function updateRecentOrders() {
         
         let statusBadge = '';
         if (isPaid) {
-            statusBadge = `<span class="status-badge status-paid">✅ Pagado</span>`;
+            statusBadge = `<span class="status-badge status-paid"> Pagado</span>`;
         } else {
-            statusBadge = `<span class="status-badge status-not-paid">💰 Pendiente</span>`;
+            statusBadge = `<span class="status-badge status-not-paid"> Pendiente</span>`;
         }
         
-        const inventoryIcon = order.inventory_source === 'substore' ? '🚛' : '🏪';
+        const inventoryIcon = order.inventory_source === 'substore' ? '' : '🏪';
         
         return `
             <tr>
@@ -731,7 +727,7 @@ function displayProducts() {
                          Editar
                     </button>
                     <button class="btn btn-sm btn-delete" onclick="deleteProductConfirm(${product.id})">
-                        Eliminar
+                        Elimin
                     </button>
                 </div>
             </td>
@@ -783,7 +779,7 @@ function displayFilteredProducts(filteredProducts) {
                          Editar
                     </button>
                     <button class="btn btn-sm btn-delete" onclick="deleteProductConfirm(${product.id})">
-                         Eliminar
+                         Elimin
                     </button>
                 </div>
             </td>
@@ -904,7 +900,7 @@ function displayEmployees() {
                     </button>
                     ${employee.role !== 'admin' ? `
                         <button class="btn btn-sm btn-danger" onclick="deleteEmployeeConfirm(${employee.id})" title="Eliminar empleado">
-                             Eliminar
+                             Elimin
                         </button>
                     ` : ''}
                 </div>
@@ -983,14 +979,14 @@ function displayOrdersWithPayments() {
         let actionButtons = '';
         
         if (isPaid) {
-            statusBadge = `<span class="status-badge status-paid">✅ Pagado</span>`;
+            statusBadge = `<span class="status-badge status-paid"> Pagado</span>`;
             
             actionButtons = `
                 <button class="btn btn-sm btn-primary" onclick="viewOrderDetails(${order.id})">
-                    👁️ Ver
+                    Ver
                 </button>
                 <button class="btn btn-sm btn-secondary" onclick="printOrder(${order.id})">
-                    🖨️ Imprimir
+                    Imprimir
                 </button>
             `;
         } else {
@@ -998,21 +994,21 @@ function displayOrdersWithPayments() {
             
             actionButtons = `
                 <button class="btn btn-sm btn-primary" onclick="viewOrderDetails(${order.id})">
-                    👁️ Ver
+                    Ver
                 </button>
                 <button class="btn btn-sm btn-success" onclick="openPaymentModal(${order.id})">
-                    💰 Abonar
+                    Abonar
                 </button>
                 <button class="btn btn-sm btn-delete" onclick="cancelOrderModal(${order.id})">
-                    ❌ Cancelar
+                    Cancelar
                 </button>
             `;
         }
         
         // Indicador de fuente de inventario
         const inventorySource = order.inventory_source === 'substore' ? 
-            `<small style="color: #059669;">🚛 Subalmacén</small>` : 
-            `<small style="color: #2563eb;">🏪 Almacén Principal</small>`;
+            `<small style="color: #059669;"> Subalmacén</small>` : 
+            `<small style="color: #2563eb;"> Almacén Principal</small>`;
         
         return `
             <tr class="${isNotPaid ? 'order-requires-payment' : 'order-paid'}">

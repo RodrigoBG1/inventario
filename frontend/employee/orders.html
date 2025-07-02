@@ -27,7 +27,7 @@
                 <h1>Nuevo Pedido - Subalmacén</h1>
                 <div class="header-actions">
                     <button id="refresh-substore-btn" class="btn btn-secondary" onclick="refreshSubstoreStatus()">
-                        🔄 Actualizar Estado
+                        Actualizar Estado
                     </button>
                                     <button id="location-btn" class="btn-location" onclick="getCurrentLocationForEmployee()">
                     📍 Obtener Ubicación
@@ -113,7 +113,7 @@
                 <!-- NUEVA SECCIÓN: Opciones de Pago -->
                 <div class="payment-options-section">
                     <h3 class="payment-section-title">
-                        💳 Modalidad de Pago
+                        💳Modalidad de Pago
                     </h3>
                     
                     <div class="payment-method-grid">
@@ -121,14 +121,14 @@
                         <div class="payment-method-option selected" onclick="selectPaymentMethod('cash')">
                             <input type="radio" name="payment_method" value="cash" id="payment-cash" checked>
                             <div class="payment-method-header">
-                                <div class="payment-icon">💵</div>
+                                <div class="payment-icon"></div>
                                 <div class="payment-title">Contado</div>
                             </div>
                             <div class="payment-description">
                                 Pago completo al momento de la entrega. El cliente paga el total del pedido.
                             </div>
                             <div class="payment-features">
-                                ✅ Pago inmediato • ✅ Venta completada
+                                 Pago inmediato •  Venta completada
                             </div>
                         </div>
 
@@ -136,14 +136,14 @@
                         <div class="payment-method-option" onclick="selectPaymentMethod('credit')">
                             <input type="radio" name="payment_method" value="credit" id="payment-credit">
                             <div class="payment-method-header">
-                                <div class="payment-icon">📅</div>
+                                <div class="payment-icon"></div>
                                 <div class="payment-title">Crédito</div>
                             </div>
                             <div class="payment-description">
                                 El cliente puede abonar una cantidad inicial y pagar el resto después.
                             </div>
                             <div class="payment-features">
-                                ✅ Abono inicial opcional • ✅ Saldo pendiente
+                                 Abono inicial opcional •  Saldo pendiente
                             </div>
                         </div>
                     </div>
@@ -201,8 +201,8 @@
                 </div>
 
                 <div class="form-actions">
-                    <button type="button" class="btn btn-secondary" id="clear-order-btn">🧹 Limpiar Pedido</button>
-                    <button type="button" class="btn btn-primary" id="submit-order-btn">✅ Crear Pedido</button>
+                    <button type="button" class="btn btn-secondary" id="clear-order-btn">Limpiar Pedido</button>
+                    <button type="button" class="btn btn-primary" id="submit-order-btn">Crear Pedido</button>
                 </div>
             </div>
         </main>
@@ -360,7 +360,7 @@
                 container.innerHTML = `
                     <div class="substore-status">
                         <div class="substore-header">
-                            <h3 class="substore-title">🚛 Subalmacén Activo</h3>
+                            <h3 class="substore-title"> Subalmacén Activo</h3>
                             <div class="trip-number">${data.trip_info.trip_number}</div>
                         </div>
                         <p>Tienes productos disponibles para venta desde tu subalmacén móvil.</p>
@@ -546,15 +546,15 @@
                             ${product.substore_info ? `
                                 <div class="substore-info">
                                     <div class="substore-info-row">
-                                        <span>📦 Stock inicial:</span>
+                                        <span>  Stock inicial:</span>
                                         <span><strong>${product.substore_info.initial_quantity || 0}</strong></span>
                                     </div>
                                     <div class="substore-info-row">
-                                        <span>💰 Vendidos:</span>
+                                        <span>  Vendidos:</span>
                                         <span><strong>${product.substore_info.sold_quantity || 0}</strong></span>
                                     </div>
                                     <div class="substore-info-row">
-                                        <span>🚛 Viaje:</span>
+                                        <span>  Viaje:</span>
                                         <span><strong>${substoreInfo?.trip_number || 'N/A'}</strong></span>
                                     </div>
                                 </div>
@@ -563,9 +563,9 @@
                             <div class="product-actions">
                                 <input type="number" class="quantity-input" data-product-id="${product.id}" 
                                        min="1" max="${product.stock || 1}" value="1" ${isOutOfStock ? 'disabled' : ''}>
-                                <button class="add-product-btn" onclick="addToOrder(${product.id})" 
+                                <button class="btn btn-primary" onclick="addToOrder(${product.id})" 
                                         ${isOutOfStock ? 'disabled' : ''}>
-                                    ${isOutOfStock ? '❌ Sin Stock' : '➕ Agregar'}
+                                    ${isOutOfStock ? 'Sin Stock' : 'Agregar'}
                                 </button>
                             </div>
                         </div>
@@ -716,7 +716,7 @@
                     <tr>
                         <td>
                             <div style="font-weight: 600;">${product.code} - ${product.name}</div>
-                            <small style="color: #059669;">🚛 Desde subalmacén</small>
+                            <small style="color: #059669;"> Desde subalmacén</small>
                         </td>
                         <td>${formatCurrency(product.unit_price)}</td>
                         <td>${product.quantity}</td>
@@ -932,12 +932,12 @@
                             paymentInfo = `\n💰 Abono inicial: ${formatCurrency(initialPayment)}`;
                         }
                         if (balance > 0) {
-                            paymentInfo += `\n📋 Saldo pendiente: ${formatCurrency(balance)}`;
+                            paymentInfo += `\nSaldo pendiente: ${formatCurrency(balance)}`;
                         } else {
-                            paymentInfo += `\n✅ Pedido TOTALMENTE PAGADO`;
+                            paymentInfo += `\n Pedido TOTALMENTE PAGADO`;
                         }
                     } else {
-                        paymentInfo = '\n✅ PAGO COMPLETO AL CONTADO';
+                        paymentInfo = '\nPAGO COMPLETO AL CONTADO';
                     }
                     
                     const confirmationMessage = `🎉 ¡VENTA COMPLETADA EXITOSAMENTE!
@@ -1091,7 +1091,7 @@ Verifica en la sección de ventas que se haya registrado correctamente.`);
                 isProcessing = false;
                 if (submitBtn) {
                     submitBtn.disabled = false;
-                    submitBtn.textContent = '✅ Crear Pedido';
+                    submitBtn.textContent = ' Crear Pedido';
                 }
             }
         }

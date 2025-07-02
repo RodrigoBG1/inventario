@@ -17,8 +17,7 @@
             <ul class="nav-menu">
                 <li><a href="dashboard.html">Inicio</a></li>
                 <li><a href="orders.html">Crear Pedido</a></li>
-                <li><a href="payments.html" class="active">Pagos</a></li>
-                <li><a href="sales.html">Mis Ventas</a></li>
+                <li><a href="sales.html" class="active">Pagos</a></li>
                 <li><a href="#" onclick="logout()">Cerrar Sesión</a></li>
             </ul>
         </nav>
@@ -300,15 +299,15 @@
                             
                             <div class="payment-actions">
                                 <button class="btn-details" onclick="viewOrderDetails(${order.id})">
-                                    👁️ Ver Detalles
+                                    Ver Detalles
                                 </button>
                                 ${balance > 0 ? `
                                     <button class="btn-payment" onclick="openPaymentModal(${order.id})">
-                                        💰 Agregar Abono
+                                        Agregar Abono
                                     </button>
                                 ` : `
                                     <span style="color: var(--success-color); font-weight: 600;">
-                                        ✅ Pagado Completamente
+                                         Pagado Completamente
                                     </span>
                                 `}
                             </div>

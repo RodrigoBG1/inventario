@@ -289,10 +289,10 @@ function displayTrips() {
     if (!allTrips || allTrips.length === 0) {
         container.innerHTML = `
             <div style="text-align: center; padding: 3rem; color: var(--secondary-color);">
-                <h3>🚛 No hay viajes registrados</h3>
+                <h3> No hay viajes registrados</h3>
                 <p>Crea el primer viaje para comenzar a gestionar subalmacenes</p>
                 <button onclick="openNewTripModal()" class="btn btn-primary">
-                    🚛 Crear Primer Viaje
+                     Crear Primer Viaje
                 </button>
             </div>
         `;
@@ -703,9 +703,9 @@ async function createTrip() {
             }
             
             // Mostrar confirmación detallada
-            alert(`✅ VIAJE CREADO EXITOSAMENTE
+            alert(`VIAJE CREADO EXITOSAMENTE
 
-🚛 Número: ${result.trip.trip_number}
+ Número: ${result.trip.trip_number}
 👤 Empleado: ${employee.name}
 📦 Productos: ${selectedProducts.length}
 📝 Notas: ${notes || 'Sin notas'}
@@ -766,7 +766,7 @@ async function openCompleteTripModal(tripId) {
         
         container.innerHTML = `
             <div style="margin-bottom: 2rem;">
-                <h4>🚛 Viaje: ${trip.trip_number}</h4>
+                <h4> Viaje: ${trip.trip_number}</h4>
                 <p><strong>Empleado:</strong> ${trip.employee_name}</p>
                 <p><strong>Fecha inicio:</strong> ${formatDate(trip.start_date || trip.created_at)}</p>
             </div>
@@ -811,7 +811,7 @@ async function openCompleteTripModal(tripId) {
                 </div>
             ` : `
                 <div style="text-align: center; padding: 2rem; background: #f0f9ff; border-radius: 8px; border: 1px solid #0ea5e9;">
-                    <h4 style="color: #0369a1; margin-bottom: 1rem;">✅ Perfecto!</h4>
+                    <h4 style="color: #0369a1; margin-bottom: 1rem;"> Perfecto!</h4>
                     <p style="color: #0369a1;">Todos los productos han sido vendidos. No hay stock para devolver.</p>
                 </div>
             `}
@@ -938,12 +938,12 @@ function viewTripDetails(tripId) {
 DETALLES DEL VIAJE
 ==================
 
-🚛 Número: ${trip.trip_number}
-👤 Empleado: ${trip.employee_name} (${trip.employee_code})
-📅 Inicio: ${formatDate(trip.start_date || trip.created_at)}
-📅 Fin: ${trip.end_date ? formatDate(trip.end_date) : 'En curso'}
-📝 Estado: ${trip.status === 'active' ? 'Activo' : 'Completado'}
-📝 Notas: ${trip.notes || 'Sin notas'}
+Número: ${trip.trip_number}
+Empleado: ${trip.employee_name} (${trip.employee_code})
+Inicio: ${formatDate(trip.start_date || trip.created_at)}
+Fin: ${trip.end_date ? formatDate(trip.end_date) : 'En curso'}
+Estado: ${trip.status === 'active' ? 'Activo' : 'Completado'}
+Notas: ${trip.notes || 'Sin notas'}
 
 INVENTARIO:
 ===========

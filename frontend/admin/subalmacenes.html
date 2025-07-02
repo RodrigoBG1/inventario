@@ -258,10 +258,10 @@
                 <h1>Gestión de Subalmacenes</h1>
                 <div class="header-actions">
                     <button class="btn btn-primary" onclick="openNewTripModal()">
-                        🚛 Nuevo Viaje
+                        Nuevo Viaje
                     </button>
                     <button class="btn btn-secondary" onclick="loadTrips()">
-                        🔄 Actualizar
+                        Actualizar
                     </button>
                 </div>
             </header>
@@ -270,9 +270,9 @@
             <div class="substore-container">
                 <div style="padding: 1rem; border-bottom: 1px solid var(--border-color);">
                     <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
-                        <div>
+                        <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
                             <label for="status-filter" style="margin-right: 0.5rem;">Estado:</label>
-                            <select id="status-filter" onchange="filterTrips()">
+                            <select style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;" id="status-filter" onchange="filterTrips()">
                                 <option value="">Todos</option>
                                 <option value="active">Activos</option>
                                 <option value="completed">Completados</option>
@@ -292,7 +292,7 @@
             <!-- Lista de Viajes -->
             <div id="trips-container">
                 <div style="text-align: center; padding: 2rem; color: var(--secondary-color);">
-                    🔄 Cargando viajes...
+                    Cargando viajes...
                 </div>
             </div>
         </main>
@@ -302,7 +302,7 @@
     <div id="new-trip-modal" class="modal-overlay">
         <div class="modal-content">
             <div class="modal-header">
-                <h3>🚛 Crear Nuevo Viaje</h3>
+                <h3>Crear Nuevo Viaje</h3>
                 <button onclick="closeNewTripModal()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">&times;</button>
             </div>
             <div class="modal-body">
@@ -329,7 +329,7 @@
                                     <!-- Se llena dinámicamente -->
                                 </select>
                                 <button type="button" onclick="addProductToTrip()" class="btn btn-sm btn-primary" style="margin-left: 0.5rem;">
-                                    ➕ Agregar
+                                    Agregar
                                 </button>
                             </div>
                             <div id="selected-products">
@@ -346,7 +346,7 @@
                     Cancelar
                 </button>
                 <button type="button" class="btn btn-primary" onclick="createTrip()">
-                    🚛 Crear Viaje
+                    Crear Viaje
                 </button>
             </div>
         </div>
@@ -356,7 +356,7 @@
     <div id="complete-trip-modal" class="modal-overlay">
         <div class="modal-content">
             <div class="modal-header">
-                <h3>🏁 Finalizar Viaje</h3>
+                <h3>Finalizar Viaje</h3>
                 <button onclick="closeCompleteTripModal()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">&times;</button>
             </div>
             <div class="modal-body">
@@ -369,7 +369,7 @@
                     Cancelar
                 </button>
                 <button type="button" class="btn btn-primary" onclick="confirmCompleteTrip()">
-                    🏁 Finalizar Viaje
+                    Finalizar Viaje
                 </button>
             </div>
         </div>

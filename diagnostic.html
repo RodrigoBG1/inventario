@@ -233,7 +233,7 @@
                     
                     <div class="test-card">
                         <h3><span class="status-indicator" id="status-trips"></span>Trips API</h3>
-                        <button class="btn btn-warning" onclick="testTrips()">🚛 Test Subalmacenes</button>
+                        <button class="btn btn-warning" onclick="testTrips()"> Test Subalmacenes</button>
                         <div id="result-trips" class="result" style="display: none;"></div>
                     </div>
                 </div>
@@ -260,7 +260,7 @@
                     <div class="test-card">
                         <h3>Test Completo de Subalmacenes</h3>
                         <p>Ejecuta todos los tests relacionados con subalmacenes</p>
-                        <button class="btn btn-warning" onclick="fullSubalmacenesTest()">🚛 Test Completo</button>
+                        <button class="btn btn-warning" onclick="fullSubalmacenesTest()"> Test Completo</button>
                         <div id="result-full-test" class="result" style="display: none;"></div>
                     </div>
                     
@@ -358,7 +358,7 @@
                 
                 if (response.ok) {
                     const data = await response.json();
-                    showResult(result, `✅ CONECTIVIDAD BÁSICA: OK
+                    showResult(result, ` CONECTIVIDAD BÁSICA: OK
                     
 Respuesta del servidor:
 ${JSON.stringify(data, null, 2)}
@@ -413,7 +413,7 @@ Para resolver:
                 
                 if (response.ok) {
                     const data = await response.json();
-                    showResult(result, `✅ AUTENTICACIÓN: OK
+                    showResult(result, ` AUTENTICACIÓN: OK
 
 Token válido: ${token.substring(0, 20)}...
 Usuario: ${JSON.parse(localStorage.getItem('user')).name}
@@ -489,7 +489,7 @@ ${error.message}`, 'error');
                 
                 if (response.ok) {
                     const data = await response.json();
-                    showResult(result, `✅ ENDPOINT TRIPS: OK
+                    showResult(result, `ENDPOINT TRIPS: OK
 
 Total trips encontrados: ${data.length}
 
@@ -679,7 +679,7 @@ Esto indica que:
                     showResult(result, `✅ TRIPS ENCONTRADOS: ${trips.length}
 
 ${trips.length === 0 ? 'No hay trips en el sistema' : trips.map(trip => `
-🚛 ${trip.trip_number}
+   ${trip.trip_number}
    Empleado: ${trip.employee_name || trip.employee_code}
    Estado: ${trip.status}
    Productos: ${trip.substore_inventory?.length || 0}
