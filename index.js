@@ -2534,13 +2534,15 @@ app.get("/api/orders", auth, async (req, res) => {
 
 // POST Orders - Crear nuevo pedido CON VALIDACIÓN DE STOCK
 app.post("/api/orders", auth, async (req, res) => {
+  console.log('🔍 POST /api/orders - User:', req.user?.role, 'ID:', req.user?.id);
+  console.log('📋 Request body:', JSON.stringify(req.body, null, 2));
+  
   try {
-    console.log('🔍 POST /api/orders - User:', req.user?.role, 'ID:', req.user?.id);
-    
     const { products, payment_method = 'cash' } = req.body;
     
     // Validar que hay productos en el pedido
     if (!products || !Array.isArray(products) || products.length === 0) {
+      console.error('❌ No products in order');
       return res.status(400).json({ 
         message: 'El pedido debe contener al menos un producto',
         error: 'invalid_products'
@@ -2548,212 +2550,268 @@ app.post("/api/orders", auth, async (req, res) => {
     }
     
     let orderData;
-    let inventorySource = 'main_store'; // Por defecto
-    let autoConfirm = false; // Nueva variable para controlar auto-confirmación
+    let inventorySource = 'main_store';
+    let autoConfirm = false;
+    let substoreData = null;
     
     if (req.user.role === 'admin') {
-      // ===== ADMIN: Crear pedido en estado "hold" (como antes) =====
+      // ===== ADMIN: Crear pedido en estado "hold" =====
       console.log('👑 Admin creando pedido desde almacén principal');
       
-      // Calcular precios según modalidad de pago
-      const pricingResult = calculateOrderPricing(products, payment_method);
-      
-      // Validar stock disponible en almacén principal
-      const stockValidation = await validateStockAvailability(products);
-      
-      if (!stockValidation.valid) {
-        return res.status(400).json({
-          message: 'Stock insuficiente en almacén principal',
-          error: 'insufficient_stock',
-          stock_issues: stockValidation.issues
+      try {
+        // Calcular precios según modalidad de pago
+        const pricingResult = calculateOrderPricing(products, payment_method);
+        
+        // Validar stock disponible en almacén principal
+        const stockValidation = await validateStockAvailability(products);
+        
+        if (!stockValidation.valid) {
+          console.error('❌ Stock insuficiente:', stockValidation.issues);
+          return res.status(400).json({
+            message: 'Stock insuficiente en almacén principal',
+            error: 'insufficient_stock',
+            stock_issues: stockValidation.issues
+          });
+        }
+        
+        orderData = {
+          order_number: `ORD-${Date.now()}`,
+          employee_id: req.user.id,
+          employee_code: req.user.employee_code,
+          status: 'hold',
+          payment_method: payment_method,
+          products: pricingResult.products,
+          subtotal: pricingResult.subtotal,
+          total: pricingResult.total,
+          inventory_source: 'main_store',
+          auto_confirmed: false,
+          ...req.body
+        };
+        
+        console.log('✅ Admin order data prepared');
+        
+      } catch (adminError) {
+        console.error('❌ Error preparing admin order:', adminError);
+        return res.status(500).json({
+          success: false,
+          message: 'Error preparando pedido de administrador',
+          error: adminError.message
         });
       }
-      
-      orderData = {
-        order_number: `ORD-${Date.now()}`,
-        employee_id: req.user.id,
-        employee_code: req.user.employee_code,
-        status: 'hold', // Admin orders stay in hold status
-        payment_method: payment_method,
-        products: pricingResult.products,
-        subtotal: pricingResult.subtotal,
-        total: pricingResult.total,
-        inventory_source: 'main_store',
-        ...req.body
-      };
-      
-      autoConfirm = false; // Admin orders need manual confirmation
       
     } else if (req.user.role === 'employee') {
       // ===== EMPLOYEE: Auto-confirmar y vender desde subalmacén =====
       console.log('👤 Empleado creando pedido con AUTO-CONFIRMACIÓN');
       
-      // Obtener datos del subalmacén del empleado
-      const substoreData = await getEmployeeSubstoreProducts(req.user.id);
-      
-      if (!substoreData.has_active_trip) {
-        return res.status(400).json({
-          message: 'No tienes un viaje activo. Contacta al administrador para que te asigne productos.',
-          error: 'no_active_trip'
-        });
-      }
-      
-      // Validar stock disponible en subalmacén
-      const substoreStockIssues = [];
-      const validatedProducts = [];
-      
-      for (const orderProduct of products) {
-        const { product_id, quantity } = orderProduct;
+      try {
+        // Obtener datos del subalmacén del empleado
+        substoreData = await getEmployeeSubstoreProducts(req.user.id);
+        console.log('📦 Substore data:', substoreData.has_active_trip ? 'ACTIVE' : 'NO ACTIVE');
         
-        const substoreProduct = substoreData.products.find(p => p.id === product_id);
-        
-        if (!substoreProduct) {
-          substoreStockIssues.push({
-            product_id,
-            issue: 'not_in_substore',
-            message: `Producto ${product_id} no está disponible en tu subalmacén`
+        if (!substoreData.has_active_trip) {
+          console.error('❌ No active trip for employee');
+          return res.status(400).json({
+            message: 'No tienes un viaje activo. Contacta al administrador para que te asigne productos.',
+            error: 'no_active_trip'
           });
-          continue;
         }
         
-        if (substoreProduct.stock < quantity) {
-          substoreStockIssues.push({
-            product_id,
+        // Validar stock disponible en subalmacén
+        const substoreStockIssues = [];
+        const validatedProducts = [];
+        
+        for (const orderProduct of products) {
+          const { product_id, quantity } = orderProduct;
+          
+          const substoreProduct = substoreData.products.find(p => p.id === product_id);
+          
+          if (!substoreProduct) {
+            substoreStockIssues.push({
+              product_id,
+              issue: 'not_in_substore',
+              message: `Producto ${product_id} no está disponible en tu subalmacén`
+            });
+            continue;
+          }
+          
+          if (substoreProduct.stock < quantity) {
+            substoreStockIssues.push({
+              product_id,
+              product_name: substoreProduct.name,
+              issue: 'insufficient_substore_stock',
+              available: substoreProduct.stock,
+              requested: quantity,
+              message: `Stock insuficiente en subalmacén para ${substoreProduct.name}. Disponible: ${substoreProduct.stock}, solicitado: ${quantity}`
+            });
+            continue;
+          }
+          
+          // Producto válido - agregar información de precios
+          validatedProducts.push({
+            ...orderProduct,
             product_name: substoreProduct.name,
-            issue: 'insufficient_substore_stock',
-            available: substoreProduct.stock,
-            requested: quantity,
-            message: `Stock insuficiente en subalmacén para ${substoreProduct.name}. Disponible: ${substoreProduct.stock}, solicitado: ${quantity}`
+            product_code: substoreProduct.code,
+            unit_price: substoreProduct.substore_info.substore_price,
+            line_total: substoreProduct.substore_info.substore_price * quantity,
+            substore_info: substoreProduct.substore_info
           });
-          continue;
         }
         
-        // Producto válido - agregar información de precios
-        validatedProducts.push({
-          ...orderProduct,
-          product_name: substoreProduct.name,
-          product_code: substoreProduct.code,
-          unit_price: substoreProduct.substore_info.substore_price,
-          line_total: substoreProduct.substore_info.substore_price * quantity,
-          substore_info: substoreProduct.substore_info
+        if (substoreStockIssues.length > 0) {
+          console.error('❌ Substore stock issues:', substoreStockIssues);
+          return res.status(400).json({
+            message: 'Problemas de stock en subalmacén',
+            error: 'insufficient_substore_stock',
+            stock_issues: substoreStockIssues
+          });
+        }
+        
+        // Calcular totales
+        const subtotal = validatedProducts.reduce((sum, p) => sum + p.line_total, 0);
+        
+        orderData = {
+          order_number: `ORD-${Date.now()}`,
+          employee_id: req.user.id,
+          employee_code: req.user.employee_code,
+          trip_id: substoreData.trip.id,
+          status: 'confirmed',
+          payment_method: payment_method,
+          products: validatedProducts,
+          subtotal: subtotal,
+          total: subtotal,
+          inventory_source: 'substore',
+          confirmed_at: new Date().toISOString(),
+          auto_confirmed: true,
+          ...req.body
+        };
+        
+        inventorySource = 'substore';
+        autoConfirm = true;
+        
+        console.log('✅ Employee order data prepared for auto-confirmation');
+        
+      } catch (employeeError) {
+        console.error('❌ Error preparing employee order:', employeeError);
+        return res.status(500).json({
+          success: false,
+          message: 'Error preparando pedido de empleado',
+          error: employeeError.message
         });
       }
-      
-      if (substoreStockIssues.length > 0) {
-        return res.status(400).json({
-          message: 'Problemas de stock en subalmacén',
-          error: 'insufficient_substore_stock',
-          stock_issues: substoreStockIssues
-        });
-      }
-      
-      // Calcular totales
-      const subtotal = validatedProducts.reduce((sum, p) => sum + p.line_total, 0);
-      
-      orderData = {
-        order_number: `ORD-${Date.now()}`,
-        employee_id: req.user.id,
-        employee_code: req.user.employee_code,
-        trip_id: substoreData.trip.id,
-        status: 'confirmed', // ✅ CAMBIO: Empleados crean órdenes auto-confirmadas
-        payment_method: payment_method,
-        products: validatedProducts,
-        subtotal: subtotal,
-        total: subtotal,
-        inventory_source: 'substore',
-        confirmed_at: new Date().toISOString(), // ✅ NUEVO: Marcar como confirmado inmediatamente
-        auto_confirmed: true, // ✅ NUEVO: Indicar que fue auto-confirmado
-        ...req.body
-      };
-      
-      inventorySource = 'substore';
-      autoConfirm = true; // ✅ Employee orders are auto-confirmed
       
     } else {
+      console.error('❌ Unauthorized role:', req.user.role);
       return res.status(403).json({ message: 'Rol no autorizado' });
     }
     
+    // ===== CREAR EL PEDIDO EN LA BASE DE DATOS =====
+    console.log('📝 Creating order in database...');
+    console.log('📋 Order data:', {
+      order_number: orderData.order_number,
+      status: orderData.status,
+      auto_confirmed: orderData.auto_confirmed,
+      inventory_source: orderData.inventory_source,
+      total: orderData.total
+    });
+    
+    let newOrder;
     try {
-      // Crear el pedido
-      const newOrder = await createOrder(orderData);
+      newOrder = await createOrder(orderData);
+      console.log('✅ Order created successfully with ID:', newOrder.id);
+    } catch (createError) {
+      console.error('❌ CRITICAL: Error creating order in database:', createError);
+      return res.status(500).json({
+        success: false,
+        message: 'Error crítico creando pedido en base de datos',
+        error: createError.message,
+        debug: {
+          order_data: orderData,
+          user: req.user,
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+    
+    // ===== AUTO-CONFIRMACIÓN PARA EMPLEADOS =====
+    let saleRecord = null;
+    let inventoryUpdate = null;
+    
+    if (autoConfirm && req.user.role === 'employee') {
+      console.log('🔄 Processing auto-confirmation for employee...');
       
-      console.log(`✅ Pedido creado desde ${inventorySource}:`, newOrder.id, autoConfirm ? '(AUTO-CONFIRMADO)' : '(PENDIENTE)');
-      
-      // ===== NUEVA LÓGICA: AUTO-CONFIRMACIÓN PARA EMPLEADOS =====
-      let saleRecord = null;
-      let inventoryUpdate = null;
-      
-      if (autoConfirm && req.user.role === 'employee') {
-        console.log('🔄 Auto-confirmando pedido del empleado...');
-        
-        try {
-          // Procesar venta desde subalmacén automáticamente
-          if (orderData.products && Array.isArray(orderData.products)) {
-            for (const orderProduct of orderData.products) {
-              const { product_id, quantity } = orderProduct;
-              
-              console.log(`📦 Vendiendo automáticamente desde subalmacén: ${product_id} x ${quantity}`);
-              
-              await sellFromSubstore(orderData.trip_id, product_id, quantity, {
-                order_id: newOrder.id,
-                client_info: orderData.client_info
-              });
-            }
+      try {
+        // Procesar venta desde subalmacén automáticamente
+        if (orderData.products && Array.isArray(orderData.products)) {
+          for (const orderProduct of orderData.products) {
+            const { product_id, quantity } = orderProduct;
             
-            inventoryUpdate = {
-              type: 'substore_auto_confirmed',
-              trip_id: orderData.trip_id,
-              products_updated: orderData.products.length
-            };
+            console.log(`📦 Auto-selling from substore: ${product_id} x ${quantity}`);
+            
+            await sellFromSubstore(orderData.trip_id, product_id, quantity, {
+              order_id: newOrder.id,
+              client_info: orderData.client_info
+            });
           }
           
-          // Crear registro de venta automáticamente
-          const saleData = {
-            order_id: newOrder.id,
+          inventoryUpdate = {
+            type: 'substore_auto_confirmed',
             trip_id: orderData.trip_id,
-            sale_number: `SALE-${Date.now()}`,
-            employee_id: newOrder.employee_id,
-            employee_code: newOrder.employee_code,
-            client_info: newOrder.client_info,
-            products: newOrder.products,
-            total: newOrder.total,
-            payment_info: {
-              method: payment_method,
-              auto_confirmed: true,
-              confirmed_at: new Date().toISOString()
-            },
-            inventory_source: 'substore',
-            location: newOrder.location,
-            notes: newOrder.notes,
-            created_at: new Date().toISOString()
+            products_updated: orderData.products.length
           };
           
-          if (supabase) {
-            const { data: newSale, error: saleError } = await supabase
-              .from('sales')
-              .insert([saleData])
-              .select()
-              .single();
-            
-            if (!saleError) {
-              saleRecord = newSale;
-              console.log('✅ Venta creada automáticamente:', newSale.sale_number);
-            } else {
-              console.warn('⚠️ Error creando venta automática:', saleError);
-            }
+          console.log('✅ Inventory updated from substore');
+        }
+        
+        // Crear registro de venta automáticamente
+        const saleData = {
+          order_id: newOrder.id,
+          trip_id: orderData.trip_id,
+          sale_number: `SALE-${Date.now()}`,
+          employee_id: newOrder.employee_id,
+          employee_code: newOrder.employee_code,
+          client_info: newOrder.client_info,
+          products: newOrder.products,
+          total: newOrder.total,
+          payment_info: {
+            method: payment_method,
+            auto_confirmed: true,
+            confirmed_at: new Date().toISOString()
+          },
+          inventory_source: 'substore',
+          location: newOrder.location,
+          notes: newOrder.notes,
+          created_at: new Date().toISOString()
+        };
+        
+        console.log('💰 Creating automatic sale record...');
+        
+        if (supabase) {
+          const { data: newSale, error: saleError } = await supabase
+            .from('sales')
+            .insert([saleData])
+            .select()
+            .single();
+          
+          if (!saleError) {
+            saleRecord = newSale;
+            console.log('✅ Sale created automatically:', newSale.sale_number);
           } else {
-            saleRecord = {
-              id: fallbackDatabase.sales.length + 1,
-              ...saleData
-            };
-            fallbackDatabase.sales.push(saleRecord);
-            console.log('✅ Venta creada automáticamente (memoria):', saleRecord.sale_number);
+            console.warn('⚠️ Warning creating automatic sale:', saleError);
           }
-          
-        } catch (autoConfirmError) {
-          console.error('❌ Error en auto-confirmación:', autoConfirmError);
-          
-          // Si falla la auto-confirmación, revertir el pedido a 'hold'
+        } else {
+          saleRecord = {
+            id: fallbackDatabase.sales.length + 1,
+            ...saleData
+          };
+          fallbackDatabase.sales.push(saleRecord);
+          console.log('✅ Sale created automatically (memory):', saleRecord.sale_number);
+        }
+        
+      } catch (autoConfirmError) {
+        console.error('❌ CRITICAL: Error in auto-confirmation:', autoConfirmError);
+        
+        // Revertir el pedido a 'hold' si falla la auto-confirmación
+        try {
           if (supabase) {
             await supabase
               .from('orders')
@@ -2770,60 +2828,81 @@ app.post("/api/orders", auth, async (req, res) => {
               fallbackDatabase.orders[orderIndex].status = 'hold';
               fallbackDatabase.orders[orderIndex].auto_confirmed = false;
               fallbackDatabase.orders[orderIndex].confirmed_at = null;
+              fallbackDatabase.orders[orderIndex].auto_confirm_error = autoConfirmError.message;
             }
           }
-          
-          return res.status(500).json({
-            success: false,
-            message: 'Error en auto-confirmación del pedido',
-            error: autoConfirmError.message,
-            order: newOrder,
-            note: 'El pedido fue creado pero no pudo ser confirmado automáticamente'
-          });
+          console.log('🔄 Order reverted to hold status due to auto-confirmation failure');
+        } catch (revertError) {
+          console.error('❌ CRITICAL: Failed to revert order after auto-confirmation error:', revertError);
         }
+        
+        return res.status(500).json({
+          success: false,
+          message: 'Error en auto-confirmación del pedido',
+          error: autoConfirmError.message,
+          order: newOrder,
+          note: 'El pedido fue creado pero no pudo ser confirmado automáticamente'
+        });
       }
-      
-      // Preparar respuesta
-      const response = {
-        success: true,
-        message: autoConfirm ? 'Pedido creado y confirmado automáticamente' : 'Pedido creado exitosamente',
-        order: newOrder,
-        sale: saleRecord,
-        inventory_source: inventorySource,
-        auto_confirmed: autoConfirm,
-        inventory_update: inventoryUpdate,
-        trip_info: inventorySource === 'substore' ? {
-          trip_id: orderData.trip_id,
-          trip_number: substoreData?.trip?.trip_number
-        } : null
-      };
-      
-      // Set proper headers for JSON response
-      res.setHeader('Content-Type', 'application/json');
-      
-      // Send the response
-      res.status(201).json(response);
-      
-    } catch (createError) {
-      console.error('❌ Error creating order in database:', createError);
-      
-      return res.status(500).json({
-        success: false,
-        message: 'Error interno creando pedido',
-        error: createError.message
-      });
     }
     
-  } catch (error) {
-    console.error('❌ Error in POST /api/orders with auto-confirmation:', error);
+    // ===== PREPARAR RESPUESTA EXITOSA =====
+    const response = {
+      success: true,
+      message: autoConfirm ? 'Pedido creado y confirmado automáticamente' : 'Pedido creado exitosamente',
+      order: newOrder,
+      sale: saleRecord,
+      inventory_source: inventorySource,
+      auto_confirmed: autoConfirm,
+      inventory_update: inventoryUpdate,
+      trip_info: inventorySource === 'substore' ? {
+        trip_id: orderData.trip_id,
+        trip_number: substoreData?.trip?.trip_number
+      } : null,
+      debug: {
+        user_role: req.user.role,
+        order_id: newOrder.id,
+        order_status: newOrder.status,
+        created_at: new Date().toISOString()
+      }
+    };
     
-    // Ensure we always send a JSON response
+    console.log('🎉 Order creation completed successfully:', {
+      order_id: newOrder.id,
+      auto_confirmed: autoConfirm,
+      inventory_source: inventorySource
+    });
+    
+    // Asegurar headers JSON y enviar respuesta
+    res.setHeader('Content-Type', 'application/json');
+    res.status(201).json(response);
+    
+  } catch (error) {
+    console.error('❌ CRITICAL: Unexpected error in POST /api/orders:', error);
+    console.error('Stack trace:', error.stack);
+    
+    // Información adicional para debugging
+    console.error('Request details:', {
+      user: req.user,
+      body: req.body,
+      headers: req.headers,
+      timestamp: new Date().toISOString()
+    });
+    
+    // Asegurar que siempre enviamos una respuesta JSON válida
     res.setHeader('Content-Type', 'application/json');
     
     res.status(500).json({ 
       success: false,
-      message: 'Error interno del servidor', 
-      error: error.message 
+      message: 'Error interno del servidor al crear pedido', 
+      error: error.message,
+      debug: {
+        user_role: req.user?.role,
+        has_products: !!req.body?.products,
+        products_count: req.body?.products?.length || 0,
+        payment_method: req.body?.payment_method,
+        timestamp: new Date().toISOString()
+      }
     });
   }
 });

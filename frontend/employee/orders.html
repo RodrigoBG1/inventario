@@ -820,10 +820,11 @@
         async function handleCreateOrder() {
             if (isProcessing) return;
             
-            console.log('📤 Iniciando creación de pedido con opciones de pago...');
+            console.log('📤 Iniciando creación de pedido con validación mejorada...');
             
-            // Validaciones existentes
+            // Validaciones básicas
             if (!orderProducts || orderProducts.length === 0) {
+                console.error('❌ No hay productos en el pedido');
                 if (window.showNotification) {
                     window.showNotification('Agrega al menos un producto del subalmacén', 'warning');
                 }
@@ -832,6 +833,7 @@
             
             const clientName = document.getElementById('client-name')?.value?.trim();
             if (!clientName) {
+                console.error('❌ Nombre del cliente faltante');
                 if (window.showNotification) {
                     window.showNotification('El nombre del cliente es requerido', 'warning');
                 }
@@ -840,28 +842,28 @@
             }
             
             if (!substoreInfo) {
+                console.error('❌ No hay información del subalmacén');
                 if (window.showNotification) {
                     window.showNotification('Error: No hay información del subalmacén', 'error');
                 }
                 return;
             }
             
-            // NUEVA VALIDACIÓN: Obtener información de pago
+            // Validar información de pago
             const total = orderProducts.reduce((sum, p) => sum + p.line_total, 0);
             let initialPayment = 0;
             
             if (currentPaymentMethod === 'credit') {
                 initialPayment = parseFloat(document.getElementById('initial-payment')?.value) || 0;
                 
-                // Validar abono inicial
                 if (initialPayment > total) {
+                    console.error('❌ Abono inicial mayor al total');
                     if (window.showNotification) {
                         window.showNotification('El abono inicial no puede ser mayor al total', 'warning');
                     }
                     return;
                 }
             } else {
-                // En contado, se paga todo
                 initialPayment = total;
             }
             
@@ -874,7 +876,7 @@
                     submitBtn.textContent = '⚡ Procesando Venta...';
                 }
                 
-                // Preparar datos del pedido con información de pagos
+                // Preparar datos del pedido
                 const formData = {
                     client_info: {
                         name: clientName,
@@ -890,7 +892,7 @@
                     notes: document.getElementById('order-notes')?.value?.trim() || '',
                     total: total,
                     
-                    // ===== NUEVA INFORMACIÓN DE PAGOS =====
+                    // Información de pagos mejorada
                     paid_amount: initialPayment,
                     balance: total - initialPayment,
                     is_fully_paid: initialPayment >= total,
@@ -905,26 +907,42 @@
                         formData.photo_url = photoBase64;
                     } catch (error) {
                         console.error('Error con la foto:', error);
+                        // No fallar por la foto, solo advertir
+                        if (window.showNotification) {
+                            window.showNotification('Advertencia: Error procesando foto', 'warning');
+                        }
                     }
                 }
                 
-                console.log('📤 Enviando pedido con información de pagos:', formData);
+                console.log('📤 Enviando pedido con datos:', {
+                    client_name: formData.client_info.name,
+                    products_count: formData.products.length,
+                    total: formData.total,
+                    payment_method: formData.payment_method,
+                    paid_amount: formData.paid_amount,
+                    trip_id: formData.trip_id
+                });
                 
-                // Enviar pedido
-                const response = await window.createOrder(formData);
+                // ===== LLAMADA MEJORADA A LA API =====
+                const response = await createOrderWithRetry(formData);
                 
                 console.log('✅ Respuesta del servidor recibida:', response);
                 
-                // Manejar respuesta de auto-confirmación
-                if (response.auto_confirmed) {
-                    console.log('🎉 Pedido auto-confirmado exitosamente');
+                // Verificar si la respuesta es válida
+                if (!response) {
+                    throw new Error('No se recibió respuesta del servidor');
+                }
+                
+                // Manejar respuesta exitosa
+                if (response.success !== false) {
+                    console.log('🎉 Pedido procesado exitosamente');
                     
                     const methodText = currentPaymentMethod === 'cash' ? 'Contado' : 'Crédito';
                     const orderNumber = response.order?.order_number || response.order?.id || 'Generándose...';
                     const saleNumber = response.sale?.sale_number || 'Generándose...';
                     const tripNumber = substoreInfo.trip_number;
                     
-                    // Mensaje de confirmación con información de pagos
+                    // Mensaje de confirmación
                     let paymentInfo = '';
                     if (currentPaymentMethod === 'credit') {
                         const balance = total - initialPayment;
@@ -932,166 +950,100 @@
                             paymentInfo = `\n💰 Abono inicial: ${formatCurrency(initialPayment)}`;
                         }
                         if (balance > 0) {
-                            paymentInfo += `\nSaldo pendiente: ${formatCurrency(balance)}`;
+                            paymentInfo += `\n📋 Saldo pendiente: ${formatCurrency(balance)}`;
                         } else {
-                            paymentInfo += `\n Pedido TOTALMENTE PAGADO`;
+                            paymentInfo += `\n✅ Pedido TOTALMENTE PAGADO`;
                         }
                     } else {
-                        paymentInfo = '\nPAGO COMPLETO AL CONTADO';
+                        paymentInfo = '\n💰 PAGO COMPLETO AL CONTADO';
                     }
                     
                     const confirmationMessage = `🎉 ¡VENTA COMPLETADA EXITOSAMENTE!
 
-Pedido: ${orderNumber}
-Venta: ${saleNumber}
-Cliente: ${formData.client_info.name}
-Modalidad: ${methodText}
-Productos: ${orderProducts.length}
-Total: ${formatCurrency(formData.total)}${paymentInfo}
-Viaje: ${tripNumber}
+        📋 Pedido: ${orderNumber}
+        💰 Venta: ${saleNumber}
+        👤 Cliente: ${formData.client_info.name}
+        💳 Modalidad: ${methodText}
+        📦 Productos: ${orderProducts.length}
+        💵 Total: ${formatCurrency(formData.total)}${paymentInfo}
+        🚛 Viaje: ${tripNumber}
 
-La venta ha sido procesada automáticamente
-El inventario de tu subalmacén ha sido actualizado
-El registro de venta ha sido creado
+        ${response.auto_confirmed ? 
+            'La venta ha sido procesada automáticamente\nEl inventario de tu subalmacén ha sido actualizado\nEl registro de venta ha sido creado' : 
+            'El pedido requiere confirmación del administrador'}
 
-¡Felicidades por tu venta! 🎊`;
+        ¡Felicidades por tu venta! 🎊`;
                     
-                    console.log('🎉 Mostrando confirmación de venta:', confirmationMessage);
+                    console.log('🎉 Mostrando confirmación de venta');
                     alert(confirmationMessage);
                     
                     if (window.showNotification) {
-                        window.showNotification('¡Venta completada automáticamente! 🎉', 'success');
+                        window.showNotification(
+                            response.auto_confirmed ? 
+                            '¡Venta completada automáticamente! 🎉' : 
+                            'Pedido creado exitosamente ✅', 
+                            'success'
+                        );
+                    }
+                    
+                    // Limpiar formulario
+                    clearOrderForm();
+                    
+                    // Recargar productos del subalmacén
+                    console.log('🔄 Recargando productos del subalmacén...');
+                    try {
+                        await loadSubstoreProducts();
+                        if (window.showNotification && response.auto_confirmed) {
+                            window.showNotification('Inventario actualizado - nuevos stocks disponibles', 'info');
+                        }
+                    } catch (reloadError) {
+                        console.warn('⚠️ Error recargando productos, pero la venta se completó:', reloadError);
                     }
                     
                 } else {
-                    // Fallback para pedidos no auto-confirmados
-                    console.log('📋 Pedido creado, requiere confirmación manual');
-                    
-                    const methodText = currentPaymentMethod === 'cash' ? 'Contado' : 'Crédito';
-                    const orderNumber = response.order?.order_number || response.order?.id || 'Generándose...';
-                    
-                    let paymentInfo = '';
-                    if (currentPaymentMethod === 'credit' && initialPayment > 0) {
-                        const balance = total - initialPayment;
-                        paymentInfo = `\n💰 Abono inicial: ${formatCurrency(initialPayment)}`;
-                        paymentInfo += `\n📋 Saldo pendiente: ${formatCurrency(balance)}`;
-                    }
-                    
-                    const confirmationMessage = `✅ PEDIDO CREADO EXITOSAMENTE
-
-📋 Número: ${orderNumber}
-👤 Cliente: ${formData.client_info.name}
-💳 Modalidad: ${methodText}
-📦 Productos: ${orderProducts.length}
-💰 Total: ${formatCurrency(formData.total)}${paymentInfo}
-
-⏳ El pedido requiere confirmación del administrador.`;
-                    
-                    alert(confirmationMessage);
-                    
-                    if (window.showNotification) {
-                        window.showNotification('Pedido creado exitosamente', 'success');
-                    }
-                }
-                
-                // Limpiar formulario
-                clearOrderForm();
-                
-                // Recargar productos del subalmacén
-                console.log('🔄 Recargando productos del subalmacén...');
-                try {
-                    await loadSubstoreProducts();
-                    if (window.showNotification && response.auto_confirmed) {
-                        window.showNotification('Inventario actualizado - nuevos stocks disponibles', 'info');
-                    }
-                } catch (reloadError) {
-                    console.warn('⚠️ Error recargando productos, pero la venta se completó:', reloadError);
+                    // Respuesta con error específico
+                    throw new Error(response.message || 'Error desconocido del servidor');
                 }
                 
             } catch (error) {
                 console.error('❌ Error procesando pedido:', error);
                 
-                // Manejo de errores (similar al código existente)
-                const isRealError = (
-                    error.message.includes('Failed to fetch') ||
-                    error.message.includes('NetworkError') ||
-                    error.message.includes('Stock insuficiente') ||
-                    error.message.includes('401') ||
-                    error.message.includes('403') ||
-                    error.message.includes('404') ||
-                    error.message.includes('500')
-                );
+                // Análisis del tipo de error
+                const errorMessage = error.message || 'Error desconocido';
                 
-                if (isRealError) {
-                    if (window.showNotification) {
-                        window.showNotification('Error: ' + error.message, 'error');
-                    }
+                if (errorMessage.includes('Failed to fetch') || 
+                    errorMessage.includes('NetworkError') || 
+                    errorMessage.includes('net::ERR_')) {
                     
-                    let errorMessage;
-                    if (error.message.includes('Stock insuficiente')) {
-                        errorMessage = `❌ Stock insuficiente en tu subalmacén:
-
-${error.message}
-
-Los productos pueden haber sido vendidos mientras preparabas el pedido.
-Actualiza la página para ver el stock actual.`;
-                    } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
-                        errorMessage = `❌ Error de conexión:
-
-No se pudo conectar con el servidor.
-Verifica tu conexión a internet e intenta nuevamente.`;
-                    } else {
-                        errorMessage = `❌ Error procesando la venta:
-
-${error.message}
-
-Intenta nuevamente en unos momentos.`;
-                    }
+                    console.error('🌐 Error de conectividad detectado');
+                    handleConnectivityError();
                     
-                    alert(errorMessage);
+                } else if (errorMessage.includes('Stock insuficiente')) {
+                    
+                    console.error('📦 Error de stock detectado');
+                    handleStockError(errorMessage);
+                    
+                } else if (errorMessage.includes('401') || errorMessage.includes('403')) {
+                    
+                    console.error('🔐 Error de autenticación detectado');
+                    handleAuthError();
+                    
+                } else if (errorMessage.includes('500') || errorMessage.includes('database')) {
+                    
+                    console.error('💾 Error de servidor/base de datos detectado');
+                    handleServerError(errorMessage);
+                    
                 } else {
-                    // Posible falso positivo
-                    console.log('🤔 Posible falso positivo - verificando estado...');
                     
-                    setTimeout(async () => {
-                        try {
-                            clearOrderForm();
-                            await loadSubstoreProducts();
-                            
-                            if (window.showNotification) {
-                                window.showNotification('Venta procesada exitosamente', 'success');
-                            }
-                            
-                            let paymentInfo = '';
-                            if (currentPaymentMethod === 'credit' && initialPayment > 0) {
-                                paymentInfo = `\n💰 Abono inicial: ${formatCurrency(initialPayment)}\n📋 Saldo pendiente: ${formatCurrency(formData.total - initialPayment)}`;
-                            }
-                            
-                            alert(`✅ VENTA PROCESADA
-
-La venta ha sido enviada al servidor exitosamente.
-
-📋 Cliente: ${formData.client_info.name}
-💳 Modalidad: ${currentPaymentMethod === 'cash' ? 'Contado' : 'Crédito'}
-📦 Productos: ${orderProducts.length}
-💰 Total: ${formatCurrency(formData.total)}${paymentInfo}
-
-Verifica en la sección de ventas que se haya registrado correctamente.`);
-                                            
-                        } catch (verifyError) {
-                            console.error('Error verificando estado:', verifyError);
-                            setTimeout(() => {
-                                window.location.reload();
-                            }, 2000);
-                        }
-                    }, 1000);
+                    console.error('❓ Error desconocido detectado');
+                    handleUnknownError(errorMessage);
                 }
                 
             } finally {
                 isProcessing = false;
                 if (submitBtn) {
                     submitBtn.disabled = false;
-                    submitBtn.textContent = ' Crear Pedido';
+                    submitBtn.textContent = '🛒 Crear Pedido';
                 }
             }
         }
