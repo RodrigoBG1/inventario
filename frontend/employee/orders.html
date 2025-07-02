@@ -911,8 +911,15 @@
                 console.log('📤 Enviando pedido con información de pagos:', formData);
                 
                 // Enviar pedido
-                const response = await window.createOrder(formData);
-                
+                const response = await fetch(`${window.API_BASE_URL}/api/orders`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
+                    body: JSON.stringify(formData)
+                    });
+                                    
                 console.log('✅ Respuesta del servidor recibida:', response);
                 
                 // Manejar respuesta de auto-confirmación
