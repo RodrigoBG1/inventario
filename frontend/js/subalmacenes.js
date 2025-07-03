@@ -73,7 +73,7 @@ async function initializeSubalmacenes() {
         populateEmployeeSelectors();
         populateProductSelector();
         
-        // Mostrar viajes
+        // Mostrar subalmacens
         displayTrips();
         
         if (window.showNotification) {
@@ -122,7 +122,7 @@ async function getTripsAPI(status = null, employeeId = null) {
         let url = `${window.API_BASE_URL}/api/trips`;
         const params = new URLSearchParams();
         
-        // Solo obtener viajes activos para el sistema permanente
+        // Solo obtener subalmacens activos para el sistema permanente
         if (status) params.append('status', status);
         if (employeeId) params.append('employee_id', employeeId);
         
@@ -194,7 +194,7 @@ async function addProductToTripAPI(tripId, productData) {
         }
         
         const result = await response.json();
-        console.log('✅ Producto agregado al viaje:', result);
+        console.log('✅ Producto agregado al subalmacen:', result);
         return result;
         
     } catch (error) {
@@ -234,7 +234,7 @@ async function removeProductFromTripAPI(tripId, productId) {
         }
         
         const result = await response.json();
-        console.log('✅ Producto removido del viaje:', result);
+        console.log('✅ Producto removido del subalmacen:', result);
         return result;
         
     } catch (error) {
@@ -325,7 +325,7 @@ async function getTripInventoryAPI(tripId) {
     }
 }
 
-// ===== MOSTRAR VIAJES PERMANENTES =====
+// ===== MOSTRAR subalmacenS PERMANENTES =====
 function displayTrips() {
     const container = document.getElementById('trips-container');
     
@@ -342,7 +342,7 @@ function displayTrips() {
         return;
     }
     
-    // Filtrar viajes activos (permanentes)
+    // Filtrar subalmacens activos (permanentes)
     const activeTrips = allTrips.filter(trip => trip.status === 'active');
     
     if (activeTrips.length === 0) {
@@ -715,7 +715,7 @@ async function createTrip() {
             return;
         }
         
-        // Preparar datos del viaje permanente
+        // Preparar datos del subalmacen permanente
         const tripData = {
             employee_id: parseInt(employeeId),
             employee_code: employee.employee_code,

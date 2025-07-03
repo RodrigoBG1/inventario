@@ -135,7 +135,7 @@ async function getProducts() {
         // Si es empleado, la respuesta puede incluir información del subalmacén
         if (user?.role === 'employee' && response.substore_info) {
             console.log('👤 Empleado - productos del subalmacén:', response.products?.length || 0);
-            console.log('🚛 Info del viaje:', response.substore_info.trip?.trip_number);
+            console.log('🚛 Info del subalmacen:', response.substore_info.trip?.trip_number);
             return response;
         }
         
@@ -173,9 +173,9 @@ async function deleteProduct(id) {
     });
 }
 
-// Obtener viajes (trips)
+// Obtener subalmacens (trips)
 async function getTrips(status = null, employeeId = null) {
-    console.log('🚛 Obteniendo viajes:', { status, employeeId });
+    console.log('🚛 Obteniendo subalmacens:', { status, employeeId });
     
     try {
         let url = '/api/trips';
@@ -189,17 +189,17 @@ async function getTrips(status = null, employeeId = null) {
         }
         
         const response = await apiRequest(url);
-        console.log('✅ Viajes obtenidos:', response?.length || 0);
+        console.log('✅ subalmacens obtenidos:', response?.length || 0);
         return response;
         
     } catch (error) {
-        console.error('❌ Error obteniendo viajes:', error);
+        console.error('❌ Error obteniendo subalmacens:', error);
         throw error;
     }
 }
 
 async function createTrip(tripData) {
-    console.log('🚛 Creando viaje:', tripData);
+    console.log('🚛 Creando subalmacen:', tripData);
     
     try {
         const response = await apiRequest('/api/trips', {
@@ -207,18 +207,18 @@ async function createTrip(tripData) {
             body: JSON.stringify(tripData)
         });
         
-        console.log('✅ Viaje creado:', response);
+        console.log('✅ subalmacen creado:', response);
         return response;
         
     } catch (error) {
-        console.error('❌ Error creando viaje:', error);
+        console.error('❌ Error creando subalmacen:', error);
         throw error;
     }
 }
 
-// Finalizar viaje
+// Finalizar subalmacen
 async function completeTrip(tripId, returnProducts = []) {
-    console.log('🏁 Finalizando viaje:', { tripId, returnProducts });
+    console.log('🏁 Finalizando subalmacen:', { tripId, returnProducts });
     
     try {
         const response = await apiRequest(`/api/trips/${tripId}/complete`, {
@@ -226,58 +226,58 @@ async function completeTrip(tripId, returnProducts = []) {
             body: JSON.stringify({ return_products: returnProducts })
         });
         
-        console.log('✅ Viaje finalizado:', response);
+        console.log('✅ subalmacen finalizado:', response);
         return response;
         
     } catch (error) {
-        console.error('❌ Error finalizando viaje:', error);
+        console.error('❌ Error finalizando subalmacen:', error);
         throw error;
     }
 }
 
-// Obtener inventario de subalmacén por viaje
+// Obtener inventario de subalmacén por subalmacen
 async function getTripInventory(tripId) {
-    console.log('📦 Obteniendo inventario del viaje:', tripId);
+    console.log('📦 Obteniendo inventario del subalmacen:', tripId);
     
     try {
         const response = await apiRequest(`/api/trips/${tripId}/inventory`);
-        console.log('✅ Inventario del viaje obtenido:', response?.length || 0);
+        console.log('✅ Inventario del subalmacen obtenido:', response?.length || 0);
         return response;
         
     } catch (error) {
-        console.error('❌ Error obteniendo inventario del viaje:', error);
+        console.error('❌ Error obteniendo inventario del subalmacen:', error);
         throw error;
     }
 }
 
 // ===== FUNCIONES DE REPORTES PARA SUBALMACENES =====
 
-// Resumen de viajes activos
+// Resumen de subalmacens activos
 async function getActiveTripsReport() {
-    console.log('📊 Obteniendo reporte de viajes activos...');
+    console.log('📊 Obteniendo reporte de subalmacens activos...');
     
     try {
         const response = await apiRequest('/api/reports/active-trips');
-        console.log('✅ Reporte de viajes activos obtenido:', response?.length || 0);
+        console.log('✅ Reporte de subalmacens activos obtenido:', response?.length || 0);
         return response;
         
     } catch (error) {
-        console.error('❌ Error obteniendo reporte de viajes activos:', error);
+        console.error('❌ Error obteniendo reporte de subalmacens activos:', error);
         throw error;
     }
 }
 
-// Reporte detallado de inventario por viajes
+// Reporte detallado de inventario por subalmacens
 async function getTripInventoryReport() {
-    console.log('📊 Obteniendo reporte de inventario por viajes...');
+    console.log('📊 Obteniendo reporte de inventario por subalmacens...');
     
     try {
         const response = await apiRequest('/api/reports/trip-inventory');
-        console.log('✅ Reporte de inventario por viajes obtenido:', response?.length || 0);
+        console.log('✅ Reporte de inventario por subalmacens obtenido:', response?.length || 0);
         return response;
         
     } catch (error) {
-        console.error('❌ Error obteniendo reporte de inventario por viajes:', error);
+        console.error('❌ Error obteniendo reporte de inventario por subalmacens:', error);
         throw error;
     }
 }

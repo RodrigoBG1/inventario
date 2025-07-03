@@ -387,15 +387,15 @@
                         <div class="substore-header">
                             <h3 class="substore-title">⚠️ Sin Subalmacén Activo</h3>
                         </div>
-                        <p>No tienes un viaje activo asignado. Contacta al administrador para que te asigne productos.</p>
+                        <p>No tienes un subalmacen activo asignado. Contacta al administrador para que te asigne productos.</p>
                     </div>
                     
                     <div class="no-trip-message">
                         <div class="no-trip-icon">📦</div>
                         <h3 class="no-trip-title">No hay productos asignados</h3>
                         <p class="no-trip-description">
-                            Para crear pedidos necesitas tener un viaje activo con productos asignados a tu subalmacén.
-                            El administrador debe crear un viaje y cargar productos para ti.
+                            Para crear pedidos necesitas tener un subalmacen activo con productos asignados a tu subalmacén.
+                            El administrador debe crear un subalmacen y cargar productos para ti.
                         </p>
                         <button class="contact-admin" onclick="contactAdmin()">
                             📞 Contactar Administrador
@@ -554,7 +554,7 @@
                                         <span><strong>${product.substore_info.sold_quantity || 0}</strong></span>
                                     </div>
                                     <div class="substore-info-row">
-                                        <span>  Viaje:</span>
+                                        <span>  subalmacen:</span>
                                         <span><strong>${substoreInfo?.trip_number || 'N/A'}</strong></span>
                                     </div>
                                 </div>
@@ -955,7 +955,7 @@ Cliente: ${formData.client_info.name}
 Modalidad: ${methodText}
 Productos: ${orderProducts.length}
 Total: ${formatCurrency(formData.total)}${paymentInfo}
-Viaje: ${tripNumber}
+subalmacen: ${tripNumber}
 
 La venta ha sido procesada automáticamente
 El inventario de tu subalmacén ha sido actualizado
@@ -1122,7 +1122,7 @@ Verifica en la sección de ventas que se haya registrado correctamente.`);
 
 Para obtener productos en tu subalmacén:
 
-1. Solicita al administrador que cree un nuevo viaje
+1. Solicita al administrador que cree un nuevo subalmacen
 2. El administrador debe asignarte productos específicos
 3. Una vez asignados, podrás crear pedidos desde tu subalmacén
 

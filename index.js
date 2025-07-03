@@ -868,9 +868,9 @@ function validatePaymentAmount(total, currentPaid, newPayment, allowOverpayment 
   };
 }
 
-// Función para obtener el viaje activo de un empleado
+// Función para obtener el subalmacen activo de un empleado
 async function getActiveEmployeeTrip(employeeId) {
-  console.log('🔍 Buscando viaje activo para empleado:', employeeId);
+  console.log('🔍 Buscando subalmacen activo para empleado:', employeeId);
   
   if (supabase) {
     try {
@@ -885,11 +885,11 @@ async function getActiveEmployeeTrip(employeeId) {
       
       if (error && error.code !== 'PGRST116') throw error;
       
-      console.log('✅ Viaje activo encontrado en Supabase:', data?.trip_number);
+      console.log('✅ subalmacen activo encontrado en Supabase:', data?.trip_number);
       return data;
       
     } catch (error) {
-      console.error('Error obteniendo viaje activo de Supabase:', error);
+      console.error('Error obteniendo subalmacen activo de Supabase:', error);
       // Continuar con fallback
     }
   }
@@ -899,7 +899,7 @@ async function getActiveEmployeeTrip(employeeId) {
     .filter(trip => trip.employee_id === parseInt(employeeId) && trip.status === 'active')
     .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
   
-  console.log('✅ Viaje activo encontrado en memoria:', activeTrip?.trip_number);
+  console.log('✅ subalmacen activo encontrado en memoria:', activeTrip?.trip_number);
   return activeTrip || null;
 }
 
@@ -907,11 +907,11 @@ async function getActiveEmployeeTrip(employeeId) {
 async function getEmployeeSubstoreProducts(employeeId) {
   console.log('📦 Obteniendo productos del subalmacén para empleado:', employeeId);
   
-  // 1. Obtener viaje activo del empleado
+  // 1. Obtener subalmacen activo del empleado
   const activeTrip = await getActiveEmployeeTrip(employeeId);
   
   if (!activeTrip) {
-    console.log('⚠️ No hay viaje activo para el empleado');
+    console.log('⚠️ No hay subalmacen activo para el empleado');
     return {
       has_active_trip: false,
       trip: null,
@@ -1130,13 +1130,13 @@ async function getTrips(status = null, employeeId = null) {
   return trips;
 }
 
-// Crear viaje
+// Crear subalmacen
 async function createTrip(tripData) {
   console.log('🚛 Creando subalmacén permanente:', tripData);
   
   if (supabase) {
     try {
-      // Crear el viaje permanente en Supabase
+      // Crear el subalmacen permanente en Supabase
       const { data: trip, error: tripError } = await supabase
         .from('trips')
         .insert([{
@@ -1870,9 +1870,9 @@ async function returnToMainStore(tripId, products) {
   }
 }
 
-// Finalizar viaje
+// Finalizar subalmacen
 async function completeTrip(tripId, returnProducts = []) {
-  console.log('🏁 Finalizando viaje:', tripId, 'con productos:', returnProducts);
+  console.log('🏁 Finalizando subalmacen:', tripId, 'con productos:', returnProducts);
   
   try {
     // 1. Devolver productos si los hay
@@ -1880,7 +1880,7 @@ async function completeTrip(tripId, returnProducts = []) {
       await returnToMainStore(tripId, returnProducts);
     }
     
-    // 2. Actualizar estado del viaje
+    // 2. Actualizar estado del subalmacen
     if (supabase) {
       const { error } = await supabase
         .from('trips')
@@ -1909,7 +1909,7 @@ async function completeTrip(tripId, returnProducts = []) {
     return { success: true };
     
   } catch (error) {
-    console.error('❌ Error finalizando viaje:', error);
+    console.error('❌ Error finalizando subalmacen:', error);
     throw error;
   }
 }
@@ -3092,7 +3092,7 @@ app.post("/api/orders", auth, async (req, res) => {
       
       if (!substoreData.has_active_trip) {
         return res.status(400).json({
-          message: 'No tienes un viaje activo. Contacta al administrador para que te asigne productos.',
+          message: 'No tienes un subalmacen activo. Contacta al administrador para que te asigne productos.',
           error: 'no_active_trip'
         });
       }
@@ -4323,35 +4323,35 @@ app.post("/api/inventory/adjust", auth, adminOnly, async (req, res) => {
     });
   }
 });
-// ========== ROUTES - TRIPS/VIAJES ==========
+// ========== ROUTES - TRIPS/subalmacenS ==========
 
-// GET - Obtener todos los viajes
+// GET - Obtener todos los subalmacens
 app.get("/api/trips", auth, async (req, res) => {
   try {
     console.log('🔍 GET /api/trips - User:', req.user?.role);
     
     const { status, employee_id } = req.query;
     
-    // Si no es admin, solo puede ver sus propios viajes
+    // Si no es admin, solo puede ver sus propios subalmacens
     const employeeFilter = req.user.role === 'admin' 
       ? (employee_id ? parseInt(employee_id) : null)
       : req.user.id;
     
     const trips = await getTrips(status, employeeFilter);
     
-    console.log('✅ Enviando', trips.length, 'viajes al frontend');
+    console.log('✅ Enviando', trips.length, 'subalmacens al frontend');
     res.json(trips);
     
   } catch (error) {
     console.error('❌ Error in GET /api/trips:', error);
     res.status(500).json({ 
-      message: 'Error obteniendo viajes', 
+      message: 'Error obteniendo subalmacens', 
       error: error.message 
     });
   }
 });
 
-// GET - Obtener viaje específico
+// GET - Obtener subalmacen específico
 app.get("/api/trips/:id", auth, async (req, res) => {
   try {
     const tripId = parseInt(req.params.id);
@@ -4372,7 +4372,7 @@ app.get("/api/trips/:id", auth, async (req, res) => {
       if (trip) {
         // Verificar permisos
         if (req.user.role !== 'admin' && trip.employee_id !== req.user.id) {
-          return res.status(403).json({ message: 'No tienes permisos para ver este viaje' });
+          return res.status(403).json({ message: 'No tienes permisos para ver este subalmacen' });
         }
         return res.json(trip);
       }
@@ -4381,11 +4381,11 @@ app.get("/api/trips/:id", auth, async (req, res) => {
     // Fallback
     const trip = (fallbackDatabase.trips || []).find(t => t.id === tripId);
     if (!trip) {
-      return res.status(404).json({ message: 'Viaje no encontrado' });
+      return res.status(404).json({ message: 'subalmacen no encontrado' });
     }
     
     if (req.user.role !== 'admin' && trip.employee_id !== req.user.id) {
-      return res.status(403).json({ message: 'No tienes permisos para ver este viaje' });
+      return res.status(403).json({ message: 'No tienes permisos para ver este subalmacen' });
     }
     
     // Agregar inventario del subalmacén
@@ -4397,13 +4397,13 @@ app.get("/api/trips/:id", auth, async (req, res) => {
   } catch (error) {
     console.error('Error in GET /api/trips/:id:', error);
     res.status(500).json({ 
-      message: 'Error obteniendo viaje', 
+      message: 'Error obteniendo subalmacen', 
       error: error.message 
     });
   }
 });
 
-// POST - Crear nuevo viaje
+// POST - Crear nuevo subalmacen
 app.post("/api/trips", auth, adminOnly, async (req, res) => {
   try {
     console.log('🔄 POST /api/trips - Creating trip:', req.body);
@@ -4419,11 +4419,11 @@ app.post("/api/trips", auth, adminOnly, async (req, res) => {
     
     if (!products || !Array.isArray(products) || products.length === 0) {
       return res.status(400).json({ 
-        message: 'Debe incluir al menos un producto en el viaje' 
+        message: 'Debe incluir al menos un producto en el subalmacen' 
       });
     }
     
-    // Validar stock disponible ANTES de crear el viaje
+    // Validar stock disponible ANTES de crear el subalmacen
     console.log('🔍 Validando stock disponible...');
     for (const product of products) {
       if (!product.product_id || !product.quantity || product.quantity <= 0) {
@@ -4450,7 +4450,7 @@ app.post("/api/trips", auth, adminOnly, async (req, res) => {
       return res.status(404).json({ message: 'Empleado no encontrado' });
     }
     
-    // Crear datos del viaje
+    // Crear datos del subalmacen
     const tripData = {
       trip_number: `TRIP-${Date.now()}`,
       employee_id: parseInt(employee_id),
@@ -4459,16 +4459,16 @@ app.post("/api/trips", auth, adminOnly, async (req, res) => {
       notes: notes || ''
     };
     
-    // Crear el viaje
+    // Crear el subalmacen
     const newTrip = await createTrip(tripData);
     
     // Cargar productos al subalmacén
     const loadResult = await loadProductsToSubstore(newTrip.id, products);
     
-    console.log('✅ Viaje creado exitosamente:', newTrip.trip_number);
+    console.log('✅ subalmacen creado exitosamente:', newTrip.trip_number);
     
     res.json({
-      message: 'Viaje creado exitosamente',
+      message: 'subalmacen creado exitosamente',
       trip: newTrip,
       loaded_products: loadResult.products,
       inventory_update: loadResult
@@ -4477,19 +4477,19 @@ app.post("/api/trips", auth, adminOnly, async (req, res) => {
   } catch (error) {
     console.error('❌ Error creating trip:', error);
     res.status(500).json({ 
-      message: 'Error creando viaje', 
+      message: 'Error creando subalmacen', 
       error: error.message 
     });
   }
 });
 
-// PUT - Finalizar viaje
+// PUT - Finalizar subalmacen
 app.put("/api/trips/:id/complete", auth, adminOnly, async (req, res) => {
   try {
     const tripId = parseInt(req.params.id);
     const { return_products } = req.body;
     
-    console.log('🏁 Finalizando viaje:', tripId, 'con productos:', return_products);
+    console.log('🏁 Finalizando subalmacen:', tripId, 'con productos:', return_products);
     
     if (!tripId || isNaN(tripId)) {
       return res.status(400).json({ message: 'ID de trip inválido' });
@@ -4500,19 +4500,19 @@ app.put("/api/trips/:id/complete", auth, adminOnly, async (req, res) => {
     const trip = allTrips.find(t => t.id === tripId);
     
     if (!trip) {
-      return res.status(404).json({ message: 'Viaje no encontrado' });
+      return res.status(404).json({ message: 'subalmacen no encontrado' });
     }
     
     if (trip.status !== 'active') {
-      return res.status(400).json({ message: 'El viaje ya está finalizado' });
+      return res.status(400).json({ message: 'El subalmacen ya está finalizado' });
     }
     
     const result = await completeTrip(tripId, return_products || []);
     
-    console.log('✅ Viaje finalizado exitosamente');
+    console.log('✅ subalmacen finalizado exitosamente');
     
     res.json({
-      message: 'Viaje finalizado exitosamente',
+      message: 'subalmacen finalizado exitosamente',
       trip_id: tripId,
       returned_products: return_products?.length || 0
     });
@@ -4520,7 +4520,7 @@ app.put("/api/trips/:id/complete", auth, adminOnly, async (req, res) => {
   } catch (error) {
     console.error('❌ Error completing trip:', error);
     res.status(500).json({ 
-      message: 'Error finalizando viaje', 
+      message: 'Error finalizando subalmacen', 
       error: error.message 
     });
   }
@@ -4574,7 +4574,7 @@ app.post("/api/trips/:id/return", auth, adminOnly, async (req, res) => {
     const tripId = parseInt(req.params.id);
     const { products } = req.body;
     
-    console.log('🔄 Devolviendo productos del viaje:', tripId);
+    console.log('🔄 Devolviendo productos del subalmacen:', tripId);
     
     if (!products || !Array.isArray(products) || products.length === 0) {
       return res.status(400).json({ 
@@ -4599,18 +4599,18 @@ app.post("/api/trips/:id/return", auth, adminOnly, async (req, res) => {
   }
 });
 
-// GET - Obtener inventario de subalmacén por viaje
+// GET - Obtener inventario de subalmacén por subalmacen
 app.get("/api/trips/:id/inventory", auth, async (req, res) => {
   try {
     const tripId = parseInt(req.params.id);
     console.log('🔍 GET substore inventory for trip:', tripId);
     
-    // Verificar permisos del viaje
+    // Verificar permisos del subalmacen
     const trip = await getTrips(null, null);
     const userTrip = trip.find(t => t.id === tripId);
     
     if (!userTrip) {
-      return res.status(404).json({ message: 'Viaje no encontrado' });
+      return res.status(404).json({ message: 'subalmacen no encontrado' });
     }
     
     if (req.user.role !== 'admin' && userTrip.employee_id !== req.user.id) {
@@ -4644,7 +4644,7 @@ app.get("/api/trips/:id/inventory", auth, async (req, res) => {
     const trip = allTrips.find(t => t.id === tripId);
     
     if (!trip) {
-      return res.status(404).json({ message: 'Viaje no encontrado' });
+      return res.status(404).json({ message: 'subalmacen no encontrado' });
     }
     
     if (req.user.role !== 'admin' && trip.employee_id !== req.user.id) {
@@ -4744,7 +4744,7 @@ app.get("/api/trips-permanent", auth, async (req, res) => {
     // Solo mostrar trips activos (permanentes)
     const status = 'active';
     
-    // Si no es admin, solo puede ver sus propios viajes
+    // Si no es admin, solo puede ver sus propios subalmacens
     const employeeFilter = req.user.role === 'admin' 
       ? (employee_id ? parseInt(employee_id) : null)
       : req.user.id;
@@ -4900,7 +4900,7 @@ app.put("/api/orders/:id/confirm-substore", auth, async (req, res) => {
       });
     }
     
-    // Verificar permisos del viaje
+    // Verificar permisos del subalmacen
     const trips = await getTripsWithDepletedInfo('active');
     const trip = trips.find(t => t.id === trip_id);
     
@@ -5055,17 +5055,17 @@ app.put("/api/orders/:id/confirm-substore", auth, async (req, res) => {
       });
     }
     
-    // Verificar permisos del viaje
+    // Verificar permisos del subalmacen
     const trips = await getTrips('active');
     const trip = trips.find(t => t.id === trip_id);
     
     if (!trip) {
-      return res.status(404).json({ message: 'Viaje no encontrado o no activo' });
+      return res.status(404).json({ message: 'subalmacen no encontrado o no activo' });
     }
     
     if (req.user.role !== 'admin' && trip.employee_id !== req.user.id) {
       return res.status(403).json({ 
-        message: 'No tienes permisos para confirmar pedidos en este viaje' 
+        message: 'No tienes permisos para confirmar pedidos en este subalmacen' 
       });
     }
     
@@ -5089,7 +5089,7 @@ app.put("/api/orders/:id/confirm-substore", auth, async (req, res) => {
 
 // ========== ROUTES - REPORTES DE SUBALMACENES ==========
 
-// GET - Resumen de viajes activos
+// GET - Resumen de subalmacens activos
 app.get("/api/reports/active-trips", auth, adminOnly, async (req, res) => {
   try {
     if (supabase) {
@@ -5126,13 +5126,13 @@ app.get("/api/reports/active-trips", auth, adminOnly, async (req, res) => {
   } catch (error) {
     console.error('Error getting active trips summary:', error);
     res.status(500).json({ 
-      message: 'Error obteniendo resumen de viajes', 
+      message: 'Error obteniendo resumen de subalmacens', 
       error: error.message 
     });
   }
 });
 
-// GET - Reporte detallado de inventario por viajes
+// GET - Reporte detallado de inventario por subalmacens
 app.get("/api/reports/trip-inventory", auth, adminOnly, async (req, res) => {
   try {
     if (supabase) {
