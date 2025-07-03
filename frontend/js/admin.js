@@ -125,11 +125,11 @@ async function confirmOrderModal(orderId) {
         // Mostrar mensaje de éxito detallado
         alert(`✅ PEDIDO CONFIRMADO EXITOSAMENTE
 
-📋 Número: ${order.order_number}
-👤 Cliente: ${order.client_info?.name || 'Sin cliente'}
-💰 Total: $${order.total}
-💳 Método de pago: ${paymentMethod}
-📅 Confirmado: ${new Date().toLocaleString()}
+ Número: ${order.order_number}
+ Cliente: ${order.client_info?.name || 'Sin cliente'}
+ Total: $${order.total}
+ Método de pago: ${paymentMethod}
+ Confirmado: ${new Date().toLocaleString()}
 
 El pedido ha sido procesado correctamente.`);
         

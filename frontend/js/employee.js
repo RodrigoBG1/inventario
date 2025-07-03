@@ -224,7 +224,7 @@ function displayMySales() {
             <td>${window.formatCurrency ? window.formatCurrency((sale.total * (getUser()?.commission_rate || 0.05))) : `$${(sale.total * 0.05).toFixed(2)}`}</td>
             <td>
                 <button class="btn btn-sm btn-primary" onclick="viewSaleDetails(${sale.id})">
-                    👁️ Ver
+                    Ver
                 </button>
             </td>
         </tr>

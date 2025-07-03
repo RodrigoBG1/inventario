@@ -986,13 +986,13 @@ El registro de venta ha sido creado
                     
                     const confirmationMessage = `✅ PEDIDO CREADO EXITOSAMENTE
 
-📋 Número: ${orderNumber}
-👤 Cliente: ${formData.client_info.name}
-💳 Modalidad: ${methodText}
-📦 Productos: ${orderProducts.length}
-💰 Total: ${formatCurrency(formData.total)}${paymentInfo}
+ Número: ${orderNumber}
+ Cliente: ${formData.client_info.name}
+ Modalidad: ${methodText}
+ Productos: ${orderProducts.length}
+ Total: ${formatCurrency(formData.total)}${paymentInfo}
 
-⏳ El pedido requiere confirmación del administrador.`;
+ El pedido requiere confirmación del administrador.`;
                     
                     alert(confirmationMessage);
                     

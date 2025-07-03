@@ -1,17 +1,17 @@
-// ===== GESTIÓN DE SUBALMACENES =====
+// ===== GESTIÓN DE SUBALMACENES PERMANENTES =====
 
-console.log('🚛 Subalmacenes.js cargado');
+console.log('🚛 Subalmacenes.js cargado - Sistema Permanente');
 
 // Variables globales
 let allTrips = [];
 let allEmployees = [];
 let allProducts = [];
 let selectedProducts = [];
-let currentTripForCompletion = null;
+let currentTripForProducts = null;
 
 // ===== INICIALIZACIÓN =====
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('📋 Inicializando gestión de subalmacenes...');
+    console.log('📋 Inicializando gestión de subalmacenes permanentes...');
     
     // Verificar que estamos en la página correcta
     if (!window.location.pathname.includes('subalmacenes.html')) {
@@ -38,7 +38,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 async function initializeSubalmacenes() {
     try {
-        console.log('🔄 Cargando datos iniciales de subalmacenes...');
+        console.log('🔄 Cargando datos iniciales de subalmacenes permanentes...');
         
         // Cargar datos en paralelo con manejo de errores individual
         const results = await Promise.allSettled([
@@ -114,7 +114,7 @@ async function initializeSubalmacenes() {
     }
 }
 
-// ===== FUNCIONES DE API PARA SUBALMACENES =====
+// ===== FUNCIONES DE API PARA SUBALMACENES PERMANENTES =====
 async function getTripsAPI(status = null, employeeId = null) {
     console.log('🔍 getTripsAPI llamado con:', { status, employeeId });
     
@@ -122,6 +122,7 @@ async function getTripsAPI(status = null, employeeId = null) {
         let url = `${window.API_BASE_URL}/api/trips`;
         const params = new URLSearchParams();
         
+        // Solo obtener viajes activos para el sistema permanente
         if (status) params.append('status', status);
         if (employeeId) params.append('employee_id', employeeId);
         
@@ -162,6 +163,86 @@ async function getTripsAPI(status = null, employeeId = null) {
     }
 }
 
+async function addProductToTripAPI(tripId, productData) {
+    console.log('➕ addProductToTripAPI llamado con:', { tripId, productData });
+    
+    try {
+        const url = `${window.API_BASE_URL}/api/trips/${tripId}/add-product`;
+        console.log('📡 POST a:', url);
+        
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            body: JSON.stringify(productData)
+        });
+        
+        console.log('📡 Respuesta addProduct:', response.status, response.statusText);
+        
+        if (!response.ok) {
+            let errorData;
+            try {
+                errorData = await response.json();
+                console.error('❌ Error data:', errorData);
+            } catch (e) {
+                console.error('❌ No se pudo parsear error JSON');
+            }
+            throw new Error(errorData?.message || `HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const result = await response.json();
+        console.log('✅ Producto agregado al viaje:', result);
+        return result;
+        
+    } catch (error) {
+        console.error('❌ Error adding product to trip:', error);
+        throw error;
+    }
+}
+
+async function removeProductFromTripAPI(tripId, productId) {
+    console.log('➖ removeProductFromTripAPI llamado con:', { tripId, productId });
+    
+    try {
+        const url = `${window.API_BASE_URL}/api/trips/${tripId}/remove-product`;
+        console.log('📡 DELETE a:', url);
+        
+        const response = await fetch(url, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            body: JSON.stringify({ product_id: productId })
+        });
+        
+        console.log('📡 Respuesta removeProduct:', response.status, response.statusText);
+        
+        if (!response.ok) {
+            let errorData;
+            try {
+                errorData = await response.json();
+                console.error('❌ Error data:', errorData);
+            } catch (e) {
+                console.error('❌ No se pudo parsear error JSON');
+            }
+            throw new Error(errorData?.message || `HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const result = await response.json();
+        console.log('✅ Producto removido del viaje:', result);
+        return result;
+        
+    } catch (error) {
+        console.error('❌ Error removing product from trip:', error);
+        throw error;
+    }
+}
+
 async function createTripAPI(tripData) {
     console.log('🚛 createTripAPI llamado con:', tripData);
     
@@ -176,7 +257,11 @@ async function createTripAPI(tripData) {
                 'Accept': 'application/json',
                 'Authorization': `Bearer ${localStorage.getItem('token')}`
             },
-            body: JSON.stringify(tripData)
+            body: JSON.stringify({
+                ...tripData,
+                is_permanent: true, // Marcar como permanente
+                status: 'active'
+            })
         });
         
         console.log('📡 Respuesta createTrip:', response.status, response.statusText);
@@ -193,53 +278,11 @@ async function createTripAPI(tripData) {
         }
         
         const result = await response.json();
-        console.log('✅ Trip creado:', result);
+        console.log('✅ Trip permanente creado:', result);
         return result;
         
     } catch (error) {
-        console.error('❌ Error creating trip:', error);
-        throw error;
-    }
-}
-
-async function completeTripAPI(tripId, returnProducts = []) {
-    console.log('🏁 completeTripAPI llamado con:', { tripId, returnProducts });
-    
-    try {
-        const url = `${window.API_BASE_URL}/api/trips/${tripId}/complete`;
-        console.log('📡 PUT a:', url);
-        
-        const response = await fetch(url, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-            },
-            body: JSON.stringify({
-                return_products: returnProducts
-            })
-        });
-        
-        console.log('📡 Respuesta completeTrip:', response.status, response.statusText);
-        
-        if (!response.ok) {
-            let errorData;
-            try {
-                errorData = await response.json();
-                console.error('❌ Error data:', errorData);
-            } catch (e) {
-                console.error('❌ No se pudo parsear error JSON');
-            }
-            throw new Error(errorData?.message || `HTTP ${response.status}: ${response.statusText}`);
-        }
-        
-        const result = await response.json();
-        console.log('✅ Trip completado:', result);
-        return result;
-        
-    } catch (error) {
-        console.error('❌ Error completing trip:', error);
+        console.error('❌ Error creating permanent trip:', error);
         throw error;
     }
 }
@@ -282,51 +325,49 @@ async function getTripInventoryAPI(tripId) {
     }
 }
 
-// ===== MOSTRAR VIAJES =====
+// ===== MOSTRAR VIAJES PERMANENTES =====
 function displayTrips() {
     const container = document.getElementById('trips-container');
     
     if (!allTrips || allTrips.length === 0) {
         container.innerHTML = `
             <div style="text-align: center; padding: 3rem; color: var(--secondary-color);">
-                <h3> No hay viajes registrados</h3>
-                <p>Crea el primer viaje para comenzar a gestionar subalmacenes</p>
+                <h3>No hay subalmacenes activos</h3>
+                <p>Crea el primer subalmacén para comenzar a gestionar inventarios móviles</p>
                 <button onclick="openNewTripModal()" class="btn btn-primary">
-                     Crear Primer Viaje
+                    Crear Primer Subalmacén
                 </button>
             </div>
         `;
         return;
     }
     
-    // Filtrar viajes
-    const filteredTrips = filterTripsData();
+    // Filtrar viajes activos (permanentes)
+    const activeTrips = allTrips.filter(trip => trip.status === 'active');
     
-    if (filteredTrips.length === 0) {
+    if (activeTrips.length === 0) {
         container.innerHTML = `
             <div style="text-align: center; padding: 2rem; color: var(--secondary-color);">
-                <h3>🔍 No hay viajes que coincidan con los filtros</h3>
-                <button onclick="clearFilters()" class="btn btn-secondary">
-                    Limpiar Filtros
+                <h3>🔍 No hay subalmacenes activos</h3>
+                <button onclick="openNewTripModal()" class="btn btn-primary">
+                    ➕ Crear Subalmacén
                 </button>
             </div>
         `;
         return;
     }
     
-    container.innerHTML = filteredTrips.map(trip => createTripCard(trip)).join('');
+    container.innerHTML = activeTrips.map(trip => createTripCard(trip)).join('');
     
-    console.log('✅ Viajes mostrados:', filteredTrips.length);
+    console.log('✅ Subalmacenes mostrados:', activeTrips.length);
 }
 
 function createTripCard(trip) {
-    const statusClass = trip.status === 'active' ? 'status-active' : 'status-completed';
     const inventory = trip.substore_inventory || [];
     
     // Calcular estadísticas
     const stats = {
         totalProducts: inventory.length,
-        totalInitial: inventory.reduce((sum, item) => sum + (item.initial_quantity || 0), 0),
         totalCurrent: inventory.reduce((sum, item) => sum + (item.current_quantity || 0), 0),
         totalSold: inventory.reduce((sum, item) => sum + (item.sold_quantity || 0), 0),
         totalValue: inventory.reduce((sum, item) => sum + ((item.current_quantity || 0) * (item.price || 0)), 0),
@@ -337,22 +378,22 @@ function createTripCard(trip) {
         <div class="trip-card">
             <div class="trip-header">
                 <div class="trip-info">
-                    <h3>${trip.trip_number}</h3>
+                    <h3> ${trip.trip_number}</h3>
                     <div class="trip-meta">
-                        👤 ${trip.employee_name} (${trip.employee_code}) • 
-                        📅 ${formatDate(trip.start_date || trip.created_at)}
-                        ${trip.notes ? ` • 📝 ${trip.notes}` : ''}
+                         ${trip.employee_name} (${trip.employee_code}) • 
+                         Desde ${formatDate(trip.start_date || trip.created_at)}
+                        ${trip.notes ? ` •  ${trip.notes}` : ''}
                     </div>
                 </div>
-                <div class="trip-status ${statusClass}">
-                    ${trip.status === 'active' ? '🟢 Activo' : '🔵 Completado'}
+                <div class="trip-status status-active">
+                    🟢 Activo
                 </div>
             </div>
             
             <div class="trip-stats">
                 <div class="stat-item">
                     <span class="stat-value">${stats.totalProducts}</span>
-                    <span class="stat-label">Productos</span>
+                    <span class="stat-label">Tipos de Producto</span>
                 </div>
                 <div class="stat-item">
                     <span class="stat-value">${stats.totalCurrent}</span>
@@ -368,20 +409,20 @@ function createTripCard(trip) {
                 </div>
                 <div class="stat-item">
                     <span class="stat-value">${formatCurrency(stats.soldValue)}</span>
-                    <span class="stat-label">Valor Ventas</span>
+                    <span class="stat-label">Total Vendido</span>
                 </div>
             </div>
             
             ${inventory.length > 0 ? `
-                <table class="inventory-table">
+                <table class="orders-table">
                     <thead>
                         <tr>
                             <th>Producto</th>
-                            <th>Inicial</th>
                             <th>Actual</th>
                             <th>Vendido</th>
                             <th>Precio</th>
                             <th>Valor</th>
+                            <th>Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -391,47 +432,50 @@ function createTripCard(trip) {
                                     <strong>${item.product_code}</strong><br>
                                     <small>${item.product_name}</small>
                                 </td>
-                                <td>${item.initial_quantity || 0}</td>
-                                <td class="${getQuantityClass(item.current_quantity, item.initial_quantity)}">
+                                <td class="${getQuantityClass(item.current_quantity)}">
                                     ${item.current_quantity || 0}
                                 </td>
                                 <td>${item.sold_quantity || 0}</td>
                                 <td>${formatCurrency(item.price || 0)}</td>
                                 <td>${formatCurrency((item.current_quantity || 0) * (item.price || 0))}</td>
+                                <td>
+                                    <button class="btn btn-sm btn-warning" onclick="addMoreProduct(${trip.id}, ${item.product_id})" title="Agregar más cantidad">
+                                        ➕
+                                    </button>
+                                    ${(item.current_quantity || 0) === 0 ? `
+                                        <button class="btn btn-sm btn-danger" onclick="removeProductFromTrip(${trip.id}, ${item.product_id})" title="Quitar producto sin stock">
+                                            🗑️
+                                        </button>
+                                    ` : ''}
+                                </td>
                             </tr>
                         `).join('')}
                     </tbody>
                 </table>
             ` : `
                 <div style="text-align: center; padding: 1rem; color: var(--secondary-color); font-style: italic;">
-                    📦 No hay productos cargados en este viaje
+                    📦 No hay productos cargados en este subalmacén
                 </div>
             `}
             
             <div class="trip-actions">
                 <button class="btn btn-sm btn-primary" onclick="viewTripDetails(${trip.id})">
-                    👁️ Ver Detalles
+                    Ver Detalles
                 </button>
-                ${trip.status === 'active' ? `
-                    <button class="btn btn-sm btn-warning" onclick="openCompleteTripModal(${trip.id})">
-                        🏁 Finalizar Viaje
-                    </button>
-                ` : ''}
+                <button class="btn btn-sm btn-success" onclick="openAddProductModal(${trip.id})">
+                    Agregar Producto
+                </button>
                 <button class="btn btn-sm btn-secondary" onclick="downloadTripReport(${trip.id})">
-                    📄 Reporte
+                    Reporte
                 </button>
             </div>
         </div>
     `;
 }
 
-function getQuantityClass(current, initial) {
-    if (!initial || initial === 0) return '';
-    
-    const percentage = (current / initial) * 100;
-    
-    if (percentage === 0) return 'quantity-danger';
-    if (percentage <= 25) return 'quantity-warning';
+function getQuantityClass(quantity) {
+    if (!quantity || quantity === 0) return 'quantity-danger';
+    if (quantity <= 5) return 'quantity-warning';
     return '';
 }
 
@@ -512,11 +556,10 @@ function populateProductSelector() {
 }
 
 function filterTripsData() {
-    const statusFilter = document.getElementById('status-filter')?.value;
     const employeeFilter = document.getElementById('employee-filter')?.value;
     
     return allTrips.filter(trip => {
-        if (statusFilter && trip.status !== statusFilter) return false;
+        if (trip.status !== 'active') return false; // Solo mostrar activos
         if (employeeFilter && trip.employee_id !== parseInt(employeeFilter)) return false;
         return true;
     });
@@ -527,12 +570,11 @@ function filterTrips() {
 }
 
 function clearFilters() {
-    document.getElementById('status-filter').value = '';
     document.getElementById('employee-filter').value = '';
     displayTrips();
 }
 
-// ===== MODAL NUEVO VIAJE =====
+// ===== MODAL NUEVO SUBALMACÉN =====
 function openNewTripModal() {
     selectedProducts = [];
     updateSelectedProductsDisplay();
@@ -608,7 +650,7 @@ function updateSelectedProductsDisplay() {
                            value="${product.quantity}"
                            onchange="updateProductQuantity(${index}, this.value)">
                 </div>
-                <button type="button" onclick="removeProductFromTrip(${index})" 
+                <button type="button" onclick="removeProductFromSelection(${index})" 
                         class="btn btn-sm btn-danger">
                     🗑️
                 </button>
@@ -638,7 +680,7 @@ function updateProductQuantity(index, quantity) {
     selectedProducts[index].quantity = qty;
 }
 
-function removeProductFromTrip(index) {
+function removeProductFromSelection(index) {
     selectedProducts.splice(index, 1);
     updateSelectedProductsDisplay();
 }
@@ -673,7 +715,7 @@ async function createTrip() {
             return;
         }
         
-        // Preparar datos del viaje
+        // Preparar datos del viaje permanente
         const tripData = {
             employee_id: parseInt(employeeId),
             employee_code: employee.employee_code,
@@ -685,7 +727,7 @@ async function createTrip() {
             }))
         };
         
-        console.log('🚛 Creando viaje:', tripData);
+        console.log('🚛 Creando subalmacén permanente:', tripData);
         
         // Deshabilitar botón
         const createBtn = document.querySelector('[onclick="createTrip()"]');
@@ -696,21 +738,22 @@ async function createTrip() {
         try {
             const result = await createTripAPI(tripData);
             
-            console.log('✅ Viaje creado exitosamente:', result);
+            console.log('✅ Subalmacén permanente creado exitosamente:', result);
             
             if (window.showNotification) {
-                window.showNotification('Viaje creado exitosamente', 'success');
+                window.showNotification('Subalmacén permanente creado exitosamente', 'success');
             }
             
             // Mostrar confirmación detallada
-            alert(`VIAJE CREADO EXITOSAMENTE
+            alert(`✅ SUBALMACÉN PERMANENTE CREADO
 
  Número: ${result.trip.trip_number}
-👤 Empleado: ${employee.name}
-📦 Productos: ${selectedProducts.length}
-📝 Notas: ${notes || 'Sin notas'}
+ Empleado: ${employee.name}
+ Productos: ${selectedProducts.length}
+ Notas: ${notes || 'Sin notas'}
 
-Los productos han sido transferidos al subalmacén del empleado.`);
+Los productos han sido transferidos al subalmacén del empleado.
+Este subalmacén permanecerá activo de forma permanente.`);
             
             // Cerrar modal y recargar
             closeNewTripModal();
@@ -722,14 +765,14 @@ Los productos han sido transferidos al subalmacén del empleado.`);
         }
         
     } catch (error) {
-        console.error('❌ Error creando viaje:', error);
+        console.error('❌ Error creando subalmacén permanente:', error);
         
         if (window.showNotification) {
-            window.showNotification('Error creando viaje: ' + error.message, 'error');
+            window.showNotification('Error creando subalmacén: ' + error.message, 'error');
         }
         
         // Mostrar error detallado
-        alert(`❌ Error al crear el viaje:
+        alert(`❌ Error al crear el subalmacén:
 
 ${error.message}
 
@@ -742,150 +785,182 @@ Intenta nuevamente o contacta al administrador.`);
     }
 }
 
-// ===== MODAL FINALIZAR VIAJE =====
-async function openCompleteTripModal(tripId) {
+// ===== MODAL AGREGAR PRODUCTO A SUBALMACÉN =====
+function openAddProductModal(tripId) {
+    currentTripForProducts = tripId;
+    
+    // Encontrar el trip
+    const trip = allTrips.find(t => t.id === tripId);
+    if (!trip) {
+        if (window.showNotification) {
+            window.showNotification('Subalmacén no encontrado', 'error');
+        }
+        return;
+    }
+    
+    // Obtener productos que ya están en el subalmacén
+    const currentInventory = trip.substore_inventory || [];
+    const productsInTrip = currentInventory.map(item => item.product_id);
+    
+    // Filtrar productos disponibles (que no están en el subalmacén)
+    const availableProducts = allProducts.filter(product => 
+        product.stock > 0 && !productsInTrip.includes(product.id)
+    );
+    
+    const container = document.getElementById('add-product-content');
+    
+    if (availableProducts.length === 0) {
+        container.innerHTML = `
+            <div style="text-align: center; padding: 2rem; background: #f0f9ff; border-radius: 8px; border: 1px solid #0ea5e9;">
+                <h4 style="color: #0369a1; margin-bottom: 1rem;">📦 No hay productos disponibles</h4>
+                <p style="color: #0369a1;">Todos los productos con stock ya están en este subalmacén, o no hay stock disponible en el almacén principal.</p>
+            </div>
+        `;
+    } else {
+        container.innerHTML = `
+            <div style="margin-bottom: 2rem;">
+                <h4>Subalmacén: ${trip.trip_number}</h4>
+                <p><strong>Empleado:</strong> ${trip.employee_name}</p>
+                <p style="color: var(--secondary-color);">Selecciona un producto para agregar al subalmacén:</p>
+            </div>
+            
+            <div class="form-group">
+                <label for="add-product-select">Producto:</label>
+                <select id="add-product-select">
+                    <option value="">Seleccionar producto...</option>
+                    ${availableProducts.map(product => `
+                        <option value="${product.id}" data-code="${product.code}" data-name="${product.name}" data-stock="${product.stock}" data-price="${product.price}">
+                            ${product.code} - ${product.name} (Stock: ${product.stock})
+                        </option>
+                    `).join('')}
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="add-product-quantity">Cantidad a transferir:</label>
+                <input type="number" id="add-product-quantity" min="1" value="1" 
+                       placeholder="Cantidad">
+            </div>
+            
+            <div class="form-group">
+                <label for="add-product-price">Precio de venta:</label>
+                <input type="number" id="add-product-price" step="0.01" min="0" 
+                       placeholder="0.00">
+            </div>
+            
+            <div style="background: #fef3c7; padding: 1rem; border-radius: 6px; border-left: 4px solid #f59e0b; margin-top: 1.5rem;">
+                <strong>📋 Nota:</strong> El producto se transferirá desde el almacén principal al subalmacén. 
+                Asegúrate de que la cantidad sea correcta antes de confirmar.
+            </div>
+        `;
+        
+        // Event listener para actualizar precio automáticamente
+        const productSelect = document.getElementById('add-product-select');
+        const priceInput = document.getElementById('add-product-price');
+        const quantityInput = document.getElementById('add-product-quantity');
+        
+        productSelect.addEventListener('change', function() {
+            const selectedOption = this.options[this.selectedIndex];
+            if (selectedOption.value) {
+                priceInput.value = selectedOption.dataset.price;
+                quantityInput.max = selectedOption.dataset.stock;
+            }
+        });
+    }
+    
+    document.getElementById('add-product-modal').style.display = 'flex';
+}
+
+function closeAddProductModal() {
+    document.getElementById('add-product-modal').style.display = 'none';
+    currentTripForProducts = null;
+}
+
+async function confirmAddProduct() {
+    if (!currentTripForProducts) return;
+    
     try {
-        currentTripForCompletion = tripId;
+        const productSelect = document.getElementById('add-product-select');
+        const quantityInput = document.getElementById('add-product-quantity');
+        const priceInput = document.getElementById('add-product-price');
         
-        // Obtener inventario actual del viaje usando la API
-        console.log('🔍 Obteniendo inventario del viaje:', tripId);
-        const inventory = await getTripInventoryAPI(tripId);
-        const trip = allTrips.find(t => t.id === tripId);
+        const productId = parseInt(productSelect.value);
+        const quantity = parseInt(quantityInput.value);
+        const price = parseFloat(priceInput.value);
         
-        if (!trip) {
+        // Validaciones
+        if (!productId) {
             if (window.showNotification) {
-                window.showNotification('Viaje no encontrado', 'error');
+                window.showNotification('Selecciona un producto', 'warning');
             }
             return;
         }
         
-        const container = document.getElementById('complete-trip-content');
-        
-        // Productos con stock restante
-        const remainingProducts = inventory.filter(item => (item.current_quantity || 0) > 0);
-        
-        container.innerHTML = `
-            <div style="margin-bottom: 2rem;">
-                <h4> Viaje: ${trip.trip_number}</h4>
-                <p><strong>Empleado:</strong> ${trip.employee_name}</p>
-                <p><strong>Fecha inicio:</strong> ${formatDate(trip.start_date || trip.created_at)}</p>
-            </div>
-            
-            ${remainingProducts.length > 0 ? `
-                <div style="margin-bottom: 2rem;">
-                    <h4>📦 Productos con stock restante</h4>
-                    <p style="color: var(--secondary-color); margin-bottom: 1rem;">
-                        Estos productos serán devueltos al almacén principal:
-                    </p>
-                    
-                    <table style="width: 100%; border-collapse: collapse;">
-                        <thead>
-                            <tr style="background: #f8fafc;">
-                                <th style="padding: 0.75rem; text-align: left; border: 1px solid var(--border-color);">Producto</th>
-                                <th style="padding: 0.75rem; text-align: center; border: 1px solid var(--border-color);">Stock Actual</th>
-                                <th style="padding: 0.75rem; text-align: center; border: 1px solid var(--border-color);">Devolver</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${remainingProducts.map(item => `
-                                <tr>
-                                    <td style="padding: 0.75rem; border: 1px solid var(--border-color);">
-                                        <strong>${item.product_code}</strong><br>
-                                        <small>${item.product_name}</small>
-                                    </td>
-                                    <td style="padding: 0.75rem; text-align: center; border: 1px solid var(--border-color);">
-                                        ${item.current_quantity}
-                                    </td>
-                                    <td style="padding: 0.75rem; text-align: center; border: 1px solid var(--border-color);">
-                                        <input type="number" 
-                                               id="return-qty-${item.product_id}" 
-                                               min="0" 
-                                               max="${item.current_quantity}" 
-                                               value="${item.current_quantity}"
-                                               style="width: 80px; padding: 0.5rem; text-align: center; border: 1px solid var(--border-color); border-radius: 4px;">
-                                    </td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                </div>
-            ` : `
-                <div style="text-align: center; padding: 2rem; background: #f0f9ff; border-radius: 8px; border: 1px solid #0ea5e9;">
-                    <h4 style="color: #0369a1; margin-bottom: 1rem;"> Perfecto!</h4>
-                    <p style="color: #0369a1;">Todos los productos han sido vendidos. No hay stock para devolver.</p>
-                </div>
-            `}
-            
-            <div style="background: #fef3c7; padding: 1rem; border-radius: 6px; border-left: 4px solid #f59e0b; margin-top: 1.5rem;">
-                <strong>⚠️ Importante:</strong> Al finalizar el viaje, no se podrán realizar más ventas desde este subalmacén.
-                Los productos restantes se devolverán automáticamente al almacén principal.
-            </div>
-        `;
-        
-        document.getElementById('complete-trip-modal').style.display = 'flex';
-        
-    } catch (error) {
-        console.error('❌ Error cargando datos para finalizar viaje:', error);
-        if (window.showNotification) {
-            window.showNotification('Error cargando datos del viaje: ' + error.message, 'error');
-        }
-    }
-}
-
-function closeCompleteTripModal() {
-    document.getElementById('complete-trip-modal').style.display = 'none';
-    currentTripForCompletion = null;
-}
-
-async function confirmCompleteTrip() {
-    if (!currentTripForCompletion) return;
-    
-    try {
-        // Obtener productos a devolver
-        const returnProducts = [];
-        const inventory = await getTripInventoryAPI(currentTripForCompletion);
-        
-        inventory.forEach(item => {
-            const returnQtyInput = document.getElementById(`return-qty-${item.product_id}`);
-            if (returnQtyInput) {
-                const returnQty = parseInt(returnQtyInput.value) || 0;
-                if (returnQty > 0) {
-                    returnProducts.push({
-                        product_id: item.product_id,
-                        quantity: returnQty
-                    });
-                }
+        if (!quantity || quantity <= 0) {
+            if (window.showNotification) {
+                window.showNotification('Ingresa una cantidad válida', 'warning');
             }
+            return;
+        }
+        
+        if (!price || price <= 0) {
+            if (window.showNotification) {
+                window.showNotification('Ingresa un precio válido', 'warning');
+            }
+            return;
+        }
+        
+        const selectedOption = productSelect.options[productSelect.selectedIndex];
+        const maxStock = parseInt(selectedOption.dataset.stock);
+        
+        if (quantity > maxStock) {
+            if (window.showNotification) {
+                window.showNotification(`Cantidad máxima disponible: ${maxStock}`, 'warning');
+            }
+            return;
+        }
+        
+        console.log('➕ Agregando producto al subalmacén:', { 
+            tripId: currentTripForProducts, 
+            productId, 
+            quantity, 
+            price 
         });
         
-        console.log('🏁 Finalizando viaje:', currentTripForCompletion, 'Productos a devolver:', returnProducts);
-        
         // Deshabilitar botón
-        const confirmBtn = document.querySelector('[onclick="confirmCompleteTrip()"]');
+        const confirmBtn = document.querySelector('[onclick="confirmAddProduct()"]');
         const originalText = confirmBtn.textContent;
         confirmBtn.disabled = true;
-        confirmBtn.textContent = '🔄 Finalizando...';
+        confirmBtn.textContent = '🔄 Agregando...';
         
         try {
-            const result = await completeTripAPI(currentTripForCompletion, returnProducts);
+            const result = await addProductToTripAPI(currentTripForProducts, {
+                product_id: productId,
+                quantity: quantity,
+                price: price
+            });
             
-            console.log('✅ Viaje finalizado exitosamente:', result);
+            console.log('✅ Producto agregado exitosamente:', result);
             
             if (window.showNotification) {
-                window.showNotification('Viaje finalizado exitosamente', 'success');
+                window.showNotification('Producto agregado al subalmacén exitosamente', 'success');
             }
             
             // Mostrar confirmación
-            alert(`✅ VIAJE FINALIZADO EXITOSAMENTE
+            const productName = selectedOption.dataset.name;
+            const productCode = selectedOption.dataset.code;
+            
+            alert(`✅ PRODUCTO AGREGADO AL SUBALMACÉN
 
-🏁 El viaje ha sido completado
-📦 Productos devueltos: ${returnProducts.length}
-📅 Fecha de finalización: ${new Date().toLocaleString()}
+ Producto: ${productCode} - ${productName}
+ Cantidad: ${quantity}
+ Precio: ${formatCurrency(price)}
+ Total transferido: ${formatCurrency(price * quantity)}
 
-Todos los productos restantes han sido devueltos al almacén principal.`);
+El producto ha sido transferido al subalmacén correctamente.`);
             
             // Cerrar modal y recargar
-            closeCompleteTripModal();
+            closeAddProductModal();
             await loadTrips();
             
         } finally {
@@ -894,13 +969,13 @@ Todos los productos restantes han sido devueltos al almacén principal.`);
         }
         
     } catch (error) {
-        console.error('❌ Error finalizando viaje:', error);
+        console.error('❌ Error agregando producto al subalmacén:', error);
         
         if (window.showNotification) {
-            window.showNotification('Error finalizando viaje: ' + error.message, 'error');
+            window.showNotification('Error agregando producto: ' + error.message, 'error');
         }
         
-        alert(`❌ Error al finalizar el viaje:
+        alert(`❌ Error al agregar el producto:
 
 ${error.message}
 
@@ -908,22 +983,114 @@ Verifica tu conexión e intenta nuevamente.`);
     }
 }
 
-// ===== OTRAS FUNCIONES =====
+// ===== FUNCIONES ADICIONALES =====
+async function addMoreProduct(tripId, productId) {
+    // Encontrar el producto en el almacén principal
+    const product = allProducts.find(p => p.id === productId);
+    if (!product) {
+        if (window.showNotification) {
+            window.showNotification('Producto no encontrado', 'error');
+        }
+        return;
+    }
+    
+    if (product.stock <= 0) {
+        if (window.showNotification) {
+            window.showNotification('No hay stock disponible en el almacén principal', 'warning');
+        }
+        return;
+    }
+    
+    const quantity = prompt(`Agregar más cantidad de ${product.name}\n\nStock disponible en almacén principal: ${product.stock}\n\n¿Cuántas unidades agregar?`, '1');
+    
+    if (!quantity || parseInt(quantity) <= 0) {
+        return;
+    }
+    
+    const qty = parseInt(quantity);
+    if (qty > product.stock) {
+        if (window.showNotification) {
+            window.showNotification(`Solo hay ${product.stock} unidades disponibles`, 'warning');
+        }
+        return;
+    }
+    
+    try {
+        const result = await addProductToTripAPI(tripId, {
+            product_id: productId,
+            quantity: qty,
+            price: product.price
+        });
+        
+        if (window.showNotification) {
+            window.showNotification(`${qty} unidades agregadas exitosamente`, 'success');
+        }
+        
+        await loadTrips();
+        
+    } catch (error) {
+        console.error('❌ Error agregando más producto:', error);
+        if (window.showNotification) {
+            window.showNotification('Error: ' + error.message, 'error');
+        }
+    }
+}
+
+async function removeProductFromTrip(tripId, productId) {
+    const trip = allTrips.find(t => t.id === tripId);
+    const inventory = trip?.substore_inventory || [];
+    const item = inventory.find(i => i.product_id === productId);
+    
+    if (!item) {
+        if (window.showNotification) {
+            window.showNotification('Producto no encontrado en el subalmacén', 'error');
+        }
+        return;
+    }
+    
+    if (item.current_quantity > 0) {
+        if (window.showNotification) {
+            window.showNotification('No se puede quitar un producto que aún tiene stock', 'warning');
+        }
+        return;
+    }
+    
+    if (!confirm(`¿Confirmar eliminación del producto "${item.product_name}" del subalmacén?\n\nEste producto ya no tiene stock disponible.`)) {
+        return;
+    }
+    
+    try {
+        await removeProductFromTripAPI(tripId, productId);
+        
+        if (window.showNotification) {
+            window.showNotification('Producto eliminado del subalmacén', 'success');
+        }
+        
+        await loadTrips();
+        
+    } catch (error) {
+        console.error('❌ Error removiendo producto:', error);
+        if (window.showNotification) {
+            window.showNotification('Error: ' + error.message, 'error');
+        }
+    }
+}
+
 async function loadTrips() {
     try {
-        console.log('🔄 Recargando viajes...');
+        console.log('🔄 Recargando subalmacenes...');
         
         const tripsData = await getTripsAPI();
         allTrips = tripsData || [];
         
         displayTrips();
         
-        console.log('✅ Viajes recargados:', allTrips.length);
+        console.log('✅ Subalmacenes recargados:', allTrips.length);
         
     } catch (error) {
-        console.error('❌ Error recargando viajes:', error);
+        console.error('❌ Error recargando subalmacenes:', error);
         if (window.showNotification) {
-            window.showNotification('Error al recargar viajes', 'error');
+            window.showNotification('Error al recargar subalmacenes', 'error');
         }
     }
 }
@@ -935,31 +1102,37 @@ function viewTripDetails(tripId) {
     const inventory = trip.substore_inventory || [];
     
     const details = `
-DETALLES DEL VIAJE
-==================
+DETALLES DEL SUBALMACÉN PERMANENTE
+==================================
 
 Número: ${trip.trip_number}
 Empleado: ${trip.employee_name} (${trip.employee_code})
 Inicio: ${formatDate(trip.start_date || trip.created_at)}
-Fin: ${trip.end_date ? formatDate(trip.end_date) : 'En curso'}
-Estado: ${trip.status === 'active' ? 'Activo' : 'Completado'}
+Estado: Activo
 Notas: ${trip.notes || 'Sin notas'}
 
-INVENTARIO:
-===========
+INVENTARIO ACTUAL:
+==================
 ${inventory.length > 0 ? inventory.map(item => 
     `• ${item.product_code} - ${item.product_name}
-  Inicial: ${item.initial_quantity || 0} | Actual: ${item.current_quantity || 0} | Vendido: ${item.sold_quantity || 0}`
+  Stock Actual: ${item.current_quantity || 0} | Total Vendido: ${item.sold_quantity || 0}
+  Precio: ${formatCurrency(item.price || 0)} | Valor en Stock: ${formatCurrency((item.current_quantity || 0) * (item.price || 0))}`
 ).join('\n\n') : 'Sin productos'}
 
 ESTADÍSTICAS:
 =============
-📦 Total productos: ${inventory.length}
-📊 Total inicial: ${inventory.reduce((sum, item) => sum + (item.initial_quantity || 0), 0)}
-📊 Total actual: ${inventory.reduce((sum, item) => sum + (item.current_quantity || 0), 0)}
-📊 Total vendido: ${inventory.reduce((sum, item) => sum + (item.sold_quantity || 0), 0)}
-💰 Valor actual: ${formatCurrency(inventory.reduce((sum, item) => sum + ((item.current_quantity || 0) * (item.price || 0)), 0))}
-💰 Valor vendido: ${formatCurrency(inventory.reduce((sum, item) => sum + ((item.sold_quantity || 0) * (item.price || 0)), 0))}
+ Tipos de productos: ${inventory.length}
+ Total en stock: ${inventory.reduce((sum, item) => sum + (item.current_quantity || 0), 0)}
+ Total vendido: ${inventory.reduce((sum, item) => sum + (item.sold_quantity || 0), 0)}
+ Valor actual: ${formatCurrency(inventory.reduce((sum, item) => sum + ((item.current_quantity || 0) * (item.price || 0)), 0))}
+ Total vendido: ${formatCurrency(inventory.reduce((sum, item) => sum + ((item.sold_quantity || 0) * (item.price || 0)), 0))}
+
+GESTIÓN:
+========
+- Este es un subalmacén permanente
+- Los productos se agregan dinámicamente
+- Cuando un producto se agota, se puede quitar del subalmacén
+- Se pueden agregar más unidades de productos existentes
     `;
     
     alert(details);
@@ -973,41 +1146,43 @@ function downloadTripReport(tripId) {
     
     // Crear contenido del reporte
     const reportContent = `
-REPORTE DE VIAJE - ${trip.trip_number}
-=====================================
+REPORTE DE SUBALMACÉN PERMANENTE - ${trip.trip_number}
+====================================================
 
 INFORMACIÓN GENERAL:
-- Viaje: ${trip.trip_number}
+- Subalmacén: ${trip.trip_number}
 - Empleado: ${trip.employee_name} (${trip.employee_code})
-- Estado: ${trip.status === 'active' ? 'Activo' : 'Completado'}
+- Estado: Activo
 - Fecha inicio: ${formatDate(trip.start_date || trip.created_at)}
-- Fecha fin: ${trip.end_date ? formatDate(trip.end_date) : 'En curso'}
 - Notas: ${trip.notes || 'Sin notas'}
 
 INVENTARIO DETALLADO:
 =====================
 ${inventory.map(item => `
 Producto: ${item.product_code} - ${item.product_name}
-- Cantidad inicial: ${item.initial_quantity || 0}
-- Cantidad actual: ${item.current_quantity || 0}
+- Cantidad en stock: ${item.current_quantity || 0}
 - Cantidad vendida: ${item.sold_quantity || 0}
-- Cantidad devuelta: ${item.returned_quantity || 0}
 - Precio unitario: ${formatCurrency(item.price || 0)}
-- Valor actual: ${formatCurrency((item.current_quantity || 0) * (item.price || 0))}
-- Valor vendido: ${formatCurrency((item.sold_quantity || 0) * (item.price || 0))}
+- Valor en stock: ${formatCurrency((item.current_quantity || 0) * (item.price || 0))}
+- Valor total vendido: ${formatCurrency((item.sold_quantity || 0) * (item.price || 0))}
 `).join('\n')}
 
 RESUMEN FINANCIERO:
 ==================
-- Total productos: ${inventory.length}
-- Unidades iniciales: ${inventory.reduce((sum, item) => sum + (item.initial_quantity || 0), 0)}
+- Total tipos de productos: ${inventory.length}
+- Unidades en stock: ${inventory.reduce((sum, item) => sum + (item.current_quantity || 0), 0)}
 - Unidades vendidas: ${inventory.reduce((sum, item) => sum + (item.sold_quantity || 0), 0)}
-- Unidades restantes: ${inventory.reduce((sum, item) => sum + (item.current_quantity || 0), 0)}
+- Valor total en stock: ${formatCurrency(inventory.reduce((sum, item) => sum + ((item.current_quantity || 0) * (item.price || 0)), 0))}
 - Valor total vendido: ${formatCurrency(inventory.reduce((sum, item) => sum + ((item.sold_quantity || 0) * (item.price || 0)), 0))}
-- Valor stock restante: ${formatCurrency(inventory.reduce((sum, item) => sum + ((item.current_quantity || 0) * (item.price || 0)), 0))}
+
+OBSERVACIONES:
+==============
+- Este es un subalmacén permanente que se mantiene activo de forma continua
+- Los productos se pueden agregar y quitar dinámicamente según las necesidades
+- Las ventas se descuentan automáticamente del inventario del subalmacén
 
 Reporte generado: ${new Date().toLocaleString()}
-Sistema de Aceites - Gestión de Subalmacenes
+Sistema de Aceites - Gestión de Subalmacenes Permanentes
     `.trim();
     
     // Descargar como archivo de texto
@@ -1015,7 +1190,7 @@ Sistema de Aceites - Gestión de Subalmacenes
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `Reporte_Viaje_${trip.trip_number}_${new Date().toISOString().split('T')[0]}.txt`;
+    a.download = `Reporte_Subalmacen_${trip.trip_number}_${new Date().toISOString().split('T')[0]}.txt`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -1124,11 +1299,13 @@ window.openNewTripModal = openNewTripModal;
 window.closeNewTripModal = closeNewTripModal;
 window.addProductToTrip = addProductToTrip;
 window.updateProductQuantity = updateProductQuantity;
-window.removeProductFromTrip = removeProductFromTrip;
+window.removeProductFromSelection = removeProductFromSelection;
 window.createTrip = createTrip;
-window.openCompleteTripModal = openCompleteTripModal;
-window.closeCompleteTripModal = closeCompleteTripModal;
-window.confirmCompleteTrip = confirmCompleteTrip;
+window.openAddProductModal = openAddProductModal;
+window.closeAddProductModal = closeAddProductModal;
+window.confirmAddProduct = confirmAddProduct;
+window.addMoreProduct = addMoreProduct;
+window.removeProductFromTrip = removeProductFromTrip;
 window.loadTrips = loadTrips;
 window.viewTripDetails = viewTripDetails;
 window.downloadTripReport = downloadTripReport;
@@ -1137,4 +1314,4 @@ window.clearFilters = clearFilters;
 window.testBasicConnectivity = testBasicConnectivity;
 window.initializeSubalmacenes = initializeSubalmacenes;
 
-console.log('✅ Subalmacenes.js inicializado correctamente');
+console.log('✅ Subalmacenes Permanentes.js inicializado correctamente');

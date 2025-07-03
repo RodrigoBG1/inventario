@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Subalmacenes - Sistema de Aceites</title>
+    <title>Subalmacenes Permanentes - Sistema de Aceites</title>
     <link rel="stylesheet" href="../css/style.css">
     <link rel="stylesheet" href="../css/admin.css">
     <style>
-        /* Estilos específicos para subalmacenes */
+        /* Estilos específicos para subalmacenes permanentes */
         .substore-container {
             background: white;
             border-radius: 8px;
@@ -23,6 +23,16 @@
             margin-bottom: 1rem;
             box-shadow: var(--shadow);
             border-left: 4px solid var(--primary-color);
+            position: relative;
+        }
+
+        .trip-card::before {
+            content: '🚛';
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            font-size: 1.5rem;
+            opacity: 0.3;
         }
 
         .trip-header {
@@ -56,13 +66,10 @@
         }
 
         .status-active {
-            background: #d1fae5;
+            background: linear-gradient(135deg, #d1fae5, #a7f3d0);
             color: #065f46;
-        }
-
-        .status-completed {
-            background: #e0e7ff;
-            color: #3730a3;
+            border: 1px solid #10b981;
+            box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
         }
 
         .trip-stats {
@@ -77,6 +84,14 @@
             padding: 1rem;
             background: #f8fafc;
             border-radius: 6px;
+            border: 1px solid #e2e8f0;
+            transition: all 0.2s ease;
+        }
+
+        .stat-item:hover {
+            background: #f1f5f9;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
         }
 
         .stat-value {
@@ -96,32 +111,74 @@
         .inventory-table {
             width: 100%;
             margin-top: 1rem;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
         }
 
         .inventory-table th {
-            background: #f8fafc;
-            color: var(--text-color);
+            background: linear-gradient(135deg, #2563eb, #3b82f6);
+            color: white;
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
             font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         .inventory-table td {
+            padding: 1rem;
+            border-bottom: 1px solid #e2e8f0;
             font-size: 0.875rem;
+            vertical-align: middle;
+        }
+
+        .inventory-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .inventory-table tr:hover {
+            background: #f8fafc;
         }
 
         .quantity-warning {
             color: var(--warning-color);
             font-weight: 600;
+            background: #fef3c7;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
         }
 
         .quantity-danger {
             color: var(--danger-color);
             font-weight: 600;
+            background: #fee2e2;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
         }
 
         .trip-actions {
             display: flex;
             gap: 0.5rem;
             flex-wrap: wrap;
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+            border: none;
+        }
+
+        .btn-success:hover {
+            background: linear-gradient(135deg, #059669, #047857);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(16, 185, 129, 0.3);
         }
 
         .modal-overlay {
@@ -131,6 +188,7 @@
             width: 100%;
             height: 100%;
             background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
             display: none;
             align-items: center;
             justify-content: center;
@@ -139,12 +197,24 @@
 
         .modal-content {
             background: white;
-            border-radius: 8px;
+            border-radius: 12px;
             width: 90%;
             max-width: 800px;
             max-height: 90vh;
             overflow-y: auto;
-            box-shadow: var(--shadow);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            animation: modalAppear 0.3s ease-out;
+        }
+
+        @keyframes modalAppear {
+            from {
+                opacity: 0;
+                transform: scale(0.95) translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
         }
 
         .modal-header {
@@ -153,6 +223,15 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            background: linear-gradient(135deg, #f8fafc, #e2e8f0);
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            color: var(--primary-color);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
         }
 
         .modal-body {
@@ -165,6 +244,7 @@
             display: flex;
             justify-content: flex-end;
             gap: 1rem;
+            background: #f8fafc;
         }
 
         .product-selector {
@@ -172,6 +252,7 @@
             border-radius: 8px;
             padding: 1rem;
             margin-bottom: 1rem;
+            background: #f8fafc;
         }
 
         .product-item {
@@ -182,7 +263,13 @@
             border: 1px solid var(--border-color);
             border-radius: 6px;
             margin-bottom: 0.5rem;
-            background: #f8fafc;
+            background: white;
+            transition: all 0.2s ease;
+        }
+
+        .product-item:hover {
+            border-color: var(--primary-color);
+            box-shadow: 0 2px 4px rgba(59, 130, 246, 0.1);
         }
 
         .product-item:last-child {
@@ -213,6 +300,70 @@
             text-align: center;
         }
 
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: var(--secondary-color);
+        }
+
+        .empty-state h3 {
+            color: var(--primary-color);
+            margin-bottom: 1rem;
+        }
+
+        .permanent-badge {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-left: 0.5rem;
+        }
+
+        .action-btn-small {
+            padding: 0.375rem 0.75rem;
+            font-size: 0.75rem;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+            min-width: 60px;
+        }
+
+        .action-btn-small:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-add {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+        }
+
+        .btn-remove {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            color: white;
+        }
+
+        .info-banner {
+            background: linear-gradient(135deg, #dbeafe, #bfdbfe);
+            border: 1px solid #3b82f6;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            color: #1e40af;
+        }
+
+        .info-banner strong {
+            color: #1d4ed8;
+        }
+
         @media (max-width: 768px) {
             .trip-header {
                 flex-direction: column;
@@ -231,6 +382,15 @@
             .modal-content {
                 width: 95%;
                 margin: 1rem;
+            }
+
+            .inventory-table {
+                font-size: 0.8rem;
+            }
+
+            .inventory-table th,
+            .inventory-table td {
+                padding: 0.5rem;
             }
         }
     </style>
@@ -255,60 +415,56 @@
 
         <main class="main-content">
             <header class="content-header">
-                <h1>Gestión de Subalmacenes</h1>
+                <h1> Gestión de Subalmacenes Permanentes</h1>
                 <div class="header-actions">
                     <button class="btn btn-primary" onclick="openNewTripModal()">
-                        Nuevo Viaje
+                         Nuevo Subalmacén
                     </button>
                     <button class="btn btn-secondary" onclick="loadTrips()">
-                        Actualizar
+                         Actualizar
                     </button>
                 </div>
             </header>
+
 
             <!-- Filtros -->
             <div class="substore-container">
                 <div style="padding: 1rem; border-bottom: 1px solid var(--border-color);">
                     <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
-                        <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
-                            <label for="status-filter" style="margin-right: 0.5rem;">Estado:</label>
-                            <select style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;" id="status-filter" onchange="filterTrips()">
-                                <option value="">Todos</option>
-                                <option value="active">Activos</option>
-                                <option value="completed">Completados</option>
-                            </select>
-                        </div>
                         <div>
-                            <label for="employee-filter" style="margin-right: 0.5rem;">Empleado:</label>
+                            <label for="employee-filter" style="margin-right: 0.5rem;"> Empleado:</label>
                             <select id="employee-filter" onchange="filterTrips()">
-                                <option value="">Todos</option>
+                                <option value="">Todos los empleados</option>
                                 <!-- Se llena dinámicamente -->
                             </select>
+                        </div>
+                        <div style="color: var(--secondary-color); font-size: 0.875rem;">
+                             Solo se muestran subalmacenes activos (permanentes)
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Lista de Viajes -->
+            <!-- Lista de Subalmacenes -->
             <div id="trips-container">
                 <div style="text-align: center; padding: 2rem; color: var(--secondary-color);">
-                    Cargando viajes...
+                     Cargando subalmacenes...
                 </div>
             </div>
         </main>
     </div>
 
-    <!-- Modal para Nuevo Viaje -->
+    <!-- Modal para Nuevo Subalmacén -->
     <div id="new-trip-modal" class="modal-overlay">
         <div class="modal-content">
             <div class="modal-header">
-                <h3>Crear Nuevo Viaje</h3>
-                <button onclick="closeNewTripModal()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">&times;</button>
+                <h3> Crear Nuevo Subalmacén Permanente</h3>
+                <button onclick="closeNewTripModal()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--secondary-color);">&times;</button>
             </div>
             <div class="modal-body">
                 <form id="new-trip-form">
                     <div class="form-group">
-                        <label for="trip-employee">vendedor:</label>
+                        <label for="trip-employee"> Vendedor Asignado:</label>
                         <select id="trip-employee" required>
                             <option value="">Seleccionar vendedor...</option>
                             <!-- Se llena dinámicamente -->
@@ -316,12 +472,12 @@
                     </div>
 
                     <div class="form-group">
-                        <label for="trip-notes">Notas del viaje:</label>
-                        <textarea id="trip-notes" rows="3" placeholder="Ruta, destinos, observaciones..."></textarea>
+                        <label for="trip-notes"> Notas del subalmacén:</label>
+                        <textarea id="trip-notes" rows="3" placeholder="Zona de trabajo, rutas asignadas, observaciones..."></textarea>
                     </div>
 
                     <div class="form-group">
-                        <label>Productos a cargar:</label>
+                        <label>📦 Productos iniciales a cargar:</label>
                         <div class="product-selector">
                             <div style="margin-bottom: 1rem;">
                                 <select id="product-select">
@@ -329,12 +485,12 @@
                                     <!-- Se llena dinámicamente -->
                                 </select>
                                 <button type="button" onclick="addProductToTrip()" class="btn btn-sm btn-primary" style="margin-left: 0.5rem;">
-                                    Agregar
+                                     Agregar
                                 </button>
                             </div>
                             <div id="selected-products">
                                 <div style="text-align: center; color: var(--secondary-color); font-style: italic;">
-                                    No hay productos seleccionados
+                                     No hay productos seleccionados
                                 </div>
                             </div>
                         </div>
@@ -343,33 +499,33 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" onclick="closeNewTripModal()">
-                    Cancelar
+                     Cancelar
                 </button>
                 <button type="button" class="btn btn-primary" onclick="createTrip()">
-                    Crear Viaje
+                     Crear Subalmacén 
                 </button>
             </div>
         </div>
     </div>
 
-    <!-- Modal para Finalizar Viaje -->
-    <div id="complete-trip-modal" class="modal-overlay">
+    <!-- Modal para Agregar Producto -->
+    <div id="add-product-modal" class="modal-overlay">
         <div class="modal-content">
             <div class="modal-header">
-                <h3>Finalizar Viaje</h3>
-                <button onclick="closeCompleteTripModal()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">&times;</button>
+                <h3> Agregar Producto al Subalmacén</h3>
+                <button onclick="closeAddProductModal()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--secondary-color);">&times;</button>
             </div>
             <div class="modal-body">
-                <div id="complete-trip-content">
+                <div id="add-product-content">
                     <!-- Se llena dinámicamente -->
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="closeCompleteTripModal()">
-                    Cancelar
+                <button type="button" class="btn btn-secondary" onclick="closeAddProductModal()">
+                     Cancelar
                 </button>
-                <button type="button" class="btn btn-primary" onclick="confirmCompleteTrip()">
-                    Finalizar Viaje
+                <button type="button" class="btn btn-success" onclick="confirmAddProduct()">
+                     Agregar Producto
                 </button>
             </div>
         </div>

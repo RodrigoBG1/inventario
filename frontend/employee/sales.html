@@ -465,11 +465,11 @@
                 setTimeout(() => {
                     alert(`✅ ABONO REGISTRADO EXITOSAMENTE
 
-💰 Monto: ${formatCurrency(amount)}
-💳 Método: ${paymentMethod}
-👤 Cliente: ${currentOrder.client_info?.name || 'Sin cliente'}
-📋 Orden: ${currentOrder.order_number || `#${currentOrder.id}`}
-💵 Nuevo saldo: ${formatCurrency(newBalance)}
+ Monto: ${formatCurrency(amount)}
+ Método: ${paymentMethod}
+ Cliente: ${currentOrder.client_info?.name || 'Sin cliente'}
+ Orden: ${currentOrder.order_number || `#${currentOrder.id}`}
+ Nuevo saldo: ${formatCurrency(newBalance)}
 ${isFullyPaid ? '🎉 ¡ORDEN COMPLETAMENTE PAGADA!' : ''}
 
 ¡Gracias por registrar el pago!`);
@@ -517,12 +517,12 @@ Verifica la información e intenta nuevamente.`);
             
             const details = `📋 DETALLES DE LA ORDEN
 
-🔢 Número: ${order.order_number || `#${order.id}`}
-👤 Cliente: ${order.client_info?.name || 'Sin cliente'}
-📞 Teléfono: ${order.client_info?.phone || 'No especificado'}
-📍 Dirección: ${order.client_info?.address || 'No especificada'}
-📅 Fecha: ${formatDate(order.created_at)}
-📦 Estado: ${order.status === 'confirmed' ? 'Confirmada' : 'Pendiente'}
+ Número: ${order.order_number || `#${order.id}`}
+ Cliente: ${order.client_info?.name || 'Sin cliente'}
+ Teléfono: ${order.client_info?.phone || 'No especificado'}
+ Dirección: ${order.client_info?.address || 'No especificada'}
+ Fecha: ${formatDate(order.created_at)}
+ Estado: ${order.status === 'confirmed' ? 'Confirmada' : 'Pendiente'}
 
 💰 INFORMACIÓN DE PAGOS:
 • Total: ${formatCurrency(total)}
