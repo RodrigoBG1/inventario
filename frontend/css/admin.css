@@ -266,7 +266,7 @@
 }
 
 
-/* Estilos para empleados */
+/* Estilos para vendedors */
 .role-badge {
     padding: 0.25rem 0.5rem;
     border-radius: 12px;
@@ -1401,7 +1401,7 @@
         color: #333;
     }
 
-    /* Información del empleado para impresión */
+    /* Información del vendedor para impresión */
     .employee-print-info {
         display: grid;
         grid-template-columns: repeat(3, 1fr);
@@ -1632,7 +1632,7 @@
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
 }
 
-/* Header con información del empleado mejorado */
+/* Header con información del vendedor mejorado */
 .employee-info-header {
     background: linear-gradient(135deg, #f8fafc, #e2e8f0);
     padding: 1.5rem;

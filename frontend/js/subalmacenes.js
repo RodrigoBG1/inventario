@@ -481,21 +481,21 @@ function getQuantityClass(quantity) {
 
 // ===== FILTROS =====
 function populateEmployeeSelectors() {
-    console.log('👥 Poblando selectores de empleados...');
+    console.log('👥 Poblando selectores de vendedors...');
     
     const employeeFilter = document.getElementById('employee-filter');
     const tripEmployee = document.getElementById('trip-employee');
     
-    // Filtrar solo empleados (no admins)
+    // Filtrar solo vendedors (no admins)
     const employees = allEmployees.filter(emp => emp.role === 'employee');
     
-    console.log('👥 Empleados encontrados:', employees.length);
+    console.log('👥 vendedors encontrados:', employees.length);
     
     if (employees.length === 0) {
-        console.warn('⚠️ No hay empleados disponibles');
+        console.warn('⚠️ No hay vendedors disponibles');
         
         // Mostrar mensaje en los selectores
-        const noEmployeesOption = '<option value="">No hay empleados disponibles</option>';
+        const noEmployeesOption = '<option value="">No hay vendedors disponibles</option>';
         
         if (employeeFilter) {
             employeeFilter.innerHTML = '<option value="">Todos</option>' + noEmployeesOption;
@@ -518,7 +518,7 @@ function populateEmployeeSelectors() {
     }
     
     if (tripEmployee) {
-        tripEmployee.innerHTML = '<option value="">Seleccionar empleado...</option>' + employeeOptions;
+        tripEmployee.innerHTML = '<option value="">Seleccionar vendedor...</option>' + employeeOptions;
         console.log('✅ Trip employee selector poblado');
     }
 }
@@ -694,7 +694,7 @@ async function createTrip() {
         // Validaciones
         if (!employeeId) {
             if (window.showNotification) {
-                window.showNotification('Selecciona un empleado', 'warning');
+                window.showNotification('Selecciona un vendedor', 'warning');
             }
             return;
         }
@@ -706,11 +706,11 @@ async function createTrip() {
             return;
         }
         
-        // Obtener información del empleado
+        // Obtener información del vendedor
         const employee = allEmployees.find(emp => emp.id === parseInt(employeeId));
         if (!employee) {
             if (window.showNotification) {
-                window.showNotification('Empleado no encontrado', 'error');
+                window.showNotification('vendedor no encontrado', 'error');
             }
             return;
         }
@@ -748,11 +748,11 @@ async function createTrip() {
             alert(`✅ SUBALMACÉN PERMANENTE CREADO
 
  Número: ${result.trip.trip_number}
- Empleado: ${employee.name}
+ vendedor: ${employee.name}
  Productos: ${selectedProducts.length}
  Notas: ${notes || 'Sin notas'}
 
-Los productos han sido transferidos al subalmacén del empleado.
+Los productos han sido transferidos al subalmacén del vendedor.
 Este subalmacén permanecerá activo de forma permanente.`);
             
             // Cerrar modal y recargar
@@ -777,7 +777,7 @@ Este subalmacén permanecerá activo de forma permanente.`);
 ${error.message}
 
 Verifica que:
-- El empleado seleccionado existe
+- El vendedor seleccionado existe
 - Hay suficiente stock de todos los productos
 - Tu conexión a internet funciona correctamente
 
@@ -820,7 +820,7 @@ function openAddProductModal(tripId) {
         container.innerHTML = `
             <div style="margin-bottom: 2rem;">
                 <h4>Subalmacén: ${trip.trip_number}</h4>
-                <p><strong>Empleado:</strong> ${trip.employee_name}</p>
+                <p><strong>vendedor:</strong> ${trip.employee_name}</p>
                 <p style="color: var(--secondary-color);">Selecciona un producto para agregar al subalmacén:</p>
             </div>
             
@@ -1106,7 +1106,7 @@ DETALLES DEL SUBALMACÉN PERMANENTE
 ==================================
 
 Número: ${trip.trip_number}
-Empleado: ${trip.employee_name} (${trip.employee_code})
+vendedor: ${trip.employee_name} (${trip.employee_code})
 Inicio: ${formatDate(trip.start_date || trip.created_at)}
 Estado: Activo
 Notas: ${trip.notes || 'Sin notas'}
@@ -1151,7 +1151,7 @@ REPORTE DE SUBALMACÉN PERMANENTE - ${trip.trip_number}
 
 INFORMACIÓN GENERAL:
 - Subalmacén: ${trip.trip_number}
-- Empleado: ${trip.employee_name} (${trip.employee_code})
+- vendedor: ${trip.employee_name} (${trip.employee_code})
 - Estado: Activo
 - Fecha inicio: ${formatDate(trip.start_date || trip.created_at)}
 - Notas: ${trip.notes || 'Sin notas'}

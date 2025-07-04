@@ -11,7 +11,7 @@
     <div class="employee-container">
         <nav class="sidebar" id="sidebar">
             <div class="sidebar-header">
-                <h2>Panel Empleado</h2>
+                <h2>Panel vendedor</h2>
                 <span id="user-name"></span>
             </div>
             <ul class="nav-menu">
@@ -151,7 +151,7 @@
     <script src="../js/api.js"></script>
     
     <script>
-        console.log('💰 Iniciando página de pagos para empleados');
+        console.log('💰 Iniciando página de pagos para vendedors');
 
         // Variables globales
         let currentOrders = [];
@@ -166,7 +166,7 @@
             if (!user) return;
             
             if (user.role !== 'employee') {
-                alert('Esta página es solo para empleados.');
+                alert('Esta página es solo para vendedors.');
                 window.location.href = '/';
                 return;
             }
@@ -203,7 +203,7 @@
             try {
                 console.log('🔍 Buscando órdenes para cliente:', searchTerm);
                 
-                // Obtener órdenes del empleado
+                // Obtener órdenes del vendedor
                 const response = await fetch(`${window.API_BASE_URL}/api/orders`, {
                     headers: {
                         'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -692,7 +692,7 @@ ${productsList || 'Sin productos'}
         window.toggleMobileMenu = toggleMobileMenu;
         window.logout = logout;
 
-        console.log('✅ Página de pagos para empleados inicializada correctamente');
+        console.log('✅ Página de pagos para vendedors inicializada correctamente');
     </script>
 
     <style>

@@ -57,7 +57,7 @@ function ensureOrderDetailsModal() {
                             <td id="clientAddress">-</td>
                         </tr>
                         <tr>
-                            <th>Empleado</th>
+                            <th>vendedor</th>
                             <td id="employeeName">-</td>
                         </tr>
                         <tr>
@@ -122,7 +122,7 @@ function ensureOrderDetailsModal() {
                 <div class="order-section">
                     <h3 class="section-title">
                         <span class="section-icon">📝</span>
-                        Notas del Empleado
+                        Notas del vendedor
                     </h3>
                     <div class="notes-content" id="orderNotes">
                         <span class="no-notes">Sin notas adicionales</span>
@@ -1156,7 +1156,7 @@ function printOrder(orderId) {
             <div class="section">
                 <h3>Información Adicional</h3>
                 <table>
-                    <tr><th>Empleado:</th><td>${currentOrderData.employee_name || currentOrderData.employee_code || 'N/A'}</td></tr>
+                    <tr><th>vendedor:</th><td>${currentOrderData.employee_name || currentOrderData.employee_code || 'N/A'}</td></tr>
                     ${currentOrderData.location ? `<tr><th>Ubicación:</th><td>${currentOrderData.location.latitude.toFixed(6)}, ${currentOrderData.location.longitude.toFixed(6)}</td></tr>` : ''}
                     <tr><th>Fecha de Impresión:</th><td>${formatDate(new Date().toISOString())}</td></tr>
                 </table>

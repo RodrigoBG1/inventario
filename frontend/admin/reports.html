@@ -439,7 +439,7 @@
             <div class="report-container">
                 <div class="report-header">
                     <h1> Reporte de Ventas y Cobranzas</h1>
-                    <p>Genera reportes detallados de ventas diarias por empleado</p>
+                    <p>Genera reportes detallados de ventas diarias por vendedor</p>
                 </div>
 
                 <div class="report-controls">
@@ -450,9 +450,9 @@
                         </div>
 
                         <div class="control-group">
-                            <label for="employee-select"> Empleado</label>
+                            <label for="employee-select"> vendedor</label>
                             <select id="employee-select" required>
-                                <option value="">Seleccionar empleado...</option>
+                                <option value="">Seleccionar vendedor...</option>
                             </select>
                         </div>
                     </div>
@@ -515,23 +515,23 @@
             const today = new Date().toISOString().split('T')[0];
             document.getElementById('report-date').value = today;
             
-            // Cargar empleados
+            // Cargar vendedors
             loadEmployees();
             
             console.log('✅ Página de reportes inicializada');
         });
 
-        // Cargar lista de empleados
+        // Cargar lista de vendedors
         async function loadEmployees() {
             try {
-                console.log('👥 Cargando empleados...');
+                console.log('👥 Cargando vendedors...');
                 
                 currentEmployees = await window.getEmployees();
                 
                 const employeeSelect = document.getElementById('employee-select');
-                employeeSelect.innerHTML = '<option value="">Seleccionar empleado...</option>';
+                employeeSelect.innerHTML = '<option value="">Seleccionar vendedor...</option>';
                 
-                // Filtrar solo empleados (no admins)
+                // Filtrar solo vendedors (no admins)
                 const employees = currentEmployees.filter(emp => emp.role === 'employee');
                 
                 employees.forEach(employee => {
@@ -541,11 +541,11 @@
                     employeeSelect.appendChild(option);
                 });
                 
-                console.log('✅ Empleados cargados:', employees.length);
+                console.log('✅ vendedors cargados:', employees.length);
                 
             } catch (error) {
-                console.error('❌ Error cargando empleados:', error);
-                showNotification('Error al cargar empleados: ' + error.message, 'error');
+                console.error('❌ Error cargando vendedors:', error);
+                showNotification('Error al cargar vendedors: ' + error.message, 'error');
             }
         }
 
@@ -555,7 +555,7 @@
             const employeeId = document.getElementById('employee-select').value;
             
             if (!date || !employeeId) {
-                showNotification('Por favor selecciona fecha y empleado', 'warning');
+                showNotification('Por favor selecciona fecha y vendedor', 'warning');
                 return;
             }
             
@@ -626,20 +626,20 @@
             
             // Actualizar título del modal
             document.getElementById('modalTitle').textContent = 
-                `Reporte de ${employee?.name || 'Empleado'} - ${reportDate}`;
+                `Reporte de ${employee?.name || 'vendedor'} - ${reportDate}`;
             
             const reportContent = document.getElementById('reportContent');
             
             reportContent.innerHTML = `
-                <!-- Información del empleado -->
+                <!-- Información del vendedor -->
                 <div class="report-section">
                     <div class="section-title">
                         <span class="section-icon"></span>
-                        Información del Empleado
+                        Información del vendedor
                     </div>
                     <div class="summary-grid">
                         <div class="summary-card">
-                            <h4>Empleado</h4>
+                            <h4>vendedor</h4>
                             <p class="summary-amount" style="font-size: 1.2rem;">${employee?.name || 'N/A'}</p>
                         </div>
                         <div class="summary-card">
@@ -688,7 +688,7 @@
                 return `
                     <div class="no-data">
                         <h3>📝 No hay ventas registradas</h3>
-                        <p>No se encontraron ventas para este empleado en la fecha seleccionada</p>
+                        <p>No se encontraron ventas para este vendedor en la fecha seleccionada</p>
                     </div>
                 `;
             }
@@ -743,7 +743,7 @@
                 return `
                     <div class="no-data">
                         <h3>💳 No hay cobranzas registradas</h3>
-                        <p>No se encontraron pagos registrados por este empleado en la fecha seleccionada</p>
+                        <p>No se encontraron pagos registrados por este vendedor en la fecha seleccionada</p>
                     </div>
                 `;
             }

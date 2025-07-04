@@ -1,4 +1,4 @@
-// Funciones específicas para el panel de empleados - VERSIÓN CORREGIDA
+// Funciones específicas para el panel de vendedors - VERSIÓN CORREGIDA
 
 console.log('📋 employee.js cargado - versión no conflictiva');
 
@@ -16,7 +16,7 @@ if (!isOrdersPage) {
     
     // Inicialización SOLO para páginas que no sean orders
     document.addEventListener('DOMContentLoaded', function() {
-        console.log('📋 DOM cargado, iniciando panel empleado...');
+        console.log('📋 DOM cargado, iniciando panel vendedor...');
         
         const currentPage = window.location.pathname;
         console.log('📄 Página actual:', currentPage);
@@ -27,7 +27,7 @@ if (!isOrdersPage) {
         
         // Cargar datos según la página
         if (currentPage.includes('dashboard.html')) {
-            console.log('📊 Cargando dashboard empleado...');
+            console.log('📊 Cargando dashboard vendedor...');
             setTimeout(loadEmployeeDashboard, 1000);
         } else if (currentPage.includes('sales.html')) {
             console.log('💰 Cargando página de ventas...');
@@ -39,7 +39,7 @@ if (!isOrdersPage) {
     console.log('⏭️ Saltando inicialización de employee.js - estamos en orders.html');
 }
 
-// ===== DASHBOARD EMPLEADO =====
+// ===== DASHBOARD vendedor =====
 async function loadEmployeeDashboard() {
     if (isOrdersPage) return; // Seguridad adicional
     
@@ -58,12 +58,12 @@ async function loadEmployeeDashboard() {
         orders = ordersData || [];
         employeeMySales = salesData || [];
         
-        // Actualizar estadísticas del empleado
-        console.log('📊 Actualizando estadísticas del empleado...');
+        // Actualizar estadísticas del vendedor
+        console.log('📊 Actualizando estadísticas del vendedor...');
         updateEmployeeStats();
         updateRecentActivity();
         
-        console.log('✅ Dashboard del empleado cargado exitosamente');
+        console.log('✅ Dashboard del vendedor cargado exitosamente');
         if (window.showNotification) {
             window.showNotification('Dashboard cargado correctamente', 'success');
         }
@@ -195,7 +195,7 @@ async function getCurrentLocationForEmployee() {
 async function loadSalesPage() {
     if (isOrdersPage) return;
     
-    console.log('💰 Cargando página de ventas del empleado...');
+    console.log('💰 Cargando página de ventas del vendedor...');
     try {
         employeeMySales = await window.getSales();
         displayMySales();

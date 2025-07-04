@@ -53,12 +53,12 @@ function requireAdmin() {
     return true;
 }
 
-// Función para verificar si el usuario puede acceder (admin O empleado)
+// Función para verificar si el usuario puede acceder (admin O vendedor)
 function requireAuth() {
     const user = checkAuth();
     if (!user) return false;
     
-    // Permitir acceso a tanto admin como empleado
+    // Permitir acceso a tanto admin como vendedor
     if (user.role !== 'admin' && user.role !== 'employee') {
         alert('Acceso denegado. Sesión inválida.');
         window.location.href = '/';
@@ -344,7 +344,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Páginas de admin requieren rol de administrador
         if (!requireAdmin()) return;
     } else if (currentPage.includes('/employee/')) {
-        // Páginas de empleado solo requieren estar autenticado
+        // Páginas de vendedor solo requieren estar autenticado
         if (!requireAuth()) return;
     }
     
@@ -354,7 +354,7 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log('📊 Cargando dashboard admin...');
             setTimeout(loadDashboardData, 1000);
         } else {
-            console.log('📊 Cargando dashboard empleado...');
+            console.log('📊 Cargando dashboard vendedor...');
             setTimeout(loadEmployeeDashboard, 1000);
         }
     } else if (currentPage.includes('products.html')) {
@@ -391,9 +391,9 @@ async function loadDashboardData() {
         const productsData = await window.getProducts();
         console.log('📦 Productos obtenidos:', productsData?.length || 0);
         
-        console.log('👥 Obteniendo empleados...');
+        console.log('👥 Obteniendo vendedors...');
         const employeesData = await window.getEmployees();
-        console.log('👥 Empleados obtenidos:', employeesData?.length || 0);
+        console.log('👥 vendedors obtenidos:', employeesData?.length || 0);
         
         console.log('📋 Obteniendo pedidos...');
         const ordersData = await window.getOrders();
@@ -434,7 +434,7 @@ async function loadDashboardData() {
     }
 }
 
-// ===== DASHBOARD EMPLEADO =====
+// ===== DASHBOARD vendedor =====
 async function loadEmployeeDashboard() {
     console.log('📊 loadEmployeeDashboard() iniciando...');
     
@@ -455,12 +455,12 @@ async function loadEmployeeDashboard() {
         orders = window.adminOrders;
         sales = window.adminSales;
         
-        // Actualizar estadísticas del empleado
-        console.log('📊 Actualizando estadísticas del empleado...');
+        // Actualizar estadísticas del vendedor
+        console.log('📊 Actualizando estadísticas del vendedor...');
         updateEmployeeStats();
         updateRecentActivity();
         
-        console.log('✅ Dashboard del empleado cargado exitosamente');
+        console.log('✅ Dashboard del vendedor cargado exitosamente');
         if (window.showNotification) {
             window.showNotification('Dashboard cargado correctamente', 'success');
         }
@@ -473,7 +473,7 @@ async function loadEmployeeDashboard() {
     }
 }
 
-// ===== FUNCIONES DE EMPLEADO =====
+// ===== FUNCIONES DE vendedor =====
 function updateEmployeeStats() {
     // Pedidos de hoy
     const today = new Date().toDateString();
@@ -549,11 +549,11 @@ function updateRecentActivity() {
 }
 
 function loadEmployeeOrdersPage() {
-    console.log('📋 Cargando página de pedidos del empleado...');
+    console.log('📋 Cargando página de pedidos del vendedor...');
 }
 
 function loadSalesPage() {
-    console.log('💰 Cargando página de ventas del empleado...');
+    console.log('💰 Cargando página de ventas del vendedor...');
 }
 
 function getUser() {
@@ -626,7 +626,7 @@ function updateDashboardStats() {
         pedidos_no_pagados: notPaidOrders,
         pedidos_pagados: paidOrders,
         ventas_mes: monthlySales,
-        empleados_activos: activeEmployees
+        vendedors_activos: activeEmployees
     });
 }
 
@@ -847,7 +847,7 @@ async function deleteProductConfirm(productId) {
     }
 }
 
-// ===== EMPLEADOS =====
+// ===== vendedorS =====
 async function loadEmployeesPage() {
     try {
         window.adminEmployees = await window.getEmployees();
@@ -856,7 +856,7 @@ async function loadEmployeesPage() {
     } catch (error) {
         console.error('Error loading employees:', error);
         if (window.showNotification) {
-            window.showNotification('Error al cargar empleados: ' + error.message, 'error');
+            window.showNotification('Error al cargar vendedors: ' + error.message, 'error');
         }
     }
 }
@@ -864,17 +864,17 @@ async function loadEmployeesPage() {
 function displayEmployees() {
     const tbody = document.querySelector('#employees-table tbody');
     if (!tbody) {
-        console.error('Tabla de empleados no encontrada');
+        console.error('Tabla de vendedors no encontrada');
         return;
     }
     
-    console.log('📋 Mostrando empleados:', employees.length);
+    console.log('📋 Mostrando vendedors:', employees.length);
     
     if (employees.length === 0) {
         tbody.innerHTML = `
             <tr>
                 <td colspan="7" style="text-align: center; padding: 2rem; color: #64748b;">
-                    👥 No hay empleados registrados
+                    👥 No hay vendedors registrados
                 </td>
             </tr>
         `;
@@ -887,7 +887,7 @@ function displayEmployees() {
             <td>${employee.name}</td>
             <td>
                 <span class="role-badge role-${employee.role}">
-                    ${employee.role === 'admin' ? '👑 Admin' : '👤 Empleado'}
+                    ${employee.role === 'admin' ? ' Admin' : ' vendedor'}
                 </span>
             </td>
             <td>${Array.isArray(employee.routes) ? employee.routes.join(', ') : (employee.routes || 'Sin rutas')}</td>
@@ -895,11 +895,11 @@ function displayEmployees() {
             <td>${window.formatDate ? window.formatDate(employee.created_at) : employee.created_at}</td>
             <td>
                 <div class="action-buttons">
-                    <button class="btn btn-sm btn-edit" onclick="editEmployee(${employee.id})" title="Editar empleado">
+                    <button class="btn btn-sm btn-edit" onclick="editEmployee(${employee.id})" title="Editar vendedor">
                          Editar
                     </button>
                     ${employee.role !== 'admin' ? `
-                        <button class="btn btn-sm btn-danger" onclick="deleteEmployeeConfirm(${employee.id})" title="Eliminar empleado">
+                        <button class="btn btn-sm btn-danger" onclick="deleteEmployeeConfirm(${employee.id})" title="Eliminar vendedor">
                              Elimin
                         </button>
                     ` : ''}
@@ -914,7 +914,7 @@ async function deleteEmployeeConfirm(employeeId) {
     
     if (!employee) {
         if (window.showNotification) {
-            window.showNotification('Empleado no encontrado', 'error');
+            window.showNotification('vendedor no encontrado', 'error');
         }
         return;
     }
@@ -926,9 +926,9 @@ async function deleteEmployeeConfirm(employeeId) {
         return;
     }
     
-    if (confirm(`¿Estás seguro de eliminar al empleado "${employee.name}"?\n\nEsta acción no se puede deshacer.`)) {
+    if (confirm(`¿Estás seguro de eliminar al vendedor "${employee.name}"?\n\nEsta acción no se puede deshacer.`)) {
         try {
-            console.log('🗑️ Eliminando empleado:', employeeId);
+            console.log('🗑️ Eliminando vendedor:', employeeId);
             
             // Aquí iría la implementación de deleteEmployee si la necesitas
             if (window.showNotification) {
@@ -936,9 +936,9 @@ async function deleteEmployeeConfirm(employeeId) {
             }
             
         } catch (error) {
-            console.error('❌ Error eliminando empleado:', error);
+            console.error('❌ Error eliminando vendedor:', error);
             if (window.showNotification) {
-                window.showNotification('Error eliminando empleado: ' + error.message, 'error');
+                window.showNotification('Error eliminando vendedor: ' + error.message, 'error');
             }
         }
     }
@@ -1418,14 +1418,14 @@ function displayInventoryReport(inventoryData) {
 
 // Funciones que pueden ser llamadas desde los modales
 function openEmployeeModal(employeeId = null) {
-    console.log('🔄 Abriendo modal de empleado:', employeeId);
+    console.log('🔄 Abriendo modal de vendedor:', employeeId);
     
     const modal = document.getElementById('employee-modal');
     const title = modal.querySelector('.modal-header h3');
     const form = document.getElementById('employee-form');
     
     if (!modal || !form) {
-        console.error('Modal o formulario de empleado no encontrado');
+        console.error('Modal o formulario de vendedor no encontrado');
         if (window.showNotification) {
             window.showNotification('Error: Modal no encontrado', 'error');
         }
@@ -1437,12 +1437,12 @@ function openEmployeeModal(employeeId = null) {
         const employee = employees.find(e => e.id === employeeId);
         if (!employee) {
             if (window.showNotification) {
-                window.showNotification('Empleado no encontrado', 'error');
+                window.showNotification('vendedor no encontrado', 'error');
             }
             return;
         }
         
-        title.textContent = 'Editar Empleado';
+        title.textContent = 'Editar vendedor';
         fillEmployeeForm(employee);
         window.currentEditingEmployee = employeeId;
         
@@ -1452,7 +1452,7 @@ function openEmployeeModal(employeeId = null) {
         
     } else {
         // Modo creación
-        title.textContent = 'Nuevo Empleado';
+        title.textContent = 'Nuevo vendedor';
         form.reset();
         window.currentEditingEmployee = null;
         
@@ -1512,25 +1512,25 @@ function fillEmployeeForm(employee) {
 }
 
 function editEmployee(employeeId) {
-    console.log('✏️ Editando empleado:', employeeId);
+    console.log('✏️ Editando vendedor:', employeeId);
     openEmployeeModal(employeeId);
 }
 
-// Crear empleado
+// Crear vendedor
 async function createEmployee(employeeData) {
     if (!window.createEmployeeAPI) {
         console.error('Función createEmployeeAPI no disponible');
-        throw new Error('API de empleados no disponible');
+        throw new Error('API de vendedors no disponible');
     }
     
     return await window.createEmployeeAPI(employeeData);
 }
 
-// Actualizar empleado
+// Actualizar vendedor
 async function updateEmployee(id, employeeData) {
     if (!window.updateEmployeeAPI) {
         console.error('Función updateEmployeeAPI no disponible');
-        throw new Error('API de empleados no disponible');
+        throw new Error('API de vendedors no disponible');
     }
     
     return await window.updateEmployeeAPI(id, employeeData);
@@ -2176,7 +2176,7 @@ function ensureEnhancedOrderModalExists() {
                     </h3>
                     <div class="enhanced-info-grid">
                         <div class="enhanced-info-card">
-                            <div class="enhanced-info-label">Empleado</div>
+                            <div class="enhanced-info-label">vendedor</div>
                             <div class="enhanced-info-value" id="enhancedEmployeeInfo">-</div>
                         </div>
                         <div class="enhanced-info-card">
@@ -2579,13 +2579,13 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Event listener para el formulario de empleados
+    // Event listener para el formulario de vendedors
     const employeeForm = document.getElementById('employee-form');
     if (employeeForm) {
         employeeForm.addEventListener('submit', async function(e) {
             e.preventDefault();
             
-            console.log('📝 Procesando formulario de empleado...');
+            console.log('📝 Procesando formulario de vendedor...');
             
             // Obtener datos del formulario
             const formData = {
@@ -2630,19 +2630,19 @@ document.addEventListener('DOMContentLoaded', function() {
                 let result;
                 
                 if (window.currentEditingEmployee) {
-                    console.log('📝 Actualizando empleado existente...');
+                    console.log('📝 Actualizando vendedor existente...');
                     result = await updateEmployee(window.currentEditingEmployee, formData);
                     
                     if (window.showNotification) {
-                        window.showNotification('Empleado actualizado exitosamente', 'success');
+                        window.showNotification('vendedor actualizado exitosamente', 'success');
                     }
                 } else {
-                    console.log('📝 Creando nuevo empleado...');
+                    console.log('📝 Creando nuevo vendedor...');
                     
                     // Para crear, la contraseña es requerida
                     if (!password) {
                         if (window.showNotification) {
-                            window.showNotification('La contraseña es requerida para nuevos empleados', 'warning');
+                            window.showNotification('La contraseña es requerida para nuevos vendedors', 'warning');
                         }
                         return;
                     }
@@ -2650,18 +2650,18 @@ document.addEventListener('DOMContentLoaded', function() {
                     result = await createEmployee(formData);
                     
                     if (window.showNotification) {
-                        window.showNotification('Empleado creado exitosamente', 'success');
+                        window.showNotification('vendedor creado exitosamente', 'success');
                     }
                 }
                 
-                console.log('✅ Empleado procesado:', result);
+                console.log('✅ vendedor procesado:', result);
                 
                 // Cerrar modal y recargar lista
                 closeEmployeeModal();
                 await loadEmployeesPage();
                 
             } catch (error) {
-                console.error('❌ Error procesando empleado:', error);
+                console.error('❌ Error procesando vendedor:', error);
                 
                 if (window.showNotification) {
                     window.showNotification('Error: ' + error.message, 'error');

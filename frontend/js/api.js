@@ -132,10 +132,10 @@ async function getProducts() {
         const user = getUser();
         const response = await apiRequest('/api/products');
         
-        // Si es empleado, la respuesta puede incluir información del subalmacén
+        // Si es vendedor, la respuesta puede incluir información del subalmacén
         if (user?.role === 'employee' && response.substore_info) {
-            console.log('👤 Empleado - productos del subalmacén:', response.products?.length || 0);
-            console.log('🚛 Info del subalmacen:', response.substore_info.trip?.trip_number);
+            console.log(' vendedor - productos del subalmacén:', response.products?.length || 0);
+            console.log(' Info del subalmacen:', response.substore_info.trip?.trip_number);
             return response;
         }
         
@@ -395,12 +395,12 @@ if (!window.getEmployeeSubstoreStatus) {
 
 // ===== VERIFICACIÓN DE SUBALMACÉN AL CARGAR =====
 document.addEventListener('DOMContentLoaded', async function() {
-    // Solo verificar si estamos en páginas de empleado
+    // Solo verificar si estamos en páginas de vendedor
     if (window.location.pathname.includes('/employee/')) {
         try {
             const user = getUser();
             if (user && user.role === 'employee') {
-                console.log('👤 Usuario empleado detectado, verificando conectividad de subalmacén...');
+                console.log('👤 Usuario vendedor detectado, verificando conectividad de subalmacén...');
                 
                 const connectivity = await testSubstoreConnectivity();
                 console.log('🌐 Conectividad de subalmacén:', connectivity);
@@ -423,7 +423,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
 console.log('✅ API de subalmacén configurada correctamente');
 
-// ===== EMPLEADOS =====
+// ===== vendedorS =====
 async function getEmployees() {
     return await apiRequest('/api/employees');
 }
@@ -459,9 +459,9 @@ async function createOrder(orderData) {
 }
 
 
-// Función para obtener estado del subalmacén del empleado
+// Función para obtener estado del subalmacén del vendedor
 async function getEmployeeSubstoreStatus() {
-    console.log('🔍 Obteniendo estado del subalmacén del empleado...');
+    console.log('🔍 Obteniendo estado del subalmacén del vendedor...');
     
     try {
         const response = await apiRequest('/api/employee/substore-status');
@@ -473,7 +473,7 @@ async function getEmployeeSubstoreStatus() {
     }
 }
 
-// Función para obtener productos del subalmacén del empleado
+// Función para obtener productos del subalmacén del vendedor
 async function getEmployeeSubstoreProducts() {
     console.log('📦 Obteniendo productos del subalmacén...');
     
@@ -487,7 +487,7 @@ async function getEmployeeSubstoreProducts() {
     }
 }
 
-// Función para obtener ventas del subalmacén del empleado
+// Función para obtener ventas del subalmacén del vendedor
 async function getEmployeeSubstoreSales() {
     console.log('💰 Obteniendo ventas del subalmacén...');
     
@@ -865,7 +865,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 });
 async function createEmployeeAPI(employeeData) {
-    console.log('📤 Creando empleado:', employeeData);
+    console.log('📤 Creando vendedor:', employeeData);
     
     return await apiRequest('/api/employees', {
         method: 'POST',
@@ -874,7 +874,7 @@ async function createEmployeeAPI(employeeData) {
 }
 
 async function updateEmployeeAPI(id, employeeData) {
-    console.log('📤 Actualizando empleado:', id, employeeData);
+    console.log('📤 Actualizando vendedor:', id, employeeData);
     
     return await apiRequest(`/api/employees/${id}`, {
         method: 'PUT',

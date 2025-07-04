@@ -868,9 +868,9 @@ function validatePaymentAmount(total, currentPaid, newPayment, allowOverpayment 
   };
 }
 
-// Función para obtener el subalmacen activo de un empleado
+// Función para obtener el subalmacen activo de un vendedor
 async function getActiveEmployeeTrip(employeeId) {
-  console.log('🔍 Buscando subalmacen activo para empleado:', employeeId);
+  console.log('🔍 Buscando subalmacen activo para vendedor:', employeeId);
   
   if (supabase) {
     try {
@@ -903,15 +903,15 @@ async function getActiveEmployeeTrip(employeeId) {
   return activeTrip || null;
 }
 
-// Función para obtener productos disponibles en el subalmacén del empleado
+// Función para obtener productos disponibles en el subalmacén del vendedor
 async function getEmployeeSubstoreProducts(employeeId) {
-  console.log('📦 Obteniendo productos del subalmacén para empleado:', employeeId);
+  console.log('📦 Obteniendo productos del subalmacén para vendedor:', employeeId);
   
-  // 1. Obtener subalmacen activo del empleado
+  // 1. Obtener subalmacen activo del vendedor
   const activeTrip = await getActiveEmployeeTrip(employeeId);
   
   if (!activeTrip) {
-    console.log('⚠️ No hay subalmacen activo para el empleado');
+    console.log('⚠️ No hay subalmacen activo para el vendedor');
     return {
       has_active_trip: false,
       trip: null,
@@ -981,7 +981,7 @@ async function getEmployeeSubstoreProducts(employeeId) {
   };
 }
 
-// Función helper para obtener pagos recientes de un empleado
+// Función helper para obtener pagos recientes de un vendedor
 async function getRecentPaymentsByEmployee(employeeId, limit = 5) {
   try {
     if (supabase) {
@@ -2176,7 +2176,7 @@ app.get("/test", async (req, res) => {
         url: supabaseUrl ? 'Configurada' : 'No configurada',
         status: supabase ? 'Conectado' : 'No disponible'
       },
-      empleados: employees.map(emp => ({
+      vendedors: employees.map(emp => ({
         id: emp.id,
         employee_code: emp.employee_code,
         name: emp.name,
@@ -2276,7 +2276,7 @@ app.get("/api/products", auth, async (req, res) => {
       const products = await getProducts();
       res.json(products);
     } else if (req.user.role === 'employee') {
-      // Empleados ven solo productos de su subalmacén activo
+      // vendedors ven solo productos de su subalmacén activo
       const substoreData = await getEmployeeSubstoreProducts(req.user.id);
       
       res.json({
@@ -2302,11 +2302,11 @@ app.get("/api/products", auth, async (req, res) => {
 
 app.get("/api/substore/products", auth, async (req, res) => {
   try {
-    console.log('📦 GET /api/substore/products - Empleado:', req.user?.id);
+    console.log('📦 GET /api/substore/products - vendedor:', req.user?.id);
     
     if (req.user.role !== 'employee') {
       return res.status(403).json({ 
-        message: 'Esta ruta es solo para empleados' 
+        message: 'Esta ruta es solo para vendedors' 
       });
     }
     
@@ -2819,11 +2819,11 @@ app.put("/api/orders/:id/paid-amount", auth, async (req, res) => {
   }
 });
 
-// GET - Estadísticas de cobranza para empleado
+// GET - Estadísticas de cobranza para vendedor
 app.get("/api/employee/collection-stats", auth, async (req, res) => {
   try {
     if (req.user.role !== 'employee') {
-      return res.status(403).json({ message: 'Solo para empleados' });
+      return res.status(403).json({ message: 'Solo para vendedors' });
     }
     
     const { period = 'month' } = req.query; // month, week, year
@@ -2944,14 +2944,14 @@ app.delete("/api/products/:id", auth, adminOnly, async (req, res) => {
   }
 });
 
-// API Routes - Empleados
+// API Routes - vendedors
 app.get("/api/employees", auth, adminOnly, async (req, res) => {
   try {
     const employees = await getEmployees();
     res.json(employees);
   } catch (error) {
     console.error('Error in GET /api/employees:', error);
-    res.status(500).json({ message: 'Error obteniendo empleados', error: error.message });
+    res.status(500).json({ message: 'Error obteniendo vendedors', error: error.message });
   }
 });
 
@@ -3081,7 +3081,7 @@ app.post("/api/orders", auth, async (req, res) => {
       autoConfirm = false;
       
     } else if (req.user.role === 'employee') {
-      console.log('👤 Empleado creando pedido con AUTO-CONFIRMACIÓN');
+      console.log('👤 vendedor creando pedido con AUTO-CONFIRMACIÓN');
       
       try {
         // ✅ ASIGNAR substoreData AQUÍ
@@ -3093,7 +3093,7 @@ app.post("/api/orders", auth, async (req, res) => {
       } catch (substoreError) {
         console.error('❌ Error obteniendo datos del subalmacén:', substoreError);
         return res.status(500).json({
-          message: 'Error verificando subalmacén del empleado',
+          message: 'Error verificando subalmacén del vendedor',
           error: 'substore_error',
           details: substoreError.message
         });
@@ -3193,12 +3193,12 @@ app.post("/api/orders", auth, async (req, res) => {
       
       console.log(`✅ Pedido creado desde ${inventorySource}:`, newOrder.id, autoConfirm ? '(AUTO-CONFIRMADO)' : '(PENDIENTE)');
       
-      // Auto-confirmación para empleados
+      // Auto-confirmación para vendedors
       let saleRecord = null;
       let inventoryUpdate = null;
       
       if (autoConfirm && req.user.role === 'employee') {
-        console.log('🔄 Auto-confirmando pedido del empleado...');
+        console.log('🔄 Auto-confirmando pedido del vendedor...');
         
         try {
           // Procesar venta desde subalmacén automáticamente
@@ -3921,14 +3921,14 @@ app.get("/api/orders/:id", auth, async (req, res) => {
   }
 });
 
-// GET - Obtener resumen de pagos del empleado
+// GET - Obtener resumen de pagos del vendedor
 app.get("/api/employee/payments-summary", auth, async (req, res) => {
   try {
     if (req.user.role !== 'employee') {
-      return res.status(403).json({ message: 'Solo para empleados' });
+      return res.status(403).json({ message: 'Solo para vendedors' });
     }
     
-    console.log('📊 Obteniendo resumen de pagos para empleado:', req.user.employee_code);
+    console.log('📊 Obteniendo resumen de pagos para vendedor:', req.user.employee_code);
     
     const orders = await getOrders(req.user.id, req.user.role);
     
@@ -3992,19 +3992,19 @@ app.get("/api/employee/payments-summary", auth, async (req, res) => {
   }
 });
 
-// GET - Obtener historial de abonos del empleado
+// GET - Obtener historial de abonos del vendedor
 app.get("/api/employee/payments-history", auth, async (req, res) => {
   try {
     if (req.user.role !== 'employee') {
-      return res.status(403).json({ message: 'Solo para empleados' });
+      return res.status(403).json({ message: 'Solo para vendedors' });
     }
     
     const { limit = 50, offset = 0 } = req.query;
     
-    console.log('📋 Obteniendo historial de abonos para empleado:', req.user.employee_code);
+    console.log('📋 Obteniendo historial de abonos para vendedor:', req.user.employee_code);
     
     if (supabase) {
-      // Obtener pagos donde el empleado fue quien los registró
+      // Obtener pagos donde el vendedor fue quien los registró
       const { data, error } = await supabase
         .from('order_payments')
         .select(`
@@ -4071,7 +4071,7 @@ app.get("/api/employee/payments-history", auth, async (req, res) => {
 app.get("/api/employee/substore-status", auth, async (req, res) => {
   try {
     if (req.user.role !== 'employee') {
-      return res.status(403).json({ message: 'Solo para empleados' });
+      return res.status(403).json({ message: 'Solo para vendedors' });
     }
     
     const substoreData = await getEmployeeSubstoreProducts(req.user.id);
@@ -4094,11 +4094,11 @@ app.get("/api/employee/substore-status", auth, async (req, res) => {
   }
 });
 
-// GET - Historial de ventas del empleado desde subalmacén
+// GET - Historial de ventas del vendedor desde subalmacén
 app.get("/api/employee/substore-sales", auth, async (req, res) => {
   try {
     if (req.user.role !== 'employee') {
-      return res.status(403).json({ message: 'Solo para empleados' });
+      return res.status(403).json({ message: 'Solo para vendedors' });
     }
     
     if (supabase) {
@@ -4133,18 +4133,18 @@ app.get("/api/employee/substore-sales", auth, async (req, res) => {
 
 app.post("/api/employees", auth, adminOnly, async (req, res) => {
   try {
-    console.log('🔄 POST /api/employees - Creando empleado:', req.body);
+    console.log('🔄 POST /api/employees - Creando vendedor:', req.body);
     
     const employeeData = {
       ...req.body,
       created_at: new Date().toISOString()
     };
     
-    // Verificar que el código de empleado no exista
+    // Verificar que el código de vendedor no exista
     const existingEmployee = await getEmployeeByCode(employeeData.employee_code);
     if (existingEmployee) {
       return res.status(400).json({ 
-        message: 'El código de empleado ya existe' 
+        message: 'El código de vendedor ya existe' 
       });
     }
     
@@ -4183,7 +4183,7 @@ app.post("/api/employees", auth, adminOnly, async (req, res) => {
   } catch (error) {
     console.error('Error in POST /api/employees:', error);
     res.status(500).json({ 
-      message: 'Error creando empleado', 
+      message: 'Error creando vendedor', 
       error: error.message 
     });
   }
@@ -4192,7 +4192,7 @@ app.post("/api/employees", auth, adminOnly, async (req, res) => {
 app.put("/api/employees/:id", auth, adminOnly, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    console.log('🔄 PUT /api/employees/:id - Actualizando empleado:', id, req.body);
+    console.log('🔄 PUT /api/employees/:id - Actualizando vendedor:', id, req.body);
     
     if (supabase) {
       try {
@@ -4218,7 +4218,7 @@ app.put("/api/employees/:id", auth, adminOnly, async (req, res) => {
     // Fallback: actualizar en memoria
     const index = fallbackDatabase.employees.findIndex(e => e.id === id);
     if (index === -1) {
-      return res.status(404).json({ message: 'Empleado no encontrado' });
+      return res.status(404).json({ message: 'vendedor no encontrado' });
     }
     
     fallbackDatabase.employees[index] = {
@@ -4233,7 +4233,7 @@ app.put("/api/employees/:id", auth, adminOnly, async (req, res) => {
   } catch (error) {
     console.error('Error in PUT /api/employees/:id:', error);
     res.status(500).json({ 
-      message: 'Error actualizando empleado', 
+      message: 'Error actualizando vendedor', 
       error: error.message 
     });
   }
@@ -4451,12 +4451,12 @@ app.post("/api/trips", auth, adminOnly, async (req, res) => {
       });
     }
     
-    // Obtener información del empleado
+    // Obtener información del vendedor
     const allEmployees = await getEmployees();
     const employee = allEmployees.find(e => e.id === parseInt(employee_id));
     
     if (!employee) {
-      return res.status(404).json({ message: 'Empleado no encontrado' });
+      return res.status(404).json({ message: 'vendedor no encontrado' });
     }
     
     // Crear datos del subalmacen
@@ -5049,12 +5049,12 @@ app.get("/api/reports/sales-collection", auth, adminOnly, async (req, res) => {
       end: endDate.toISOString()
     });
     
-    // Obtener datos del empleado
+    // Obtener datos del vendedor
     const allEmployees = await getEmployees();
     const employee = allEmployees.find(emp => emp.id === parseInt(employee_id));
     
     if (!employee) {
-      return res.status(404).json({ message: 'Empleado no encontrado' });
+      return res.status(404).json({ message: 'vendedor no encontrado' });
     }
     
     let salesData = [];
@@ -5062,7 +5062,7 @@ app.get("/api/reports/sales-collection", auth, adminOnly, async (req, res) => {
     
     if (supabase) {
       try {
-        // Obtener ventas del empleado en la fecha específica
+        // Obtener ventas del vendedor en la fecha específica
         const { data: sales, error: salesError } = await supabase
           .from('sales')
           .select('*')
@@ -5077,7 +5077,7 @@ app.get("/api/reports/sales-collection", auth, adminOnly, async (req, res) => {
           salesData = sales || [];
         }
         
-        // Obtener pagos registrados por el empleado en la fecha específica
+        // Obtener pagos registrados por el vendedor en la fecha específica
         const { data: payments, error: paymentsError } = await supabase
           .from('order_payments')
           .select(`
@@ -5280,11 +5280,11 @@ app.get("/api/reports/sales-collection-summary", auth, adminOnly, async (req, re
         });
     }
     
-    // Agrupar por empleado
+    // Agrupar por vendedor
     const employeeStats = {};
     const allEmployees = await getEmployees();
     
-    // Inicializar stats para todos los empleados
+    // Inicializar stats para todos los vendedors
     allEmployees.filter(emp => emp.role === 'employee').forEach(employee => {
       employeeStats[employee.id] = {
         employee_id: employee.id,
@@ -5330,7 +5330,7 @@ app.get("/api/reports/sales-collection-summary", auth, adminOnly, async (req, re
       }
     });
     
-    // Convertir a array y filtrar empleados con actividad
+    // Convertir a array y filtrar vendedors con actividad
     const employeeStatsArray = Object.values(employeeStats)
       .filter(stats => stats.ventas_count > 0 || stats.pagos_count > 0)
       .sort((a, b) => b.total_cobrado - a.total_cobrado);
@@ -5376,19 +5376,19 @@ app.get("/api/reports/sales-collection-summary", auth, adminOnly, async (req, re
   }
 });
 
-// GET - Reporte histórico de ventas y cobranzas por empleado
+// GET - Reporte histórico de ventas y cobranzas por vendedor
 app.get("/api/reports/employee-sales-history", auth, async (req, res) => {
   try {
     const { employee_id, start_date, end_date, group_by = 'day' } = req.query;
     
-    console.log('📊 Generando historial de ventas para empleado:', employee_id);
+    console.log('📊 Generando historial de ventas para vendedor:', employee_id);
     
     // Validaciones
     if (!employee_id) {
       return res.status(400).json({ message: 'employee_id es requerido' });
     }
     
-    // Verificar permisos (admin o el mismo empleado)
+    // Verificar permisos (admin o el mismo vendedor)
     if (req.user.role !== 'admin' && req.user.id !== parseInt(employee_id)) {
       return res.status(403).json({ 
         message: 'No tienes permisos para ver este historial' 
@@ -5471,7 +5471,7 @@ app.get("/api/reports/employee-sales-history", auth, async (req, res) => {
     });
     
   } catch (error) {
-    console.error('❌ Error generando historial de empleado:', error);
+    console.error('❌ Error generando historial de vendedor:', error);
     res.status(500).json({ 
       message: 'Error generando historial', 
       error: error.message 

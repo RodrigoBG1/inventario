@@ -11,7 +11,7 @@
     <div class="employee-container">
         <nav class="sidebar" id="sidebar">
             <div class="sidebar-header">
-                <h2>Panel Empleado</h2>
+                <h2>Panel vendedor</h2>
                 <span id="user-name"></span>
             </div>
             <ul class="nav-menu">
@@ -232,7 +232,7 @@
             if (!user) return;
             
             if (user.role !== 'employee') {
-                alert('Esta página es solo para empleados.');
+                alert('Esta página es solo para vendedors.');
                 window.location.href = '/';
                 return;
             }
