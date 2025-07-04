@@ -2142,6 +2142,15 @@ async function confirmOrderFromSubstore(orderId, tripId, paymentInfo) {
     throw error;
   }
 }
+
+// Función helper para obtener número de semana
+function getWeekNumber(date) {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+}
 // ========== ARCHIVOS ESTÁTICOS ==========
 app.use(express.static(path.join(__dirname, 'frontend')));
 
@@ -4741,7 +4750,7 @@ app.get("/api/trips-permanent", auth, async (req, res) => {
     
     const { employee_id } = req.query;
     
-    // Solo mostrar trips activos (permanentes)
+    // Solo mostrar trips activos 
     const status = 'active';
     
     // Si no es admin, solo puede ver sus propios subalmacens
@@ -4751,13 +4760,13 @@ app.get("/api/trips-permanent", auth, async (req, res) => {
     
     const trips = await getTripsWithDepletedInfo(status, employeeFilter);
     
-    console.log('✅ Enviando', trips.length, 'subalmacenes permanentes al frontend');
+    console.log('✅ Enviando', trips.length, 'subalmacenes  al frontend');
     res.json(trips);
     
   } catch (error) {
     console.error('❌ Error in GET /api/trips-permanent:', error);
     res.status(500).json({ 
-      message: 'Error obteniendo subalmacenes permanentes', 
+      message: 'Error obteniendo subalmacenes ', 
       error: error.message 
     });
   }
@@ -5010,6 +5019,535 @@ app.get("/api/reports/inventory", auth, adminOnly, async (req, res) => {
   }
 });
 
+app.get("/api/reports/sales-collection", auth, adminOnly, async (req, res) => {
+  try {
+    const { employee_id, date } = req.query;
+    
+    console.log('📊 Generando reporte de ventas y cobranzas:', { employee_id, date });
+    
+    // Validaciones
+    if (!employee_id || !date) {
+      return res.status(400).json({ 
+        message: 'employee_id y date son requeridos' 
+      });
+    }
+    
+    // Validar formato de fecha
+    const reportDate = new Date(date);
+    if (isNaN(reportDate.getTime())) {
+      return res.status(400).json({ 
+        message: 'Formato de fecha inválido. Use YYYY-MM-DD' 
+      });
+    }
+    
+    // Calcular rango de fechas (todo el día)
+    const startDate = new Date(date + 'T00:00:00.000Z');
+    const endDate = new Date(date + 'T23:59:59.999Z');
+    
+    console.log('📅 Rango de fechas:', {
+      start: startDate.toISOString(),
+      end: endDate.toISOString()
+    });
+    
+    // Obtener datos del empleado
+    const allEmployees = await getEmployees();
+    const employee = allEmployees.find(emp => emp.id === parseInt(employee_id));
+    
+    if (!employee) {
+      return res.status(404).json({ message: 'Empleado no encontrado' });
+    }
+    
+    let salesData = [];
+    let paymentsData = [];
+    
+    if (supabase) {
+      try {
+        // Obtener ventas del empleado en la fecha específica
+        const { data: sales, error: salesError } = await supabase
+          .from('sales')
+          .select('*')
+          .eq('employee_id', employee_id)
+          .gte('created_at', startDate.toISOString())
+          .lte('created_at', endDate.toISOString())
+          .order('created_at', { ascending: true });
+        
+        if (salesError) {
+          console.warn('⚠️ Error obteniendo ventas de Supabase:', salesError);
+        } else {
+          salesData = sales || [];
+        }
+        
+        // Obtener pagos registrados por el empleado en la fecha específica
+        const { data: payments, error: paymentsError } = await supabase
+          .from('order_payments')
+          .select(`
+            *,
+            orders (
+              order_number,
+              client_info
+            )
+          `)
+          .eq('recorded_by', employee_id)
+          .gte('created_at', startDate.toISOString())
+          .lte('created_at', endDate.toISOString())
+          .order('created_at', { ascending: true });
+        
+        if (paymentsError) {
+          console.warn('⚠️ Error obteniendo pagos de Supabase:', paymentsError);
+        } else {
+          paymentsData = payments || [];
+        }
+        
+      } catch (error) {
+        console.error('❌ Error consultando Supabase:', error);
+        // Continuar con fallback
+      }
+    }
+    
+    // Fallback: buscar en memoria si Supabase falla o no está disponible
+    if (salesData.length === 0 && paymentsData.length === 0) {
+      console.log('🔄 Usando datos en memoria como fallback...');
+      
+      // Filtrar ventas en memoria
+      salesData = (fallbackDatabase.sales || [])
+        .filter(sale => {
+          const saleDate = new Date(sale.created_at);
+          return sale.employee_id === parseInt(employee_id) &&
+                 saleDate >= startDate && saleDate <= endDate;
+        })
+        .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+      
+      // Filtrar pagos en memoria
+      const memoryPayments = (fallbackDatabase.order_payments || [])
+        .filter(payment => {
+          const paymentDate = new Date(payment.created_at);
+          return payment.recorded_by === parseInt(employee_id) &&
+                 paymentDate >= startDate && paymentDate <= endDate;
+        })
+        .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+      
+      // Agregar información de la orden a los pagos
+      paymentsData = memoryPayments.map(payment => {
+        const order = (fallbackDatabase.orders || [])
+          .find(o => o.id === payment.order_id);
+        
+        return {
+          ...payment,
+          order_number: order?.order_number || 'N/A',
+          client_name: order?.client_info?.name || 'Cliente directo'
+        };
+      });
+    }
+    
+    // Procesar datos de pagos para agregar información faltante
+    const processedPayments = paymentsData.map(payment => ({
+      ...payment,
+      order_number: payment.orders?.order_number || payment.order_number || 'N/A',
+      client_name: payment.orders?.client_info?.name || payment.client_name || 'Cliente directo'
+    }));
+    
+    // Calcular resumen por método de pago
+    const paymentSummary = {
+      efectivo: 0,
+      cheque: 0,
+      transferencia: 0,
+      tarjeta: 0,
+      total: 0
+    };
+    
+    processedPayments.forEach(payment => {
+      const amount = parseFloat(payment.amount) || 0;
+      const method = (payment.payment_method || 'efectivo').toLowerCase();
+      
+      if (paymentSummary.hasOwnProperty(method)) {
+        paymentSummary[method] += amount;
+      } else {
+        // Si el método no existe, agregarlo a "efectivo" como fallback
+        paymentSummary.efectivo += amount;
+      }
+      
+      paymentSummary.total += amount;
+    });
+    
+    // Calcular estadísticas adicionales
+    const totalVentas = salesData.reduce((sum, sale) => sum + (parseFloat(sale.total) || 0), 0);
+    const totalAbonos = salesData.reduce((sum, sale) => sum + (parseFloat(sale.paid_amount) || 0), 0);
+    const ventasCount = salesData.length;
+    const pagosCount = processedPayments.length;
+    
+    const reportData = {
+      employee_id: parseInt(employee_id),
+      employee_info: {
+        id: employee.id,
+        name: employee.name,
+        employee_code: employee.employee_code,
+        role: employee.role
+      },
+      date: date,
+      date_range: {
+        start: startDate.toISOString(),
+        end: endDate.toISOString()
+      },
+      sales: salesData,
+      payments: processedPayments,
+      payment_summary: paymentSummary,
+      statistics: {
+        total_ventas: totalVentas,
+        total_abonos: totalAbonos,
+        total_cobrado: paymentSummary.total,
+        ventas_count: ventasCount,
+        pagos_count: pagosCount,
+        promedio_venta: ventasCount > 0 ? totalVentas / ventasCount : 0
+      },
+      generated_at: new Date().toISOString(),
+      data_source: supabase ? 'supabase' : 'memory'
+    };
+    
+    console.log('✅ Reporte generado exitosamente:', {
+      employee: employee.name,
+      date: date,
+      ventas: ventasCount,
+      pagos: pagosCount,
+      total_cobrado: paymentSummary.total
+    });
+    
+    res.json(reportData);
+    
+  } catch (error) {
+    console.error('❌ Error generando reporte de ventas y cobranzas:', error);
+    res.status(500).json({ 
+      message: 'Error generando reporte', 
+      error: error.message 
+    });
+  }
+});
+
+// GET - Resumen de reportes de ventas y cobranzas (para dashboard)
+app.get("/api/reports/sales-collection-summary", auth, adminOnly, async (req, res) => {
+  try {
+    const { start_date, end_date } = req.query;
+    
+    console.log('📊 Generando resumen de reportes de ventas y cobranzas...');
+    
+    // Fechas por defecto: último mes
+    const defaultEndDate = new Date();
+    const defaultStartDate = new Date();
+    defaultStartDate.setMonth(defaultStartDate.getMonth() - 1);
+    
+    const startDate = start_date ? new Date(start_date) : defaultStartDate;
+    const endDate = end_date ? new Date(end_date) : defaultEndDate;
+    
+    let allSales = [];
+    let allPayments = [];
+    
+    if (supabase) {
+      try {
+        // Obtener todas las ventas en el rango
+        const { data: sales, error: salesError } = await supabase
+          .from('sales')
+          .select('employee_id, employee_code, total, created_at')
+          .gte('created_at', startDate.toISOString())
+          .lte('created_at', endDate.toISOString());
+        
+        if (!salesError) allSales = sales || [];
+        
+        // Obtener todos los pagos en el rango
+        const { data: payments, error: paymentsError } = await supabase
+          .from('order_payments')
+          .select('recorded_by, payment_method, amount, created_at')
+          .gte('created_at', startDate.toISOString())
+          .lte('created_at', endDate.toISOString());
+        
+        if (!paymentsError) allPayments = payments || [];
+        
+      } catch (error) {
+        console.warn('⚠️ Error consultando Supabase para resumen:', error);
+      }
+    }
+    
+    // Fallback a memoria
+    if (allSales.length === 0 && allPayments.length === 0) {
+      allSales = (fallbackDatabase.sales || [])
+        .filter(sale => {
+          const saleDate = new Date(sale.created_at);
+          return saleDate >= startDate && saleDate <= endDate;
+        });
+      
+      allPayments = (fallbackDatabase.order_payments || [])
+        .filter(payment => {
+          const paymentDate = new Date(payment.created_at);
+          return paymentDate >= startDate && paymentDate <= endDate;
+        });
+    }
+    
+    // Agrupar por empleado
+    const employeeStats = {};
+    const allEmployees = await getEmployees();
+    
+    // Inicializar stats para todos los empleados
+    allEmployees.filter(emp => emp.role === 'employee').forEach(employee => {
+      employeeStats[employee.id] = {
+        employee_id: employee.id,
+        employee_name: employee.name,
+        employee_code: employee.employee_code,
+        total_ventas: 0,
+        total_cobrado: 0,
+        ventas_count: 0,
+        pagos_count: 0,
+        by_method: {
+          efectivo: 0,
+          cheque: 0,
+          transferencia: 0,
+          tarjeta: 0
+        }
+      };
+    });
+    
+    // Procesar ventas
+    allSales.forEach(sale => {
+      const employeeId = sale.employee_id;
+      if (employeeStats[employeeId]) {
+        employeeStats[employeeId].total_ventas += parseFloat(sale.total) || 0;
+        employeeStats[employeeId].ventas_count += 1;
+      }
+    });
+    
+    // Procesar pagos
+    allPayments.forEach(payment => {
+      const employeeId = payment.recorded_by;
+      if (employeeStats[employeeId]) {
+        const amount = parseFloat(payment.amount) || 0;
+        const method = (payment.payment_method || 'efectivo').toLowerCase();
+        
+        employeeStats[employeeId].total_cobrado += amount;
+        employeeStats[employeeId].pagos_count += 1;
+        
+        if (employeeStats[employeeId].by_method[method] !== undefined) {
+          employeeStats[employeeId].by_method[method] += amount;
+        } else {
+          employeeStats[employeeId].by_method.efectivo += amount;
+        }
+      }
+    });
+    
+    // Convertir a array y filtrar empleados con actividad
+    const employeeStatsArray = Object.values(employeeStats)
+      .filter(stats => stats.ventas_count > 0 || stats.pagos_count > 0)
+      .sort((a, b) => b.total_cobrado - a.total_cobrado);
+    
+    // Calcular totales generales
+    const totalGeneral = {
+      total_ventas: employeeStatsArray.reduce((sum, emp) => sum + emp.total_ventas, 0),
+      total_cobrado: employeeStatsArray.reduce((sum, emp) => sum + emp.total_cobrado, 0),
+      ventas_count: employeeStatsArray.reduce((sum, emp) => sum + emp.ventas_count, 0),
+      pagos_count: employeeStatsArray.reduce((sum, emp) => sum + emp.pagos_count, 0),
+      by_method: {
+        efectivo: employeeStatsArray.reduce((sum, emp) => sum + emp.by_method.efectivo, 0),
+        cheque: employeeStatsArray.reduce((sum, emp) => sum + emp.by_method.cheque, 0),
+        transferencia: employeeStatsArray.reduce((sum, emp) => sum + emp.by_method.transferencia, 0),
+        tarjeta: employeeStatsArray.reduce((sum, emp) => sum + emp.by_method.tarjeta, 0)
+      }
+    };
+    
+    const summary = {
+      period: {
+        start_date: startDate.toISOString(),
+        end_date: endDate.toISOString(),
+        days: Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24))
+      },
+      employees: employeeStatsArray,
+      totals: totalGeneral,
+      generated_at: new Date().toISOString()
+    };
+    
+    console.log('✅ Resumen de reportes generado:', {
+      employees_with_activity: employeeStatsArray.length,
+      total_cobrado: totalGeneral.total_cobrado
+    });
+    
+    res.json(summary);
+    
+  } catch (error) {
+    console.error('❌ Error generando resumen de reportes:', error);
+    res.status(500).json({ 
+      message: 'Error generando resumen', 
+      error: error.message 
+    });
+  }
+});
+
+// GET - Reporte histórico de ventas y cobranzas por empleado
+app.get("/api/reports/employee-sales-history", auth, async (req, res) => {
+  try {
+    const { employee_id, start_date, end_date, group_by = 'day' } = req.query;
+    
+    console.log('📊 Generando historial de ventas para empleado:', employee_id);
+    
+    // Validaciones
+    if (!employee_id) {
+      return res.status(400).json({ message: 'employee_id es requerido' });
+    }
+    
+    // Verificar permisos (admin o el mismo empleado)
+    if (req.user.role !== 'admin' && req.user.id !== parseInt(employee_id)) {
+      return res.status(403).json({ 
+        message: 'No tienes permisos para ver este historial' 
+      });
+    }
+    
+    // Fechas por defecto: último mes
+    const defaultEndDate = new Date();
+    const defaultStartDate = new Date();
+    defaultStartDate.setMonth(defaultStartDate.getMonth() - 1);
+    
+    const startDate = start_date ? new Date(start_date) : defaultStartDate;
+    const endDate = end_date ? new Date(end_date) : defaultEndDate;
+    
+    let salesData = [];
+    let paymentsData = [];
+    
+    if (supabase) {
+      try {
+        const { data: sales } = await supabase
+          .from('sales')
+          .select('*')
+          .eq('employee_id', employee_id)
+          .gte('created_at', startDate.toISOString())
+          .lte('created_at', endDate.toISOString())
+          .order('created_at', { ascending: true });
+        
+        salesData = sales || [];
+        
+        const { data: payments } = await supabase
+          .from('order_payments')
+          .select('*')
+          .eq('recorded_by', employee_id)
+          .gte('created_at', startDate.toISOString())
+          .lte('created_at', endDate.toISOString())
+          .order('created_at', { ascending: true });
+        
+        paymentsData = payments || [];
+        
+      } catch (error) {
+        console.warn('⚠️ Error consultando historial en Supabase:', error);
+      }
+    }
+    
+    // Fallback a memoria
+    if (salesData.length === 0 && paymentsData.length === 0) {
+      salesData = (fallbackDatabase.sales || [])
+        .filter(sale => {
+          const saleDate = new Date(sale.created_at);
+          return sale.employee_id === parseInt(employee_id) &&
+                 saleDate >= startDate && saleDate <= endDate;
+        });
+      
+      paymentsData = (fallbackDatabase.order_payments || [])
+        .filter(payment => {
+          const paymentDate = new Date(payment.created_at);
+          return payment.recorded_by === parseInt(employee_id) &&
+                 paymentDate >= startDate && paymentDate <= endDate;
+        });
+    }
+    
+    // Agrupar datos según el criterio especificado
+    const groupedData = groupDataByPeriod(salesData, paymentsData, group_by);
+    
+    res.json({
+      employee_id: parseInt(employee_id),
+      period: {
+        start_date: startDate.toISOString(),
+        end_date: endDate.toISOString(),
+        group_by: group_by
+      },
+      data: groupedData,
+      totals: {
+        total_sales: salesData.reduce((sum, sale) => sum + (parseFloat(sale.total) || 0), 0),
+        total_payments: paymentsData.reduce((sum, payment) => sum + (parseFloat(payment.amount) || 0), 0),
+        sales_count: salesData.length,
+        payments_count: paymentsData.length
+      },
+      generated_at: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error('❌ Error generando historial de empleado:', error);
+    res.status(500).json({ 
+      message: 'Error generando historial', 
+      error: error.message 
+    });
+  }
+});
+
+// Función helper para agrupar datos por período
+function groupDataByPeriod(salesData, paymentsData, groupBy) {
+  const grouped = {};
+  
+  // Función para obtener la clave de agrupación
+  const getGroupKey = (date) => {
+    const d = new Date(date);
+    switch (groupBy) {
+      case 'day':
+        return d.toISOString().split('T')[0];
+      case 'week':
+        const week = getWeekNumber(d);
+        return `${d.getFullYear()}-W${week}`;
+      case 'month':
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      case 'year':
+        return d.getFullYear().toString();
+      default:
+        return d.toISOString().split('T')[0];
+    }
+  };
+  
+  // Procesar ventas
+  salesData.forEach(sale => {
+    const key = getGroupKey(sale.created_at);
+    if (!grouped[key]) {
+      grouped[key] = {
+        period: key,
+        sales: [],
+        payments: [],
+        totals: {
+          sales_amount: 0,
+          payments_amount: 0,
+          sales_count: 0,
+          payments_count: 0
+        }
+      };
+    }
+    
+    grouped[key].sales.push(sale);
+    grouped[key].totals.sales_amount += parseFloat(sale.total) || 0;
+    grouped[key].totals.sales_count += 1;
+  });
+  
+  // Procesar pagos
+  paymentsData.forEach(payment => {
+    const key = getGroupKey(payment.created_at);
+    if (!grouped[key]) {
+      grouped[key] = {
+        period: key,
+        sales: [],
+        payments: [],
+        totals: {
+          sales_amount: 0,
+          payments_amount: 0,
+          sales_count: 0,
+          payments_count: 0
+        }
+      };
+    }
+    
+    grouped[key].payments.push(payment);
+    grouped[key].totals.payments_amount += parseFloat(payment.amount) || 0;
+    grouped[key].totals.payments_count += 1;
+  });
+  
+  // Convertir a array y ordenar
+  return Object.values(grouped).sort((a, b) => a.period.localeCompare(b.period));
+}
 // ========== RUTAS DEL FRONTEND ==========
 
 // Página principal
@@ -5221,7 +5759,7 @@ app.get("*", (req, res) => {
       <h1>404 - Página no encontrada</h1>
       <p><strong>Ruta solicitada:</strong> ${req.path}</p>
       <div style="margin: 20px 0;">
-        <a href="/" style="background: #2563eb; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin: 5px;">
+        <a href="/" style="background: #052e5b; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin: 5px;">
           Inicio
         </a>
         <a href="/diagnostic" style="background: #059669; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin: 5px;">

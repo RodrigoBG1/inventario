@@ -719,7 +719,7 @@ function ensureOrderDetailsModalStyles() {
         }
 
         .order-modal-content::-webkit-scrollbar-thumb:hover {
-            background: #1d4ed8;
+            background: #052e5b;
         }
     `;
     

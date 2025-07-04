@@ -790,7 +790,7 @@ function showNotification(message, type = 'success') {
             notification.style.backgroundColor = '#d97706';
             break;
         default:
-            notification.style.backgroundColor = '#2563eb';
+            notification.style.backgroundColor = '#052e5b';
     }
     
     document.body.appendChild(notification);

@@ -1008,7 +1008,7 @@ function displayOrdersWithPayments() {
         // Indicador de fuente de inventario
         const inventorySource = order.inventory_source === 'substore' ? 
             `<small style="color: #059669;"> Subalmacén</small>` : 
-            `<small style="color: #2563eb;"> Almacén Principal</small>`;
+            `<small style="color: #052e5b;"> Almacén Principal</small>`;
         
         return `
             <tr class="${isNotPaid ? 'order-requires-payment' : 'order-paid'}">
@@ -1841,7 +1841,7 @@ function ensureEnhancedOrderModalExists() {
         }
 
         .enhanced-modal-header {
-            background: linear-gradient(135deg, #2563eb, #3b82f6);
+            background: linear-gradient(135deg, #052e5b, #3b82f6);
             color: white;
             padding: 1.5rem 2rem;
             display: flex;
@@ -1939,7 +1939,7 @@ function ensureEnhancedOrderModalExists() {
             background: #f8fafc;
             padding: 1rem;
             border-radius: 8px;
-            border-left: 4px solid #2563eb;
+            border-left: 4px solid #052e5b;
         }
 
         .enhanced-info-label {
@@ -1967,7 +1967,7 @@ function ensureEnhancedOrderModalExists() {
         }
 
         .enhanced-products-table th {
-            background: #2563eb;
+            background: #052e5b;
             color: white;
             padding: 1rem;
             text-align: left;
@@ -2008,7 +2008,7 @@ function ensureEnhancedOrderModalExists() {
         }
 
         .enhanced-product-code {
-            background: #2563eb;
+            background: #052e5b;
             color: white;
             padding: 0.25rem 0.5rem;
             border-radius: 4px;
@@ -2029,7 +2029,7 @@ function ensureEnhancedOrderModalExists() {
         .enhanced-total-amount {
             font-size: 2rem;
             font-weight: 700;
-            color: #2563eb;
+            color: #052e5b;
             display: block;
         }
 
@@ -2395,13 +2395,13 @@ const autoConfirmStyles = `
 }
 
 .btn-primary {
-    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    background: linear-gradient(135deg, #3b82f6, #052e5b);
     color: white;
     box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
 }
 
 .btn-primary:hover {
-    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    background: linear-gradient(135deg, #052e5b, #052e5b);
     transform: translateY(-1px);
     box-shadow: 0 4px 8px rgba(59, 130, 246, 0.4);
 }

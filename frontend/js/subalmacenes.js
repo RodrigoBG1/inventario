@@ -1,4 +1,4 @@
-// ===== GESTIÓN DE SUBALMACENES PERMANENTES =====
+// ===== GESTIÓN DE SUBALMACENES =====
 
 console.log('🚛 Subalmacenes.js cargado - Sistema Permanente');
 
@@ -11,7 +11,7 @@ let currentTripForProducts = null;
 
 // ===== INICIALIZACIÓN =====
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('📋 Inicializando gestión de subalmacenes permanentes...');
+    console.log('📋 Inicializando gestión de subalmacenes...');
     
     // Verificar que estamos en la página correcta
     if (!window.location.pathname.includes('subalmacenes.html')) {
@@ -38,20 +38,20 @@ document.addEventListener('DOMContentLoaded', function() {
 
 async function initializeSubalmacenes() {
     try {
-        console.log('🔄 Cargando datos iniciales de subalmacenes permanentes...');
+        console.log('🔄 Cargando datos iniciales de subalmacenes...');
         
         // Cargar datos en paralelo con manejo de errores individual
         const results = await Promise.allSettled([
             getTripsAPI().catch(error => {
-                console.error('❌ Error cargando trips:', error);
+                console.error(' Error cargando trips:', error);
                 return [];
             }),
             getEmployees().catch(error => {
-                console.error('❌ Error cargando employees:', error);
+                console.error(' Error cargando employees:', error);
                 return [];
             }),
             getProducts().catch(error => {
-                console.error('❌ Error cargando products:', error);
+                console.error(' Error cargando products:', error);
                 return [];
             })
         ]);
@@ -63,7 +63,7 @@ async function initializeSubalmacenes() {
         allEmployees = employeesResult.status === 'fulfilled' ? employeesResult.value : [];
         allProducts = productsResult.status === 'fulfilled' ? productsResult.value : [];
         
-        console.log('✅ Datos cargados:', {
+        console.log(' Datos cargados:', {
             trips: allTrips.length,
             employees: allEmployees.length,
             products: allProducts.length
@@ -80,15 +80,15 @@ async function initializeSubalmacenes() {
             window.showNotification('Subalmacenes cargados correctamente', 'success');
         }
         
-        console.log('✅ Subalmacenes inicializados correctamente');
+        console.log(' Subalmacenes inicializados correctamente');
         
     } catch (error) {
-        console.error('❌ Error crítico cargando subalmacenes:', error);
+        console.error(' Error crítico cargando subalmacenes:', error);
         
         // Mostrar error detallado
         document.getElementById('trips-container').innerHTML = `
             <div style="text-align: center; padding: 2rem; color: var(--danger-color);">
-                <h3>❌ Error al cargar datos</h3>
+                <h3> Error al cargar datos</h3>
                 <p><strong>Error:</strong> ${error.message}</p>
                 <div style="margin: 1rem 0; padding: 1rem; background: #f8f9fa; border-radius: 6px; text-align: left;">
                     <strong>Información de debugging:</strong><br>
@@ -99,10 +99,10 @@ async function initializeSubalmacenes() {
                 </div>
                 <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
                     <button onclick="initializeSubalmacenes()" class="btn btn-primary">
-                        🔄 Reintentar
+                         Reintentar
                     </button>
                     <button onclick="testBasicConnectivity()" class="btn btn-warning">
-                        🌐 Test Conexión
+                         Test Conexión
                     </button>
                 </div>
             </div>
@@ -114,7 +114,7 @@ async function initializeSubalmacenes() {
     }
 }
 
-// ===== FUNCIONES DE API PARA SUBALMACENES PERMANENTES =====
+// ===== FUNCIONES DE API PARA SUBALMACENES  =====
 async function getTripsAPI(status = null, employeeId = null) {
     console.log('🔍 getTripsAPI llamado con:', { status, employeeId });
     
@@ -325,7 +325,7 @@ async function getTripInventoryAPI(tripId) {
     }
 }
 
-// ===== MOSTRAR subalmacenS PERMANENTES =====
+// ===== MOSTRAR subalmacenS  =====
 function displayTrips() {
     const container = document.getElementById('trips-container');
     
@@ -342,7 +342,7 @@ function displayTrips() {
         return;
     }
     
-    // Filtrar subalmacens activos (permanentes)
+    // Filtrar subalmacens activos 
     const activeTrips = allTrips.filter(trip => trip.status === 'active');
     
     if (activeTrips.length === 0) {
@@ -1182,7 +1182,7 @@ OBSERVACIONES:
 - Las ventas se descuentan automáticamente del inventario del subalmacén
 
 Reporte generado: ${new Date().toLocaleString()}
-Sistema de Aceites - Gestión de Subalmacenes Permanentes
+Sistema de Aceites - Gestión de Subalmacenes 
     `.trim();
     
     // Descargar como archivo de texto
@@ -1314,4 +1314,4 @@ window.clearFilters = clearFilters;
 window.testBasicConnectivity = testBasicConnectivity;
 window.initializeSubalmacenes = initializeSubalmacenes;
 
-console.log('✅ Subalmacenes Permanentes.js inicializado correctamente');
+console.log('✅ Subalmacenes.js inicializado correctamente');

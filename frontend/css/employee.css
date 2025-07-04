@@ -175,7 +175,7 @@
     }
     
     .mobile-menu-btn:hover {
-        background: #1d4ed8;
+        background: #052e5b;
         transform: scale(1.05);
     }
     
@@ -645,7 +645,7 @@
     }
     
     .btn-primary:hover {
-        background: #1d4ed8;
+        background: #052e5b;
         box-shadow: 0 6px 16px rgba(37, 99, 235, 0.4);
     }
     
@@ -978,7 +978,7 @@
 
 /* Estilos específicos para subalmacén */
 .substore-status {
-    background: linear-gradient(135deg, #1e40af, #2563eb);
+    background: linear-gradient(135deg, #1e40af, #052e5b);
     color: white;
     padding: 1.5rem;
     border-radius: 8px;
@@ -1347,7 +1347,7 @@
 }
 
 .search-btn:hover {
-    background: #1d4ed8;
+    background: #052e5b;
     transform: translateY(-1px);
 }
 
