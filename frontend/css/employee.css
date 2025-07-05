@@ -1208,8 +1208,8 @@
 }
 
 .initial-payment-section {
-    background: #fef3c7;
-    border: 1px solid #f59e0b;
+    background: #c7cafe;
+    border: 1px solid #1e2c64;
     border-radius: 6px;
     padding: 1rem;
     margin-top: 1rem;
@@ -1222,7 +1222,7 @@
 
 .initial-payment-label {
     font-weight: 600;
-    color: #92400e;
+    color: #120e83;
     margin-bottom: 0.5rem;
     display: block;
 }
@@ -1230,7 +1230,7 @@
 .initial-payment-input {
     width: 100%;
     padding: 0.75rem;
-    border: 2px solid #f59e0b;
+    border: 2px solid #131271;
     border-radius: 6px;
     font-size: 1rem;
     font-weight: 600;
@@ -1239,8 +1239,8 @@
 
 .initial-payment-input:focus {
     outline: none;
-    border-color: #d97706;
-    box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.1);
+    border-color: #120f96;
+    box-shadow: 0 0 0 3px rgba(5, 38, 168, 0.1);
 }
 
 .payment-summary {
@@ -1370,7 +1370,7 @@
 }
 
 .order-header {
-    background: linear-gradient(135deg, var(--primary-color), #1e40af);
+    background: linear-gradient(135deg, var(--primary-color), #110f7d);
     color: white;
     padding: 1rem;
     display: flex;
@@ -1416,8 +1416,8 @@
 
 .status-hold {
     background: rgba(251, 191, 36, 0.2);
-    color: #f59e0b;
-    border: 1px solid #f59e0b;
+    color: #110f7d;
+    border: 1px solid #110f7d;
 }
 
 .order-body {

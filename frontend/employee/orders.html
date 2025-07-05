@@ -6,6 +6,7 @@
     <title>Crear Pedido - Sistema de Aceites</title>
     <link rel="stylesheet" href="../css/style.css">
     <link rel="stylesheet" href="../css/employee.css">
+    <script src="../js/employee.js"></script>
 </head>
 <body>
     <div class="employee-container">
@@ -29,9 +30,9 @@
                     <button id="refresh-substore-btn" class="btn btn-secondary" onclick="refreshSubstoreStatus()">
                         Actualizar Estado
                     </button>
-                                    <button id="location-btn" class="btn-location" onclick="getCurrentLocationForEmployee()">
-                    📍 Obtener Ubicación
-                </button>
+                    <button id="location-btn" class="btn-location" onclick="getCurrentLocationForEmployee()">
+                        📍 Obtener Ubicación
+                    </button>
                 </div>
             </header>
 
@@ -110,10 +111,10 @@
                     </div>
                 </div>
 
-                <!-- NUEVA SECCIÓN: Opciones de Pago -->
+                <!-- SECCIÓN MEJORADA: Opciones de Pago -->
                 <div class="payment-options-section">
                     <h3 class="payment-section-title">
-                        💳Modalidad de Pago
+                        💳 Modalidad de Pago
                     </h3>
                     
                     <div class="payment-method-grid">
@@ -121,14 +122,14 @@
                         <div class="payment-method-option selected" onclick="selectPaymentMethod('cash')">
                             <input type="radio" name="payment_method" value="cash" id="payment-cash" checked>
                             <div class="payment-method-header">
-                                <div class="payment-icon"></div>
+                                <div class="payment-icon">$</div>
                                 <div class="payment-title">Contado</div>
                             </div>
                             <div class="payment-description">
                                 Pago completo al momento de la entrega. El cliente paga el total del pedido.
                             </div>
                             <div class="payment-features">
-                                 Pago inmediato •  Venta completada
+                                ✓ Pago inmediato • ✓ Venta completada
                             </div>
                         </div>
 
@@ -136,14 +137,14 @@
                         <div class="payment-method-option" onclick="selectPaymentMethod('credit')">
                             <input type="radio" name="payment_method" value="credit" id="payment-credit">
                             <div class="payment-method-header">
-                                <div class="payment-icon"></div>
+                                <div class="payment-icon">📋</div>
                                 <div class="payment-title">Crédito</div>
                             </div>
                             <div class="payment-description">
                                 El cliente puede abonar una cantidad inicial y pagar el resto después.
                             </div>
                             <div class="payment-features">
-                                 Abono inicial opcional •  Saldo pendiente
+                                ✓ Abono inicial opcional • ✓ Saldo pendiente
                             </div>
                         </div>
                     </div>
@@ -160,7 +161,7 @@
                                min="0" 
                                placeholder="0.00"
                                onchange="updatePaymentSummary()">
-                        <div style="margin-top: 0.5rem; font-size: 0.8rem; color: #92400e;">
+                        <div style="margin-top: 0.5rem; font-size: 0.8rem; color: #160d67;">
                             💡 El cliente puede abonar cualquier cantidad. Si no abona nada, queda todo el pedido como saldo pendiente.
                         </div>
                     </div>
@@ -202,7 +203,7 @@
 
                 <div class="form-actions">
                     <button type="button" class="btn btn-secondary" id="clear-order-btn">Limpiar Pedido</button>
-                    <button type="button" class="btn btn-primary" id="submit-order-btn">Crear Pedido</button>
+                    <button type="button" class="btn btn-primary" id="submit-order-btn">✨ Crear Pedido</button>
                 </div>
             </div>
         </main>
@@ -214,14 +215,14 @@
     <script src="../js/api.js"></script>
     
     <script>
-        console.log('🚀 Iniciando página de pedidos con subalmacén');
+        console.log('🚀 Iniciando página de pedidos con subalmacén y selector de pago mejorado');
 
         // Variables globales
         let substoreProducts = [];
         let orderProducts = [];
         let currentLocation = null;
         let isProcessing = false;
-        let currentPaymentMethod = 'cash';
+        let currentPaymentMethod = 'cash'; // ✅ VARIABLE CLAVE DEL MÉTODO DE PAGO
         let substoreInfo = null;
 
         // Inicialización
@@ -232,7 +233,7 @@
             if (!user) return;
             
             if (user.role !== 'employee') {
-                alert('Esta página es solo para vendedors.');
+                alert('Esta página es solo para vendedores.');
                 window.location.href = '/';
                 return;
             }
@@ -267,17 +268,24 @@
             console.log('✅ Event listeners configurados');
         }
 
-        // NUEVA FUNCIÓN: Seleccionar método de pago
+        // ===== FUNCIÓN PRINCIPAL: Seleccionar método de pago =====
         function selectPaymentMethod(method) {
+            console.log('💳 Seleccionando método de pago:', method);
+            
+            // ✅ ACTUALIZAR LA VARIABLE GLOBAL
             currentPaymentMethod = method;
             
-            // Actualizar visual
+            // Actualizar interfaz visual
             document.querySelectorAll('.payment-method-option').forEach(option => {
                 option.classList.remove('selected');
             });
             
+            // Marcar la opción seleccionada
             const selectedOption = document.querySelector(`#payment-${method}`).closest('.payment-method-option');
             selectedOption.classList.add('selected');
+            
+            // Actualizar radio button
+            document.getElementById(`payment-${method}`).checked = true;
             
             // Mostrar/ocultar sección de abono inicial
             const initialPaymentSection = document.getElementById('initial-payment-section');
@@ -292,11 +300,39 @@
                 document.getElementById('initial-payment').value = '';
             }
             
+            // ✅ ACTUALIZAR PRECIOS DE PRODUCTOS SEGÚN EL MÉTODO SELECCIONADO
+            updateProductPrices();
             updatePaymentSummary();
-            console.log('💳 Método de pago seleccionado:', method);
+            
+            console.log('✅ Método de pago actualizado a:', currentPaymentMethod);
         }
 
-        // NUEVA FUNCIÓN: Actualizar resumen de pago
+        // ===== NUEVA FUNCIÓN: Actualizar precios según método de pago =====
+        function updateProductPrices() {
+            console.log('💰 Actualizando precios según método:', currentPaymentMethod);
+            
+            // Actualizar productos mostrados en la lista
+            if (substoreProducts && substoreProducts.length > 0) {
+                displaySubstoreProducts(substoreProducts);
+            }
+            
+            // Actualizar productos ya agregados al pedido
+            if (orderProducts && orderProducts.length > 0) {
+                orderProducts.forEach(orderProduct => {
+                    const product = substoreProducts.find(p => p.id === orderProduct.product_id);
+                    if (product) {
+                        const prices = getProductPrices(product, currentPaymentMethod);
+                        orderProduct.unit_price = prices.box;
+                        orderProduct.line_total = prices.box * orderProduct.quantity;
+                        orderProduct.payment_method = currentPaymentMethod;
+                    }
+                });
+                
+                updateOrderTable();
+            }
+        }
+
+        // ===== FUNCIÓN: Actualizar resumen de pago =====
         function updatePaymentSummary() {
             const total = orderProducts.reduce((sum, p) => sum + p.line_total, 0);
             const initialPayment = parseFloat(document.getElementById('initial-payment')?.value) || 0;
@@ -360,7 +396,7 @@
                 container.innerHTML = `
                     <div class="substore-status">
                         <div class="substore-header">
-                            <h3 class="substore-title"> Subalmacén Activo</h3>
+                            <h3 class="substore-title">🚛 Subalmacén Activo</h3>
                             <div class="trip-number">${data.trip_info.trip_number}</div>
                         </div>
                         <p>Tienes productos disponibles para venta desde tu subalmacén móvil.</p>
@@ -387,15 +423,15 @@
                         <div class="substore-header">
                             <h3 class="substore-title">⚠️ Sin Subalmacén Activo</h3>
                         </div>
-                        <p>No tienes un subalmacen activo asignado. Contacta al administrador para que te asigne productos.</p>
+                        <p>No tienes un subalmacén activo asignado. Contacta al administrador para que te asigne productos.</p>
                     </div>
                     
                     <div class="no-trip-message">
                         <div class="no-trip-icon">📦</div>
                         <h3 class="no-trip-title">No hay productos asignados</h3>
                         <p class="no-trip-description">
-                            Para crear pedidos necesitas tener un subalmacen activo con productos asignados a tu subalmacén.
-                            El administrador debe crear un subalmacen y cargar productos para ti.
+                            Para crear pedidos necesitas tener un subalmacén activo con productos asignados.
+                            El administrador debe crear un subalmacén y cargar productos para ti.
                         </p>
                         <button class="contact-admin" onclick="contactAdmin()">
                             📞 Contactar Administrador
@@ -421,7 +457,7 @@
             `;
         }
 
-        // Cargar productos del subalmacén - MEJORADO CON DEBUG
+        // Cargar productos del subalmacén
         async function loadSubstoreProducts() {
             console.log('📦 Cargando productos del subalmacén...');
             
@@ -431,7 +467,6 @@
                 return;
             }
             
-            // Mostrar loading
             container.innerHTML = '<div class="loading">Cargando productos del subalmacén...</div>';
             
             try {
@@ -451,22 +486,12 @@
                 const data = await response.json();
                 console.log('✅ Datos recibidos del subalmacén:', data);
                 
-                // Verificar estructura de datos
-                if (!data) {
-                    throw new Error('No se recibieron datos del servidor');
-                }
-                
-                if (!data.products) {
+                if (!data || !data.products) {
                     console.warn('⚠️ No se encontró array de productos en la respuesta');
                     substoreProducts = [];
                 } else {
                     substoreProducts = data.products;
                     console.log('📦 Productos procesados:', substoreProducts.length);
-                }
-                
-                // Verificar que tengamos productos válidos
-                if (substoreProducts.length > 0) {
-                    console.log('📦 Primer producto de ejemplo:', substoreProducts[0]);
                 }
                 
                 displaySubstoreProducts(substoreProducts);
@@ -478,13 +503,6 @@
                     container.innerHTML = `
                         <div style="text-align: center; padding: 2rem; color: #dc2626;">
                             <p>❌ Error: ${error.message}</p>
-                            <div style="margin: 1rem 0; padding: 1rem; background: #f8f9fa; border-radius: 6px; text-align: left;">
-                                <strong>Información de debugging:</strong><br>
-                                • API URL: ${window.API_BASE_URL}<br>
-                                • Token: ${localStorage.getItem('token') ? 'Presente' : 'Ausente'}<br>
-                                • Usuario: ${JSON.parse(localStorage.getItem('user') || '{}')?.name || 'Desconocido'}<br>
-                                • Substore Info: ${substoreInfo ? 'Presente' : 'Ausente'}
-                            </div>
                             <button onclick="loadSubstoreProducts()" class="btn btn-primary" style="margin-top: 1rem;">
                                 🔄 Reintentar
                             </button>
@@ -502,7 +520,7 @@
                 return;
             }
             
-            console.log('🔄 Mostrando productos:', productsToShow.length);
+            console.log('🔄 Mostrando productos con método de pago:', currentPaymentMethod);
             
             if (productsToShow.length === 0) {
                 container.innerHTML = `
@@ -516,13 +534,13 @@
             
             try {
                 container.innerHTML = productsToShow.map(product => {
-                    console.log('🔄 Procesando producto:', product.code, product);
+                    console.log('🔄 Procesando producto:', product.code, 'con método:', currentPaymentMethod);
                     
                     const stockClass = product.stock > 10 ? 'stock-high' : product.stock > 3 ? 'stock-medium' : 'stock-low';
                     const stockText = `${product.stock} disponibles en subalmacén`;
                     const isOutOfStock = product.stock === 0;
                     
-                    // Obtener precios según modalidad actual con fallback
+                    // ✅ OBTENER PRECIOS SEGÚN EL MÉTODO DE PAGO ACTUAL
                     let prices;
                     try {
                         prices = getProductPrices(product, currentPaymentMethod);
@@ -531,9 +549,15 @@
                         prices = { box: product.price || 0, unit: 0 };
                     }
                     
+                    // Indicador visual del método de pago
+                    const paymentBadge = currentPaymentMethod === 'credit' 
+                        ? '<span style="background: #fbbf24; color: #92400e; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">📋 CRÉDITO</span>'
+                        : '<span style="background: #10b981; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">💵 CONTADO</span>';
+                    
                     return `
                         <div class="product-card substore-product-card">
                             <div class="substore-badge">SUBALMACÉN</div>
+                            ${paymentBadge}
                             
                             <div class="product-header">
                                 <div><div class="product-code">${product.code || 'N/A'}</div></div>
@@ -546,15 +570,15 @@
                             ${product.substore_info ? `
                                 <div class="substore-info">
                                     <div class="substore-info-row">
-                                        <span>  Stock inicial:</span>
+                                        <span>🏪 Stock inicial:</span>
                                         <span><strong>${product.substore_info.initial_quantity || 0}</strong></span>
                                     </div>
                                     <div class="substore-info-row">
-                                        <span>  Vendidos:</span>
+                                        <span>💰 Vendidos:</span>
                                         <span><strong>${product.substore_info.sold_quantity || 0}</strong></span>
                                     </div>
                                     <div class="substore-info-row">
-                                        <span>  subalmacen:</span>
+                                        <span>🚛 Subalmacén:</span>
                                         <span><strong>${substoreInfo?.trip_number || 'N/A'}</strong></span>
                                     </div>
                                 </div>
@@ -572,7 +596,7 @@
                     `;
                 }).join('');
                 
-                console.log('✅ Productos mostrados correctamente');
+                console.log('✅ Productos mostrados correctamente con precios para:', currentPaymentMethod);
                 
             } catch (error) {
                 console.error('❌ Error mostrando productos:', error);
@@ -587,11 +611,10 @@
             }
         }
 
-        // Obtener precios del producto según modalidad (del subalmacén) - CORREGIDO
+        // ===== FUNCIÓN MEJORADA: Obtener precios según modalidad =====
         function getProductPrices(product, paymentMethod) {
             console.log('💰 Calculando precios para:', product.code, 'modalidad:', paymentMethod);
             
-            // Validar producto
             if (!product) {
                 console.warn('Producto no válido');
                 return { unit: 0, box: 0 };
@@ -632,9 +655,9 @@
             }
         }
 
-        // Agregar producto al pedido
+        // ===== FUNCIÓN MEJORADA: Agregar producto al pedido =====
         function addToOrder(productId) {
-            console.log('➕ Agregando producto del subalmacén al pedido:', productId);
+            console.log('➕ Agregando producto del subalmacén al pedido:', productId, 'con método:', currentPaymentMethod);
             
             const product = substoreProducts.find(p => p.id === productId);
             if (!product) {
@@ -652,10 +675,10 @@
                 return;
             }
             
-            // Obtener precios según modalidad actual
+            // ✅ OBTENER PRECIOS SEGÚN EL MÉTODO DE PAGO ACTUAL
             const prices = getProductPrices(product, currentPaymentMethod);
             
-            // Buscar si ya existe en el pedido
+            // Buscar si ya existe en el pedido con el mismo método de pago
             const existingIndex = orderProducts.findIndex(p => 
                 p.product_id === productId && p.payment_method === currentPaymentMethod
             );
@@ -671,6 +694,7 @@
                 orderProducts[existingIndex].quantity = newQuantity;
                 orderProducts[existingIndex].line_total = prices.box * newQuantity;
             } else {
+                // ✅ AGREGAR PRODUCTO CON EL MÉTODO DE PAGO ACTUAL
                 orderProducts.push({
                     product_id: productId,
                     name: product.name,
@@ -678,7 +702,7 @@
                     unit_price: prices.box,
                     quantity: quantity,
                     line_total: prices.box * quantity,
-                    payment_method: currentPaymentMethod,
+                    payment_method: currentPaymentMethod, // ✅ INCLUIR MÉTODO DE PAGO
                     unit_type: 'box',
                     substore_info: product.substore_info
                 });
@@ -690,10 +714,10 @@
             if (quantityInput) quantityInput.value = 1;
             
             if (window.showNotification) {
-                window.showNotification(`${product.name} agregado desde subalmacén`, 'success');
+                window.showNotification(`${product.name} agregado (${currentPaymentMethod === 'cash' ? 'Contado' : 'Crédito'})`, 'success');
             }
             
-            console.log('✅ Producto agregado desde subalmacén. Total en pedido:', orderProducts.length);
+            console.log('✅ Producto agregado con método:', currentPaymentMethod, 'Total en pedido:', orderProducts.length);
         }
 
         // Actualizar tabla de pedido
@@ -712,20 +736,28 @@
                     </tr>
                 `;
             } else {
-                tbody.innerHTML = orderProducts.map((product, index) => `
-                    <tr>
-                        <td>
-                            <div style="font-weight: 600;">${product.code} - ${product.name}</div>
-                            <small style="color: #059669;"> Desde subalmacén</small>
-                        </td>
-                        <td>${formatCurrency(product.unit_price)}</td>
-                        <td>${product.quantity}</td>
-                        <td>${formatCurrency(product.line_total)}</td>
-                        <td>
-                            <button class="remove-product" onclick="removeFromOrder(${index})">🗑️</button>
-                        </td>
-                    </tr>
-                `).join('');
+                tbody.innerHTML = orderProducts.map((product, index) => {
+                    // Badge del método de pago para cada producto
+                    const methodBadge = product.payment_method === 'credit' 
+                        ? '<small style="background: #fbbf24; color: #92400e; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.7rem; font-weight: 600; margin-left: 0.5rem;">CRÉDITO</small>'
+                        : '<small style="background: #10b981; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.7rem; font-weight: 600; margin-left: 0.5rem;">CONTADO</small>';
+                    
+                    return `
+                        <tr>
+                            <td>
+                                <div style="font-weight: 600;">${product.code} - ${product.name}</div>
+                                <small style="color: #059669;">🚛 Desde subalmacén</small>
+                                ${methodBadge}
+                            </td>
+                            <td>${formatCurrency(product.unit_price)}</td>
+                            <td>${product.quantity}</td>
+                            <td>${formatCurrency(product.line_total)}</td>
+                            <td>
+                                <button class="remove-product" onclick="removeFromOrder(${index})">🗑️</button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
             }
             
             if (productsCount) {
@@ -733,7 +765,7 @@
             }
             
             updateSummary();
-            updatePaymentSummary(); // NUEVO: Actualizar resumen de pago
+            updatePaymentSummary();
         }
 
         // Actualizar resumen
@@ -749,7 +781,8 @@
             }
             
             if (countElement) {
-                countElement.textContent = `${totalItems} productos seleccionados del subalmacén`;
+                const methodText = currentPaymentMethod === 'cash' ? 'contado' : 'crédito';
+                countElement.textContent = `${totalItems} productos (${methodText}) del subalmacén`;
             }
         }
 
@@ -799,7 +832,6 @@
             }
         }
 
-        // Improved handleClearOrder function that uses clearOrderForm
         function handleClearOrder() {
             if (orderProducts.length === 0) {
                 if (window.showNotification) {
@@ -817,10 +849,11 @@
             }
         }
 
+        // ===== FUNCIÓN PRINCIPAL MEJORADA: Crear pedido =====
         async function handleCreateOrder() {
             if (isProcessing) return;
             
-            console.log('📤 Iniciando creación de pedido con opciones de pago...');
+            console.log('📤 Iniciando creación de pedido con método de pago:', currentPaymentMethod);
             
             // Validaciones existentes
             if (!orderProducts || orderProducts.length === 0) {
@@ -846,7 +879,7 @@
                 return;
             }
             
-            // NUEVA VALIDACIÓN: Obtener información de pago
+            // ✅ OBTENER INFORMACIÓN DE PAGO SEGÚN EL MÉTODO SELECCIONADO
             const total = orderProducts.reduce((sum, p) => sum + p.line_total, 0);
             let initialPayment = 0;
             
@@ -874,7 +907,7 @@
                     submitBtn.textContent = '⚡ Procesando Venta...';
                 }
                 
-                // Preparar datos del pedido con información de pagos
+                // ✅ PREPARAR DATOS CON MÉTODO DE PAGO
                 const formData = {
                     client_info: {
                         name: clientName,
@@ -883,14 +916,14 @@
                         email: document.getElementById('client-email')?.value?.trim() || ''
                     },
                     products: orderProducts,
-                    payment_method: currentPaymentMethod,
+                    payment_method: currentPaymentMethod, // ✅ INCLUIR MÉTODO DE PAGO
                     inventory_source: 'substore',
                     trip_id: substoreInfo.id,
                     location: currentLocation,
                     notes: document.getElementById('order-notes')?.value?.trim() || '',
                     total: total,
                     
-                    // ===== NUEVA INFORMACIÓN DE PAGOS =====
+                    // Información de pagos
                     paid_amount: initialPayment,
                     balance: total - initialPayment,
                     is_fully_paid: initialPayment >= total,
@@ -908,7 +941,7 @@
                     }
                 }
                 
-                console.log('📤 Enviando pedido con información de pagos:', formData);
+                console.log('📤 Enviando pedido con método de pago:', formData);
                 
                 // Enviar pedido
                 const response = await fetch(`${window.API_BASE_URL}/api/orders`, {
@@ -918,20 +951,22 @@
                         'Authorization': `Bearer ${localStorage.getItem('token')}`
                     },
                     body: JSON.stringify(formData)
-                    });
-                                    
+                });
+                
                 console.log('✅ Respuesta del servidor recibida:', response);
                 
-                // Manejar respuesta de auto-confirmación
-                if (response.auto_confirmed) {
-                    console.log('🎉 Pedido auto-confirmado exitosamente');
+                // Manejar respuesta
+                if (response.ok) {
+                    const result = await response.json();
+                    
+                    console.log('🎉 Pedido procesado exitosamente:', result);
                     
                     const methodText = currentPaymentMethod === 'cash' ? 'Contado' : 'Crédito';
-                    const orderNumber = response.order?.order_number || response.order?.id || 'Generándose...';
-                    const saleNumber = response.sale?.sale_number || 'Generándose...';
+                    const orderNumber = result.order?.order_number || 'Generándose...';
+                    const saleNumber = result.sale?.sale_number || 'Generándose...';
                     const tripNumber = substoreInfo.trip_number;
                     
-                    // Mensaje de confirmación con información de pagos
+                    // ✅ MENSAJE CON INFORMACIÓN DEL MÉTODO DE PAGO
                     let paymentInfo = '';
                     if (currentPaymentMethod === 'credit') {
                         const balance = total - initialPayment;
@@ -939,166 +974,65 @@
                             paymentInfo = `\n💰 Abono inicial: ${formatCurrency(initialPayment)}`;
                         }
                         if (balance > 0) {
-                            paymentInfo += `\nSaldo pendiente: ${formatCurrency(balance)}`;
+                            paymentInfo += `\n📋 Saldo pendiente: ${formatCurrency(balance)}`;
                         } else {
-                            paymentInfo += `\n Pedido TOTALMENTE PAGADO`;
+                            paymentInfo += `\n✅ Pedido TOTALMENTE PAGADO`;
                         }
                     } else {
-                        paymentInfo = '\nPAGO COMPLETO AL CONTADO';
+                        paymentInfo = '\n💵 PAGO COMPLETO AL CONTADO';
                     }
                     
                     const confirmationMessage = `🎉 ¡VENTA COMPLETADA EXITOSAMENTE!
 
-Pedido: ${orderNumber}
-Venta: ${saleNumber}
-Cliente: ${formData.client_info.name}
-Modalidad: ${methodText}
-Productos: ${orderProducts.length}
-Total: ${formatCurrency(formData.total)}${paymentInfo}
-subalmacen: ${tripNumber}
+📋 Pedido: ${orderNumber}
+💰 Venta: ${saleNumber}
+👤 Cliente: ${formData.client_info.name}
+💳 Modalidad: ${methodText}
+📦 Productos: ${orderProducts.length}
+💵 Total: ${formatCurrency(formData.total)}${paymentInfo}
+🚛 Subalmacén: ${tripNumber}
 
-La venta ha sido procesada automáticamente
-El inventario de tu subalmacén ha sido actualizado
-El registro de venta ha sido creado
+✅ La venta ha sido procesada automáticamente
+📦 El inventario de tu subalmacén ha sido actualizado
+📊 El registro de venta ha sido creado
 
 ¡Felicidades por tu venta! 🎊`;
                     
-                    console.log('🎉 Mostrando confirmación de venta:', confirmationMessage);
                     alert(confirmationMessage);
                     
                     if (window.showNotification) {
-                        window.showNotification('¡Venta completada automáticamente! 🎉', 'success');
+                        window.showNotification(`¡Venta ${methodText.toLowerCase()} completada! 🎉`, 'success');
                     }
+                    
+                    // Limpiar formulario
+                    clearOrderForm();
+                    
+                    // Recargar productos del subalmacén
+                    await loadSubstoreProducts();
                     
                 } else {
-                    // Fallback para pedidos no auto-confirmados
-                    console.log('📋 Pedido creado, requiere confirmación manual');
-                    
-                    const methodText = currentPaymentMethod === 'cash' ? 'Contado' : 'Crédito';
-                    const orderNumber = response.order?.order_number || response.order?.id || 'Generándose...';
-                    
-                    let paymentInfo = '';
-                    if (currentPaymentMethod === 'credit' && initialPayment > 0) {
-                        const balance = total - initialPayment;
-                        paymentInfo = `\n💰 Abono inicial: ${formatCurrency(initialPayment)}`;
-                        paymentInfo += `\n📋 Saldo pendiente: ${formatCurrency(balance)}`;
-                    }
-                    
-                    const confirmationMessage = `✅ PEDIDO CREADO EXITOSAMENTE
-
- Número: ${orderNumber}
- Cliente: ${formData.client_info.name}
- Modalidad: ${methodText}
- Productos: ${orderProducts.length}
- Total: ${formatCurrency(formData.total)}${paymentInfo}
-
- El pedido requiere confirmación del administrador.`;
-                    
-                    alert(confirmationMessage);
-                    
-                    if (window.showNotification) {
-                        window.showNotification('Pedido creado exitosamente', 'success');
-                    }
-                }
-                
-                // Limpiar formulario
-                clearOrderForm();
-                
-                // Recargar productos del subalmacén
-                console.log('🔄 Recargando productos del subalmacén...');
-                try {
-                    await loadSubstoreProducts();
-                    if (window.showNotification && response.auto_confirmed) {
-                        window.showNotification('Inventario actualizado - nuevos stocks disponibles', 'info');
-                    }
-                } catch (reloadError) {
-                    console.warn('⚠️ Error recargando productos, pero la venta se completó:', reloadError);
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || 'Error en el servidor');
                 }
                 
             } catch (error) {
                 console.error('❌ Error procesando pedido:', error);
                 
-                // Manejo de errores (similar al código existente)
-                const isRealError = (
-                    error.message.includes('Failed to fetch') ||
-                    error.message.includes('NetworkError') ||
-                    error.message.includes('Stock insuficiente') ||
-                    error.message.includes('401') ||
-                    error.message.includes('403') ||
-                    error.message.includes('404') ||
-                    error.message.includes('500')
-                );
-                
-                if (isRealError) {
-                    if (window.showNotification) {
-                        window.showNotification('Error: ' + error.message, 'error');
-                    }
-                    
-                    let errorMessage;
-                    if (error.message.includes('Stock insuficiente')) {
-                        errorMessage = `❌ Stock insuficiente en tu subalmacén:
-
-${error.message}
-
-Los productos pueden haber sido vendidos mientras preparabas el pedido.
-Actualiza la página para ver el stock actual.`;
-                    } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
-                        errorMessage = `❌ Error de conexión:
-
-No se pudo conectar con el servidor.
-Verifica tu conexión a internet e intenta nuevamente.`;
-                    } else {
-                        errorMessage = `❌ Error procesando la venta:
-
-${error.message}
-
-Intenta nuevamente en unos momentos.`;
-                    }
-                    
-                    alert(errorMessage);
-                } else {
-                    // Posible falso positivo
-                    console.log('🤔 Posible falso positivo - verificando estado...');
-                    
-                    setTimeout(async () => {
-                        try {
-                            clearOrderForm();
-                            await loadSubstoreProducts();
-                            
-                            if (window.showNotification) {
-                                window.showNotification('Venta procesada exitosamente', 'success');
-                            }
-                            
-                            let paymentInfo = '';
-                            if (currentPaymentMethod === 'credit' && initialPayment > 0) {
-                                paymentInfo = `\n💰 Abono inicial: ${formatCurrency(initialPayment)}\n📋 Saldo pendiente: ${formatCurrency(formData.total - initialPayment)}`;
-                            }
-                            
-                            alert(`✅ VENTA PROCESADA
-
-La venta ha sido enviada al servidor exitosamente.
-
-📋 Cliente: ${formData.client_info.name}
-💳 Modalidad: ${currentPaymentMethod === 'cash' ? 'Contado' : 'Crédito'}
-📦 Productos: ${orderProducts.length}
-💰 Total: ${formatCurrency(formData.total)}${paymentInfo}
-
-Verifica en la sección de ventas que se haya registrado correctamente.`);
-                                            
-                        } catch (verifyError) {
-                            console.error('Error verificando estado:', verifyError);
-                            setTimeout(() => {
-                                window.location.reload();
-                            }, 2000);
-                        }
-                    }, 1000);
+                if (window.showNotification) {
+                    window.showNotification('Error: ' + error.message, 'error');
                 }
+                
+                alert(`❌ Error al procesar la venta:
+
+${error.message}
+
+Verifica la información e intenta nuevamente.`);
                 
             } finally {
                 isProcessing = false;
                 if (submitBtn) {
                     submitBtn.disabled = false;
-                    submitBtn.textContent = ' Crear Pedido';
+                    submitBtn.textContent = '✨ Crear Pedido';
                 }
             }
         }
@@ -1122,7 +1056,7 @@ Verifica en la sección de ventas que se haya registrado correctamente.`);
 
 Para obtener productos en tu subalmacén:
 
-1. Solicita al administrador que cree un nuevo subalmacen
+1. Solicita al administrador que cree un nuevo subalmacén
 2. El administrador debe asignarte productos específicos
 3. Una vez asignados, podrás crear pedidos desde tu subalmacén
 
@@ -1249,14 +1183,11 @@ Mientras tanto, el administrador puede crear pedidos directamente desde el almac
             }
         }
 
-        // Helper function to format currency (if not already defined) - CORREGIDO
         function formatCurrency(amount) {
-            // Evitar recursión infinita - verificar si window.formatCurrency existe Y es diferente a esta función
             if (typeof window.formatCurrency === 'function' && window.formatCurrency !== formatCurrency) {
                 return window.formatCurrency(amount);
             }
             
-            // Implementación local
             if (typeof amount !== 'number') {
                 amount = parseFloat(amount) || 0;
             }
@@ -1281,10 +1212,11 @@ Mientras tanto, el administrador puede crear pedidos directamente desde el almac
         window.logout = logout;
         window.refreshSubstoreStatus = refreshSubstoreStatus;
         window.contactAdmin = contactAdmin;
-        window.selectPaymentMethod = selectPaymentMethod;
+        window.selectPaymentMethod = selectPaymentMethod; // ✅ FUNCIÓN GLOBAL
         window.updatePaymentSummary = updatePaymentSummary;
 
-        console.log('✅ Página de pedidos con subalmacén y opciones de pago inicializada correctamente');
+        console.log('✅ Página de pedidos con selector de pago mejorado inicializada correctamente');
+        console.log('💳 Método de pago actual:', currentPaymentMethod);
     </script>
 </body>
 </html>
