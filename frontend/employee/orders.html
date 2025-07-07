@@ -30,9 +30,6 @@
                     <button id="refresh-substore-btn" class="btn btn-secondary" onclick="refreshSubstoreStatus()">
                         Actualizar Estado
                     </button>
-                    <button id="location-btn" class="btn-location" onclick="getCurrentLocationForEmployee()">
-                        📍 Obtener Ubicación
-                    </button>
                 </div>
             </header>
 
@@ -114,26 +111,22 @@
                 <!-- SECCIÓN MEJORADA: Opciones de Pago -->
                 <div class="payment-options-section">
                     <h3 class="payment-section-title">
-                        💳 Modalidad de Pago
+                        💳 Modalidad y Tipo de Pago
                     </h3>
                     
+                    <!-- Modalidad de pago -->
                     <div class="payment-method-grid">
-                        <!-- Opción de Contado -->
                         <div class="payment-method-option selected" onclick="selectPaymentMethod('cash')">
                             <input type="radio" name="payment_method" value="cash" id="payment-cash" checked>
                             <div class="payment-method-header">
-                                <div class="payment-icon">$</div>
+                                <div class="payment-icon">💵</div>
                                 <div class="payment-title">Contado</div>
                             </div>
                             <div class="payment-description">
-                                Pago completo al momento de la entrega. El cliente paga el total del pedido.
-                            </div>
-                            <div class="payment-features">
-                                ✓ Pago inmediato • ✓ Venta completada
+                                Pago completo al momento de la entrega
                             </div>
                         </div>
 
-                        <!-- Opción de Crédito -->
                         <div class="payment-method-option" onclick="selectPaymentMethod('credit')">
                             <input type="radio" name="payment_method" value="credit" id="payment-credit">
                             <div class="payment-method-header">
@@ -141,10 +134,30 @@
                                 <div class="payment-title">Crédito</div>
                             </div>
                             <div class="payment-description">
-                                El cliente puede abonar una cantidad inicial y pagar el resto después.
+                                El cliente puede abonar parcialmente
                             </div>
-                            <div class="payment-features">
-                                ✓ Abono inicial opcional • ✓ Saldo pendiente
+                        </div>
+                    </div>
+
+                    <!-- NUEVO: Tipo de pago específico -->
+                    <div class="payment-type-section">
+                        <h4 class="payment-type-title">🏦 Tipo de Pago</h4>
+                        <div class="payment-type-grid">
+                            <div class="payment-type-option selected" onclick="selectPaymentType('efectivo')">
+                                <div class="payment-type-icon">💵</div>
+                                <div class="payment-type-label">Efectivo</div>
+                            </div>
+                            <div class="payment-type-option" onclick="selectPaymentType('tarjeta')">
+                                <div class="payment-type-icon">💳</div>
+                                <div class="payment-type-label">Tarjeta</div>
+                            </div>
+                            <div class="payment-type-option" onclick="selectPaymentType('transferencia')">
+                                <div class="payment-type-icon">🏦</div>
+                                <div class="payment-type-label">Transferencia</div>
+                            </div>
+                            <div class="payment-type-option" onclick="selectPaymentType('cheque')">
+                                <div class="payment-type-icon">📝</div>
+                                <div class="payment-type-label">Cheque</div>
                             </div>
                         </div>
                     </div>
@@ -162,7 +175,7 @@
                                placeholder="0.00"
                                onchange="updatePaymentSummary()">
                         <div style="margin-top: 0.5rem; font-size: 0.8rem; color: #160d67;">
-                            💡 El cliente puede abonar cualquier cantidad. Si no abona nada, queda todo el pedido como saldo pendiente.
+                            💡 El cliente puede abonar cualquier cantidad
                         </div>
                     </div>
 
@@ -179,6 +192,54 @@
                         <div class="summary-row">
                             <span>Saldo pendiente:</span>
                             <span id="summary-balance">$0.00</span>
+                        </div>
+                        <div class="summary-row payment-type-summary">
+                            <span>Tipo de pago:</span>
+                            <span id="summary-payment-type">Efectivo</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- NUEVA SECCIÓN: Información de Ubicación -->
+                <div class="location-section">
+                    <h3 class="section-title">📍 Ubicación de la Venta</h3>
+                    <div style="padding: 1.5rem;">
+                        <div class="location-controls">
+                            <button type="button" id="get-location-btn" class="btn-location-detailed" onclick="getDetailedLocation()">
+                                📱 Obtener Mi Ubicación
+                            </button>
+                            <button type="button" id="manual-location-btn" class="btn-location-manual" onclick="toggleManualLocation()">
+                                ✏️ Ubicación Manual
+                            </button>
+                        </div>
+                        
+                        <div id="location-status" class="location-status">
+                            <div class="location-icon">📍</div>
+                            <div class="location-text">
+                                <div class="location-title">Sin ubicación</div>
+                                <div class="location-subtitle">Obtén tu ubicación actual o ingrésala manualmente</div>
+                            </div>
+                        </div>
+
+                        <!-- Manual location input -->
+                        <div id="manual-location-input" class="manual-location-input" style="display: none;">
+                            <div class="form-group">
+                                <label for="manual-address">Dirección:</label>
+                                <input type="text" id="manual-address" placeholder="Escribe la dirección donde realizas la venta">
+                            </div>
+                            <div class="form-grid-2">
+                                <div class="form-group">
+                                    <label for="manual-lat">Latitud (opcional):</label>
+                                    <input type="number" id="manual-lat" step="any" placeholder="ej: 20.1234">
+                                </div>
+                                <div class="form-group">
+                                    <label for="manual-lng">Longitud (opcional):</label>
+                                    <input type="number" id="manual-lng" step="any" placeholder="ej: -103.1234">
+                                </div>
+                            </div>
+                            <button type="button" onclick="saveManualLocation()" class="btn btn-secondary">
+                                💾 Guardar Ubicación
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -215,19 +276,20 @@
     <script src="../js/api.js"></script>
     
     <script>
-        console.log('🚀 Iniciando página de pedidos con subalmacén y selector de pago mejorado');
+        console.log('🚀 Iniciando página de pedidos con tipos de pago y ubicación mejorados');
 
         // Variables globales
         let substoreProducts = [];
         let orderProducts = [];
         let currentLocation = null;
         let isProcessing = false;
-        let currentPaymentMethod = 'cash'; // ✅ VARIABLE CLAVE DEL MÉTODO DE PAGO
+        let currentPaymentMethod = 'cash';
+        let currentPaymentType = 'efectivo'; // NUEVA VARIABLE
         let substoreInfo = null;
 
         // Inicialización
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('📋 Inicializando página de pedidos con subalmacén...');
+            console.log('📋 Inicializando página de pedidos...');
             
             const user = checkAuth();
             if (!user) return;
@@ -250,29 +312,59 @@
         function setupEventListeners() {
             console.log('🎯 Configurando event listeners...');
             
-            // Botones principales
             const submitBtn = document.getElementById('submit-order-btn');
             if (submitBtn) submitBtn.addEventListener('click', handleCreateOrder);
             
             const clearBtn = document.getElementById('clear-order-btn');
             if (clearBtn) clearBtn.addEventListener('click', handleClearOrder);
             
-            // Búsqueda
             const searchInput = document.getElementById('product-search');
             if (searchInput) searchInput.addEventListener('input', handleSearch);
             
-            // Foto
             const photoInput = document.getElementById('order-photo');
             if (photoInput) photoInput.addEventListener('change', handlePhotoChange);
             
             console.log('✅ Event listeners configurados');
         }
 
-        // ===== FUNCIÓN PRINCIPAL: Seleccionar método de pago =====
+        // ===== NUEVA FUNCIÓN: Seleccionar tipo de pago =====
+        function selectPaymentType(type) {
+            console.log('🏦 Seleccionando tipo de pago:', type);
+            
+            currentPaymentType = type;
+            
+            // Actualizar interfaz visual
+            document.querySelectorAll('.payment-type-option').forEach(option => {
+                option.classList.remove('selected');
+            });
+            
+            // Marcar la opción seleccionada
+            document.querySelectorAll('.payment-type-option').forEach(option => {
+                if (option.querySelector('.payment-type-label').textContent === getPaymentTypeLabel(type)) {
+                    option.classList.add('selected');
+                }
+            });
+            
+            // Actualizar resumen
+            updatePaymentSummary();
+            
+            console.log('✅ Tipo de pago actualizado a:', currentPaymentType);
+        }
+
+        function getPaymentTypeLabel(type) {
+            const labels = {
+                'efectivo': 'Efectivo',
+                'tarjeta': 'Tarjeta',
+                'transferencia': 'Transferencia',
+                'cheque': 'Cheque'
+            };
+            return labels[type] || 'Efectivo';
+        }
+
+        // Función existente mejorada
         function selectPaymentMethod(method) {
             console.log('💳 Seleccionando método de pago:', method);
             
-            // ✅ ACTUALIZAR LA VARIABLE GLOBAL
             currentPaymentMethod = method;
             
             // Actualizar interfaz visual
@@ -280,11 +372,9 @@
                 option.classList.remove('selected');
             });
             
-            // Marcar la opción seleccionada
             const selectedOption = document.querySelector(`#payment-${method}`).closest('.payment-method-option');
             selectedOption.classList.add('selected');
             
-            // Actualizar radio button
             document.getElementById(`payment-${method}`).checked = true;
             
             // Mostrar/ocultar sección de abono inicial
@@ -300,39 +390,207 @@
                 document.getElementById('initial-payment').value = '';
             }
             
-            // ✅ ACTUALIZAR PRECIOS DE PRODUCTOS SEGÚN EL MÉTODO SELECCIONADO
             updateProductPrices();
             updatePaymentSummary();
             
             console.log('✅ Método de pago actualizado a:', currentPaymentMethod);
         }
 
-        // ===== NUEVA FUNCIÓN: Actualizar precios según método de pago =====
-        function updateProductPrices() {
-            console.log('💰 Actualizando precios según método:', currentPaymentMethod);
+        // ===== NUEVAS FUNCIONES DE UBICACIÓN =====
+        async function getDetailedLocation() {
+            const btn = document.getElementById('get-location-btn');
+            const status = document.getElementById('location-status');
             
-            // Actualizar productos mostrados en la lista
-            if (substoreProducts && substoreProducts.length > 0) {
-                displaySubstoreProducts(substoreProducts);
-            }
+            if (!btn || !status) return;
             
-            // Actualizar productos ya agregados al pedido
-            if (orderProducts && orderProducts.length > 0) {
-                orderProducts.forEach(orderProduct => {
-                    const product = substoreProducts.find(p => p.id === orderProduct.product_id);
-                    if (product) {
-                        const prices = getProductPrices(product, currentPaymentMethod);
-                        orderProduct.unit_price = prices.box;
-                        orderProduct.line_total = prices.box * orderProduct.quantity;
-                        orderProduct.payment_method = currentPaymentMethod;
-                    }
-                });
+            try {
+                btn.disabled = true;
+                btn.textContent = '📡 Obteniendo ubicación...';
                 
-                updateOrderTable();
+                // Actualizar estado de carga
+                status.innerHTML = `
+                    <div class="location-icon">⏳</div>
+                    <div class="location-text">
+                        <div class="location-title">Obteniendo ubicación...</div>
+                        <div class="location-subtitle">Por favor espera mientras obtenemos tu ubicación actual</div>
+                    </div>
+                `;
+                
+                // Obtener ubicación
+                const position = await getCurrentPosition();
+                const { latitude, longitude } = position.coords;
+                
+                console.log('📍 Ubicación obtenida:', { latitude, longitude });
+                
+                // Intentar obtener dirección (reverse geocoding)
+                let address = `Lat: ${latitude.toFixed(6)}, Lng: ${longitude.toFixed(6)}`;
+                
+                try {
+                    // Aquí podrías usar una API de geocoding reverso como Google Maps o OpenStreetMap
+                    // Por ahora, usaremos las coordenadas
+                    address = await reverseGeocode(latitude, longitude);
+                } catch (geoError) {
+                    console.warn('No se pudo obtener la dirección:', geoError);
+                }
+                
+                // Guardar ubicación
+                currentLocation = {
+                    latitude,
+                    longitude,
+                    address,
+                    accuracy: position.coords.accuracy,
+                    timestamp: new Date().toISOString(),
+                    method: 'gps'
+                };
+                
+                // Actualizar estado exitoso
+                status.innerHTML = `
+                    <div class="location-icon">✅</div>
+                    <div class="location-text">
+                        <div class="location-title">Ubicación obtenida</div>
+                        <div class="location-subtitle">${address}</div>
+                        <div class="location-coords">Precisión: ±${Math.round(position.coords.accuracy)}m</div>
+                    </div>
+                `;
+                
+                btn.textContent = '✅ Ubicación Obtenida';
+                btn.style.backgroundColor = '#059669';
+                
+                if (window.showNotification) {
+                    window.showNotification('Ubicación obtenida exitosamente', 'success');
+                }
+                
+            } catch (error) {
+                console.error('❌ Error obteniendo ubicación:', error);
+                
+                status.innerHTML = `
+                    <div class="location-icon">❌</div>
+                    <div class="location-text">
+                        <div class="location-title">Error en ubicación</div>
+                        <div class="location-subtitle">${error.message}</div>
+                    </div>
+                `;
+                
+                btn.textContent = '📍 Reintentar Ubicación';
+                btn.style.backgroundColor = '#dc2626';
+                
+                if (window.showNotification) {
+                    window.showNotification('Error al obtener ubicación: ' + error.message, 'error');
+                }
+                
+            } finally {
+                btn.disabled = false;
             }
         }
 
-        // ===== FUNCIÓN: Actualizar resumen de pago =====
+        function getCurrentPosition() {
+            return new Promise((resolve, reject) => {
+                if (!navigator.geolocation) {
+                    reject(new Error('La geolocalización no está soportada en este navegador'));
+                    return;
+                }
+                
+                navigator.geolocation.getCurrentPosition(
+                    resolve,
+                    (error) => {
+                        let message = 'Error desconocido';
+                        switch (error.code) {
+                            case error.PERMISSION_DENIED:
+                                message = 'Permiso de ubicación denegado';
+                                break;
+                            case error.POSITION_UNAVAILABLE:
+                                message = 'Ubicación no disponible';
+                                break;
+                            case error.TIMEOUT:
+                                message = 'Tiempo de espera agotado';
+                                break;
+                        }
+                        reject(new Error(message));
+                    },
+                    {
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 300000 // 5 minutos
+                    }
+                );
+            });
+        }
+
+        async function reverseGeocode(lat, lng) {
+            try {
+                // Usando OpenStreetMap Nominatim (gratuito)
+                const response = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1`);
+                
+                if (!response.ok) throw new Error('Error en geocoding');
+                
+                const data = await response.json();
+                
+                if (data && data.display_name) {
+                    return data.display_name;
+                }
+                
+                throw new Error('No se encontró dirección');
+                
+            } catch (error) {
+                console.warn('Reverse geocoding falló:', error);
+                return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+            }
+        }
+
+        function toggleManualLocation() {
+            const manualInput = document.getElementById('manual-location-input');
+            const btn = document.getElementById('manual-location-btn');
+            
+            if (manualInput.style.display === 'none') {
+                manualInput.style.display = 'block';
+                btn.textContent = '❌ Cancelar Manual';
+                btn.style.backgroundColor = '#dc2626';
+            } else {
+                manualInput.style.display = 'none';
+                btn.textContent = '✏️ Ubicación Manual';
+                btn.style.backgroundColor = '';
+            }
+        }
+
+        function saveManualLocation() {
+            const address = document.getElementById('manual-address').value.trim();
+            const lat = parseFloat(document.getElementById('manual-lat').value);
+            const lng = parseFloat(document.getElementById('manual-lng').value);
+            
+            if (!address) {
+                if (window.showNotification) {
+                    window.showNotification('Ingresa una dirección', 'warning');
+                }
+                return;
+            }
+            
+            currentLocation = {
+                latitude: lat || null,
+                longitude: lng || null,
+                address,
+                accuracy: null,
+                timestamp: new Date().toISOString(),
+                method: 'manual'
+            };
+            
+            const status = document.getElementById('location-status');
+            status.innerHTML = `
+                <div class="location-icon">✏️</div>
+                <div class="location-text">
+                    <div class="location-title">Ubicación manual</div>
+                    <div class="location-subtitle">${address}</div>
+                    ${(lat && lng) ? `<div class="location-coords">${lat.toFixed(6)}, ${lng.toFixed(6)}</div>` : ''}
+                </div>
+            `;
+            
+            toggleManualLocation();
+            
+            if (window.showNotification) {
+                window.showNotification('Ubicación manual guardada', 'success');
+            }
+        }
+
+        // Función mejorada para actualizar resumen de pago
         function updatePaymentSummary() {
             const total = orderProducts.reduce((sum, p) => sum + p.line_total, 0);
             const initialPayment = parseFloat(document.getElementById('initial-payment')?.value) || 0;
@@ -342,6 +600,7 @@
             document.getElementById('summary-total').textContent = formatCurrency(total);
             document.getElementById('summary-initial').textContent = formatCurrency(initialPayment);
             document.getElementById('summary-balance').textContent = formatCurrency(balance);
+            document.getElementById('summary-payment-type').textContent = getPaymentTypeLabel(currentPaymentType);
             
             // Validar que el abono no exceda el total
             if (initialPayment > total && total > 0) {
@@ -353,7 +612,7 @@
             }
         }
 
-        // Cargar estado del subalmacén
+        // Resto de funciones existentes (loadSubstoreStatus, displaySubstoreStatus, etc.)
         async function loadSubstoreStatus() {
             console.log('🔍 Cargando estado del subalmacén...');
             
@@ -388,7 +647,6 @@
             }
         }
 
-        // Mostrar estado del subalmacén
         function displaySubstoreStatus(data) {
             const container = document.getElementById('substore-status-container');
             
@@ -425,435 +683,19 @@
                         </div>
                         <p>No tienes un subalmacén activo asignado. Contacta al administrador para que te asigne productos.</p>
                     </div>
-                    
-                    <div class="no-trip-message">
-                        <div class="no-trip-icon">📦</div>
-                        <h3 class="no-trip-title">No hay productos asignados</h3>
-                        <p class="no-trip-description">
-                            Para crear pedidos necesitas tener un subalmacén activo con productos asignados.
-                            El administrador debe crear un subalmacén y cargar productos para ti.
-                        </p>
-                        <button class="contact-admin" onclick="contactAdmin()">
-                            📞 Contactar Administrador
-                        </button>
-                    </div>
                 `;
             }
         }
 
-        // Mostrar error del subalmacén
-        function displaySubstoreError(errorMessage) {
-            const container = document.getElementById('substore-status-container');
-            container.innerHTML = `
-                <div class="substore-status no-trip">
-                    <div class="substore-header">
-                        <h3 class="substore-title">❌ Error de Conexión</h3>
-                    </div>
-                    <p>No se pudo verificar el estado de tu subalmacén: ${errorMessage}</p>
-                    <button onclick="loadSubstoreStatus()" class="btn btn-primary" style="margin-top: 1rem;">
-                        🔄 Reintentar
-                    </button>
-                </div>
-            `;
-        }
-
-        // Cargar productos del subalmacén
-        async function loadSubstoreProducts() {
-            console.log('📦 Cargando productos del subalmacén...');
-            
-            const container = document.getElementById('products-list');
-            if (!container) {
-                console.error('❌ Container de productos no encontrado');
-                return;
-            }
-            
-            container.innerHTML = '<div class="loading">Cargando productos del subalmacén...</div>';
-            
-            try {
-                const response = await fetch(`${window.API_BASE_URL}/api/substore/products`, {
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                        'Accept': 'application/json'
-                    }
-                });
-                
-                console.log('📡 Respuesta del servidor:', response.status, response.statusText);
-                
-                if (!response.ok) {
-                    throw new Error(`Error ${response.status}: ${response.statusText}`);
-                }
-                
-                const data = await response.json();
-                console.log('✅ Datos recibidos del subalmacén:', data);
-                
-                if (!data || !data.products) {
-                    console.warn('⚠️ No se encontró array de productos en la respuesta');
-                    substoreProducts = [];
-                } else {
-                    substoreProducts = data.products;
-                    console.log('📦 Productos procesados:', substoreProducts.length);
-                }
-                
-                displaySubstoreProducts(substoreProducts);
-                
-            } catch (error) {
-                console.error('❌ Error cargando productos del subalmacén:', error);
-                
-                if (container) {
-                    container.innerHTML = `
-                        <div style="text-align: center; padding: 2rem; color: #dc2626;">
-                            <p>❌ Error: ${error.message}</p>
-                            <button onclick="loadSubstoreProducts()" class="btn btn-primary" style="margin-top: 1rem;">
-                                🔄 Reintentar
-                            </button>
-                        </div>
-                    `;
-                }
-            }
-        }
-
-        // Mostrar productos del subalmacén
-        function displaySubstoreProducts(productsToShow) {
-            const container = document.getElementById('products-list');
-            if (!container) {
-                console.error('Container de productos no encontrado');
-                return;
-            }
-            
-            console.log('🔄 Mostrando productos con método de pago:', currentPaymentMethod);
-            
-            if (productsToShow.length === 0) {
-                container.innerHTML = `
-                    <div style="text-align: center; padding: 2rem; color: #64748b;">
-                        <p>📦 No hay productos disponibles en tu subalmacén</p>
-                        <p>Contacta al administrador para solicitar productos.</p>
-                    </div>
-                `;
-                return;
-            }
-            
-            try {
-                container.innerHTML = productsToShow.map(product => {
-                    console.log('🔄 Procesando producto:', product.code, 'con método:', currentPaymentMethod);
-                    
-                    const stockClass = product.stock > 10 ? 'stock-high' : product.stock > 3 ? 'stock-medium' : 'stock-low';
-                    const stockText = `${product.stock} disponibles en subalmacén`;
-                    const isOutOfStock = product.stock === 0;
-                    
-                    // ✅ OBTENER PRECIOS SEGÚN EL MÉTODO DE PAGO ACTUAL
-                    let prices;
-                    try {
-                        prices = getProductPrices(product, currentPaymentMethod);
-                    } catch (error) {
-                        console.warn('Error obteniendo precios para', product.code, error);
-                        prices = { box: product.price || 0, unit: 0 };
-                    }
-                    
-                    // Indicador visual del método de pago
-                    const paymentBadge = currentPaymentMethod === 'credit' 
-                        ? '<span style="background: #fbbf24; color: #92400e; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">📋 CRÉDITO</span>'
-                        : '<span style="background: #10b981; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">💵 CONTADO</span>';
-                    
-                    return `
-                        <div class="product-card substore-product-card">
-                            <div class="substore-badge">SUBALMACÉN</div>
-                            ${paymentBadge}
-                            
-                            <div class="product-header">
-                                <div><div class="product-code">${product.code || 'N/A'}</div></div>
-                                <div class="product-price">${formatCurrency(prices.box)}</div>
-                            </div>
-                            <div class="product-name">${product.name || 'Producto sin nombre'}</div>
-                            <div class="product-details">${product.brand || 'N/A'} • ${product.viscosity || 'N/A'} • ${product.capacity || 'N/A'}</div>
-                            <div class="stock-info ${stockClass}">📦 ${stockText}</div>
-                            
-                            ${product.substore_info ? `
-                                <div class="substore-info">
-                                    <div class="substore-info-row">
-                                        <span>🏪 Stock inicial:</span>
-                                        <span><strong>${product.substore_info.initial_quantity || 0}</strong></span>
-                                    </div>
-                                    <div class="substore-info-row">
-                                        <span>💰 Vendidos:</span>
-                                        <span><strong>${product.substore_info.sold_quantity || 0}</strong></span>
-                                    </div>
-                                    <div class="substore-info-row">
-                                        <span>🚛 Subalmacén:</span>
-                                        <span><strong>${substoreInfo?.trip_number || 'N/A'}</strong></span>
-                                    </div>
-                                </div>
-                            ` : ''}
-                            
-                            <div class="product-actions">
-                                <input type="number" class="quantity-input" data-product-id="${product.id}" 
-                                       min="1" max="${product.stock || 1}" value="1" ${isOutOfStock ? 'disabled' : ''}>
-                                <button class="btn btn-primary" onclick="addToOrder(${product.id})" 
-                                        ${isOutOfStock ? 'disabled' : ''}>
-                                    ${isOutOfStock ? 'Sin Stock' : 'Agregar'}
-                                </button>
-                            </div>
-                        </div>
-                    `;
-                }).join('');
-                
-                console.log('✅ Productos mostrados correctamente con precios para:', currentPaymentMethod);
-                
-            } catch (error) {
-                console.error('❌ Error mostrando productos:', error);
-                container.innerHTML = `
-                    <div style="text-align: center; padding: 2rem; color: #dc2626;">
-                        <p>❌ Error mostrando productos: ${error.message}</p>
-                        <button onclick="loadSubstoreProducts()" class="btn btn-primary" style="margin-top: 1rem;">
-                            🔄 Reintentar
-                        </button>
-                    </div>
-                `;
-            }
-        }
-
-        // ===== FUNCIÓN MEJORADA: Obtener precios según modalidad =====
-        function getProductPrices(product, paymentMethod) {
-            console.log('💰 Calculando precios para:', product.code, 'modalidad:', paymentMethod);
-            
-            if (!product) {
-                console.warn('Producto no válido');
-                return { unit: 0, box: 0 };
-            }
-            
-            // En el subalmacén, usar el precio asignado al producto
-            const basePrice = product.substore_info?.substore_price || product.price || 0;
-            console.log('💰 Precio base:', basePrice);
-            
-            if (product.prices && typeof product.prices === 'object') {
-                // Sistema multi-precios
-                const priceKey = paymentMethod === 'cash' ? 'cash' : 'credit';
-                const prices = {
-                    unit: product.prices[`${priceKey}_unit`] || 0,
-                    box: product.prices[`${priceKey}_box`] || basePrice
-                };
-                console.log('💰 Precios multi-precio:', prices);
-                return prices;
-            } else {
-                // Sistema anterior - usar precio base del subalmacén
-                const unitPrice = basePrice / 24; // Estimación
-                
-                if (paymentMethod === 'credit') {
-                    const prices = {
-                        unit: unitPrice * 1.06, // 6% más para crédito
-                        box: basePrice * 1.06
-                    };
-                    console.log('💰 Precios crédito (sistema anterior):', prices);
-                    return prices;
-                }
-                
-                const prices = {
-                    unit: unitPrice,
-                    box: basePrice
-                };
-                console.log('💰 Precios contado (sistema anterior):', prices);
-                return prices;
-            }
-        }
-
-        // ===== FUNCIÓN MEJORADA: Agregar producto al pedido =====
-        function addToOrder(productId) {
-            console.log('➕ Agregando producto del subalmacén al pedido:', productId, 'con método:', currentPaymentMethod);
-            
-            const product = substoreProducts.find(p => p.id === productId);
-            if (!product) {
-                console.error('Producto no encontrado en subalmacén');
-                return;
-            }
-            
-            const quantityInput = document.querySelector(`input[data-product-id="${productId}"]`);
-            const quantity = parseInt(quantityInput?.value) || 1;
-            
-            if (quantity <= 0 || quantity > product.stock) {
-                if (window.showNotification) {
-                    window.showNotification(`Stock insuficiente en subalmacén. Disponible: ${product.stock}`, 'warning');
-                }
-                return;
-            }
-            
-            // ✅ OBTENER PRECIOS SEGÚN EL MÉTODO DE PAGO ACTUAL
-            const prices = getProductPrices(product, currentPaymentMethod);
-            
-            // Buscar si ya existe en el pedido con el mismo método de pago
-            const existingIndex = orderProducts.findIndex(p => 
-                p.product_id === productId && p.payment_method === currentPaymentMethod
-            );
-            
-            if (existingIndex >= 0) {
-                const newQuantity = orderProducts[existingIndex].quantity + quantity;
-                if (newQuantity > product.stock) {
-                    if (window.showNotification) {
-                        window.showNotification(`Cantidad máxima en subalmacén: ${product.stock}`, 'warning');
-                    }
-                    return;
-                }
-                orderProducts[existingIndex].quantity = newQuantity;
-                orderProducts[existingIndex].line_total = prices.box * newQuantity;
-            } else {
-                // ✅ AGREGAR PRODUCTO CON EL MÉTODO DE PAGO ACTUAL
-                orderProducts.push({
-                    product_id: productId,
-                    name: product.name,
-                    code: product.code,
-                    unit_price: prices.box,
-                    quantity: quantity,
-                    line_total: prices.box * quantity,
-                    payment_method: currentPaymentMethod, // ✅ INCLUIR MÉTODO DE PAGO
-                    unit_type: 'box',
-                    substore_info: product.substore_info
-                });
-            }
-            
-            updateOrderTable();
-            
-            // Reset cantidad
-            if (quantityInput) quantityInput.value = 1;
-            
-            if (window.showNotification) {
-                window.showNotification(`${product.name} agregado (${currentPaymentMethod === 'cash' ? 'Contado' : 'Crédito'})`, 'success');
-            }
-            
-            console.log('✅ Producto agregado con método:', currentPaymentMethod, 'Total en pedido:', orderProducts.length);
-        }
-
-        // Actualizar tabla de pedido
-        function updateOrderTable() {
-            const tbody = document.querySelector('#order-products-table tbody');
-            const productsCount = document.getElementById('products-count');
-            
-            if (!tbody) return;
-            
-            if (orderProducts.length === 0) {
-                tbody.innerHTML = `
-                    <tr>
-                        <td colspan="5" style="text-align: center; padding: 2rem; color: #64748b;">
-                            📝 No hay productos en el pedido
-                        </td>
-                    </tr>
-                `;
-            } else {
-                tbody.innerHTML = orderProducts.map((product, index) => {
-                    // Badge del método de pago para cada producto
-                    const methodBadge = product.payment_method === 'credit' 
-                        ? '<small style="background: #fbbf24; color: #92400e; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.7rem; font-weight: 600; margin-left: 0.5rem;">CRÉDITO</small>'
-                        : '<small style="background: #10b981; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.7rem; font-weight: 600; margin-left: 0.5rem;">CONTADO</small>';
-                    
-                    return `
-                        <tr>
-                            <td>
-                                <div style="font-weight: 600;">${product.code} - ${product.name}</div>
-                                <small style="color: #059669;">🚛 Desde subalmacén</small>
-                                ${methodBadge}
-                            </td>
-                            <td>${formatCurrency(product.unit_price)}</td>
-                            <td>${product.quantity}</td>
-                            <td>${formatCurrency(product.line_total)}</td>
-                            <td>
-                                <button class="remove-product" onclick="removeFromOrder(${index})">🗑️</button>
-                            </td>
-                        </tr>
-                    `;
-                }).join('');
-            }
-            
-            if (productsCount) {
-                productsCount.textContent = orderProducts.length;
-            }
-            
-            updateSummary();
-            updatePaymentSummary();
-        }
-
-        // Actualizar resumen
-        function updateSummary() {
-            const total = orderProducts.reduce((sum, p) => sum + p.line_total, 0);
-            const totalItems = orderProducts.reduce((sum, p) => sum + p.quantity, 0);
-            
-            const totalElement = document.getElementById('order-total');
-            const countElement = document.getElementById('cart-items-count');
-            
-            if (totalElement) {
-                totalElement.textContent = formatCurrency(total);
-            }
-            
-            if (countElement) {
-                const methodText = currentPaymentMethod === 'cash' ? 'contado' : 'crédito';
-                countElement.textContent = `${totalItems} productos (${methodText}) del subalmacén`;
-            }
-        }
-
-        function clearOrderForm() {
-            console.log('🧹 Limpiando formulario de pedido...');
-            
-            try {
-                // Clear order products array
-                orderProducts = [];
-                updateOrderTable();
-                
-                // Clear client information fields
-                const clientFields = [
-                    'client-name', 
-                    'client-phone', 
-                    'client-address', 
-                    'client-email', 
-                    'order-notes'
-                ];
-                
-                clientFields.forEach(fieldId => {
-                    const field = document.getElementById(fieldId);
-                    if (field) {
-                        field.value = '';
-                    }
-                });
-                
-                // Clear photo
-                const photoInput = document.getElementById('order-photo');
-                const photoPreview = document.getElementById('photo-preview');
-                if (photoInput) photoInput.value = '';
-                if (photoPreview) photoPreview.innerHTML = '';
-                
-                // Reset payment method to default
-                selectPaymentMethod('cash');
-                document.getElementById('initial-payment').value = '';
-                
-                // Reset quantity inputs on product cards
-                document.querySelectorAll('.quantity-input').forEach(input => {
-                    input.value = 1;
-                });
-                
-                console.log('✅ Formulario limpiado exitosamente');
-                
-            } catch (error) {
-                console.error('❌ Error limpiando formulario:', error);
-            }
-        }
-
-        function handleClearOrder() {
-            if (orderProducts.length === 0) {
-                if (window.showNotification) {
-                    window.showNotification('No hay productos en el pedido para limpiar', 'info');
-                }
-                return;
-            }
-            
-            if (confirm('¿Limpiar todo el pedido del subalmacén?')) {
-                clearOrderForm();
-                
-                if (window.showNotification) {
-                    window.showNotification('Pedido del subalmacén limpiado', 'success');
-                }
-            }
-        }
-
-        // ===== FUNCIÓN PRINCIPAL MEJORADA: Crear pedido =====
+        // Función mejorada para crear pedido
         async function handleCreateOrder() {
             if (isProcessing) return;
             
-            console.log('📤 Iniciando creación de pedido con método de pago:', currentPaymentMethod);
+            console.log('📤 Iniciando creación de pedido:', {
+                paymentMethod: currentPaymentMethod,
+                paymentType: currentPaymentType,
+                location: currentLocation
+            });
             
             // Validaciones existentes
             if (!orderProducts || orderProducts.length === 0) {
@@ -872,6 +714,14 @@
                 return;
             }
             
+            // Validar ubicación (opcional pero recomendada)
+            if (!currentLocation) {
+                const confirmWithoutLocation = confirm('⚠️ No hay ubicación registrada.\n\n¿Continuar sin ubicación?\n\nRecomendamos obtener la ubicación para mejorar el servicio.');
+                if (!confirmWithoutLocation) {
+                    return;
+                }
+            }
+            
             if (!substoreInfo) {
                 if (window.showNotification) {
                     window.showNotification('Error: No hay información del subalmacén', 'error');
@@ -879,14 +729,13 @@
                 return;
             }
             
-            // ✅ OBTENER INFORMACIÓN DE PAGO SEGÚN EL MÉTODO SELECCIONADO
+            // Obtener información de pago
             const total = orderProducts.reduce((sum, p) => sum + p.line_total, 0);
             let initialPayment = 0;
             
             if (currentPaymentMethod === 'credit') {
                 initialPayment = parseFloat(document.getElementById('initial-payment')?.value) || 0;
                 
-                // Validar abono inicial
                 if (initialPayment > total) {
                     if (window.showNotification) {
                         window.showNotification('El abono inicial no puede ser mayor al total', 'warning');
@@ -894,7 +743,6 @@
                     return;
                 }
             } else {
-                // En contado, se paga todo
                 initialPayment = total;
             }
             
@@ -907,7 +755,7 @@
                     submitBtn.textContent = '⚡ Procesando Venta...';
                 }
                 
-                // ✅ PREPARAR DATOS CON MÉTODO DE PAGO
+                // Preparar datos con información mejorada
                 const formData = {
                     client_info: {
                         name: clientName,
@@ -916,10 +764,11 @@
                         email: document.getElementById('client-email')?.value?.trim() || ''
                     },
                     products: orderProducts,
-                    payment_method: currentPaymentMethod, // ✅ INCLUIR MÉTODO DE PAGO
+                    payment_method: currentPaymentMethod,
+                    payment_type: currentPaymentType, // NUEVO: Tipo específico de pago
                     inventory_source: 'substore',
                     trip_id: substoreInfo.id,
-                    location: currentLocation,
+                    location: currentLocation, // Información completa de ubicación
                     notes: document.getElementById('order-notes')?.value?.trim() || '',
                     total: total,
                     
@@ -927,7 +776,15 @@
                     paid_amount: initialPayment,
                     balance: total - initialPayment,
                     is_fully_paid: initialPayment >= total,
-                    payment_status: initialPayment >= total ? 'paid' : (initialPayment > 0 ? 'partial' : 'pending')
+                    payment_status: initialPayment >= total ? 'paid' : (initialPayment > 0 ? 'partial' : 'pending'),
+                    
+                    // Información adicional para el backend
+                    payment_details: {
+                        method: currentPaymentMethod,
+                        type: currentPaymentType,
+                        initial_amount: initialPayment,
+                        balance: total - initialPayment
+                    }
                 };
                 
                 // Manejar foto
@@ -941,7 +798,7 @@
                     }
                 }
                 
-                console.log('📤 Enviando pedido con método de pago:', formData);
+                console.log('📤 Enviando pedido:', formData);
                 
                 // Enviar pedido
                 const response = await fetch(`${window.API_BASE_URL}/api/orders`, {
@@ -953,9 +810,6 @@
                     body: JSON.stringify(formData)
                 });
                 
-                console.log('✅ Respuesta del servidor recibida:', response);
-                
-                // Manejar respuesta
                 if (response.ok) {
                     const result = await response.json();
                     
@@ -966,12 +820,14 @@
                     const saleNumber = result.sale?.sale_number || 'Generándose...';
                     const tripNumber = substoreInfo.trip_number;
                     
-                    // ✅ MENSAJE CON INFORMACIÓN DEL MÉTODO DE PAGO
-                    let paymentInfo = '';
+                    // Información de pago detallada
+                    let paymentInfo = `\n💳 Modalidad: ${methodText}`;
+                    paymentInfo += `\n🏦 Tipo: ${getPaymentTypeLabel(currentPaymentType)}`;
+                    
                     if (currentPaymentMethod === 'credit') {
                         const balance = total - initialPayment;
                         if (initialPayment > 0) {
-                            paymentInfo = `\n💰 Abono inicial: ${formatCurrency(initialPayment)}`;
+                            paymentInfo += `\n💰 Abono inicial: ${formatCurrency(initialPayment)}`;
                         }
                         if (balance > 0) {
                             paymentInfo += `\n📋 Saldo pendiente: ${formatCurrency(balance)}`;
@@ -979,7 +835,16 @@
                             paymentInfo += `\n✅ Pedido TOTALMENTE PAGADO`;
                         }
                     } else {
-                        paymentInfo = '\n💵 PAGO COMPLETO AL CONTADO';
+                        paymentInfo += '\n💵 PAGO COMPLETO AL CONTADO';
+                    }
+                    
+                    // Información de ubicación
+                    let locationInfo = '';
+                    if (currentLocation) {
+                        locationInfo = `\n📍 Ubicación: ${currentLocation.address}`;
+                        if (currentLocation.method === 'gps' && currentLocation.accuracy) {
+                            locationInfo += ` (±${Math.round(currentLocation.accuracy)}m)`;
+                        }
                     }
                     
                     const confirmationMessage = `🎉 ¡VENTA COMPLETADA EXITOSAMENTE!
@@ -987,9 +852,8 @@
 📋 Pedido: ${orderNumber}
 💰 Venta: ${saleNumber}
 👤 Cliente: ${formData.client_info.name}
-💳 Modalidad: ${methodText}
 📦 Productos: ${orderProducts.length}
-💵 Total: ${formatCurrency(formData.total)}${paymentInfo}
+💵 Total: ${formatCurrency(formData.total)}${paymentInfo}${locationInfo}
 🚛 Subalmacén: ${tripNumber}
 
 ✅ La venta ha sido procesada automáticamente
@@ -1037,7 +901,355 @@ Verifica la información e intenta nuevamente.`);
             }
         }
 
-        // Funciones auxiliares
+        // Resto de funciones auxiliares
+        async function loadSubstoreProducts() {
+            console.log('📦 Cargando productos del subalmacén...');
+            
+            const container = document.getElementById('products-list');
+            if (!container) return;
+            
+            container.innerHTML = '<div class="loading">Cargando productos del subalmacén...</div>';
+            
+            try {
+                const response = await fetch(`${window.API_BASE_URL}/api/substore/products`, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                        'Accept': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Error ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                if (!data || !data.products) {
+                    substoreProducts = [];
+                } else {
+                    substoreProducts = data.products;
+                }
+                
+                displaySubstoreProducts(substoreProducts);
+                
+            } catch (error) {
+                console.error('❌ Error cargando productos del subalmacén:', error);
+                
+                if (container) {
+                    container.innerHTML = `
+                        <div style="text-align: center; padding: 2rem; color: #dc2626;">
+                            <p>❌ Error: ${error.message}</p>
+                            <button onclick="loadSubstoreProducts()" class="btn btn-primary" style="margin-top: 1rem;">
+                                🔄 Reintentar
+                            </button>
+                        </div>
+                    `;
+                }
+            }
+        }
+
+        function displaySubstoreProducts(productsToShow) {
+            const container = document.getElementById('products-list');
+            if (!container) return;
+            
+            if (productsToShow.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 2rem; color: #64748b;">
+                        <p>📦 No hay productos disponibles en tu subalmacén</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = productsToShow.map(product => {
+                const stockClass = product.stock > 10 ? 'stock-high' : product.stock > 3 ? 'stock-medium' : 'stock-low';
+                const stockText = `${product.stock} disponibles`;
+                const isOutOfStock = product.stock === 0;
+                
+                const prices = getProductPrices(product, currentPaymentMethod);
+                
+                const paymentBadge = currentPaymentMethod === 'credit' 
+                    ? '<span style="background: #fbbf24; color: #92400e; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">📋 CRÉDITO</span>'
+                    : '<span style="background: #10b981; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">💵 CONTADO</span>';
+                
+                return `
+                    <div class="product-card substore-product-card">
+                        <div class="substore-badge">SUBALMACÉN</div>
+                        ${paymentBadge}
+                        
+                        <div class="product-header">
+                            <div class="product-code">${product.code || 'N/A'}</div>
+                            <div class="product-price">${formatCurrency(prices.box)}</div>
+                        </div>
+                        <div class="product-name">${product.name || 'Producto sin nombre'}</div>
+                        <div class="product-details">${product.brand || 'N/A'} • ${product.viscosity || 'N/A'} • ${product.capacity || 'N/A'}</div>
+                        <div class="stock-info ${stockClass}">📦 ${stockText}</div>
+                        
+                        <div class="product-actions">
+                            <input type="number" class="quantity-input" data-product-id="${product.id}" 
+                                   min="1" max="${product.stock || 1}" value="1" ${isOutOfStock ? 'disabled' : ''}>
+                            <button class="btn btn-primary" onclick="addToOrder(${product.id})" 
+                                    ${isOutOfStock ? 'disabled' : ''}>
+                                ${isOutOfStock ? 'Sin Stock' : 'Agregar'}
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function getProductPrices(product, paymentMethod) {
+            if (!product) return { unit: 0, box: 0 };
+            
+            const basePrice = product.substore_info?.substore_price || product.price || 0;
+            
+            if (product.prices && typeof product.prices === 'object') {
+                const priceKey = paymentMethod === 'cash' ? 'cash' : 'credit';
+                return {
+                    unit: product.prices[`${priceKey}_unit`] || 0,
+                    box: product.prices[`${priceKey}_box`] || basePrice
+                };
+            } else {
+                const unitPrice = basePrice / 24;
+                
+                if (paymentMethod === 'credit') {
+                    return {
+                        unit: unitPrice * 1.06,
+                        box: basePrice * 1.06
+                    };
+                }
+                
+                return {
+                    unit: unitPrice,
+                    box: basePrice
+                };
+            }
+        }
+
+        function updateProductPrices() {
+            if (substoreProducts && substoreProducts.length > 0) {
+                displaySubstoreProducts(substoreProducts);
+            }
+            
+            if (orderProducts && orderProducts.length > 0) {
+                orderProducts.forEach(orderProduct => {
+                    const product = substoreProducts.find(p => p.id === orderProduct.product_id);
+                    if (product) {
+                        const prices = getProductPrices(product, currentPaymentMethod);
+                        orderProduct.unit_price = prices.box;
+                        orderProduct.line_total = prices.box * orderProduct.quantity;
+                        orderProduct.payment_method = currentPaymentMethod;
+                    }
+                });
+                
+                updateOrderTable();
+            }
+        }
+
+        function addToOrder(productId) {
+            const product = substoreProducts.find(p => p.id === productId);
+            if (!product) return;
+            
+            const quantityInput = document.querySelector(`input[data-product-id="${productId}"]`);
+            const quantity = parseInt(quantityInput?.value) || 1;
+            
+            if (quantity <= 0 || quantity > product.stock) {
+                if (window.showNotification) {
+                    window.showNotification(`Stock insuficiente. Disponible: ${product.stock}`, 'warning');
+                }
+                return;
+            }
+            
+            const prices = getProductPrices(product, currentPaymentMethod);
+            
+            const existingIndex = orderProducts.findIndex(p => 
+                p.product_id === productId && p.payment_method === currentPaymentMethod
+            );
+            
+            if (existingIndex >= 0) {
+                const newQuantity = orderProducts[existingIndex].quantity + quantity;
+                if (newQuantity > product.stock) {
+                    if (window.showNotification) {
+                        window.showNotification(`Cantidad máxima: ${product.stock}`, 'warning');
+                    }
+                    return;
+                }
+                orderProducts[existingIndex].quantity = newQuantity;
+                orderProducts[existingIndex].line_total = prices.box * newQuantity;
+            } else {
+                orderProducts.push({
+                    product_id: productId,
+                    name: product.name,
+                    code: product.code,
+                    unit_price: prices.box,
+                    quantity: quantity,
+                    line_total: prices.box * quantity,
+                    payment_method: currentPaymentMethod,
+                    unit_type: 'box',
+                    substore_info: product.substore_info
+                });
+            }
+            
+            updateOrderTable();
+            
+            if (quantityInput) quantityInput.value = 1;
+            
+            if (window.showNotification) {
+                window.showNotification(`${product.name} agregado`, 'success');
+            }
+        }
+
+        function updateOrderTable() {
+            const tbody = document.querySelector('#order-products-table tbody');
+            const productsCount = document.getElementById('products-count');
+            
+            if (!tbody) return;
+            
+            if (orderProducts.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="5" style="text-align: center; padding: 2rem; color: #64748b;">
+                            📝 No hay productos en el pedido
+                        </td>
+                    </tr>
+                `;
+            } else {
+                tbody.innerHTML = orderProducts.map((product, index) => {
+                    const methodBadge = product.payment_method === 'credit' 
+                        ? '<small style="background: #fbbf24; color: #92400e; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.7rem; font-weight: 600; margin-left: 0.5rem;">CRÉDITO</small>'
+                        : '<small style="background: #10b981; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.7rem; font-weight: 600; margin-left: 0.5rem;">CONTADO</small>';
+                    
+                    return `
+                        <tr>
+                            <td>
+                                <div style="font-weight: 600;">${product.code} - ${product.name}</div>
+                                <small style="color: #059669;">🚛 Desde subalmacén</small>
+                                ${methodBadge}
+                            </td>
+                            <td>${formatCurrency(product.unit_price)}</td>
+                            <td>${product.quantity}</td>
+                            <td>${formatCurrency(product.line_total)}</td>
+                            <td>
+                                <button class="remove-product" onclick="removeFromOrder(${index})">🗑️</button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+            
+            if (productsCount) {
+                productsCount.textContent = orderProducts.length;
+            }
+            
+            updateSummary();
+            updatePaymentSummary();
+        }
+
+        function updateSummary() {
+            const total = orderProducts.reduce((sum, p) => sum + p.line_total, 0);
+            const totalItems = orderProducts.reduce((sum, p) => sum + p.quantity, 0);
+            
+            const totalElement = document.getElementById('order-total');
+            const countElement = document.getElementById('cart-items-count');
+            
+            if (totalElement) {
+                totalElement.textContent = formatCurrency(total);
+            }
+            
+            if (countElement) {
+                const methodText = currentPaymentMethod === 'cash' ? 'contado' : 'crédito';
+                countElement.textContent = `${totalItems} productos (${methodText})`;
+            }
+        }
+
+        function clearOrderForm() {
+            orderProducts = [];
+            updateOrderTable();
+            
+            const fields = ['client-name', 'client-phone', 'client-address', 'client-email', 'order-notes'];
+            fields.forEach(fieldId => {
+                const field = document.getElementById(fieldId);
+                if (field) field.value = '';
+            });
+            
+            const photoInput = document.getElementById('order-photo');
+            const photoPreview = document.getElementById('photo-preview');
+            if (photoInput) photoInput.value = '';
+            if (photoPreview) photoPreview.innerHTML = '';
+            
+            selectPaymentMethod('cash');
+            selectPaymentType('efectivo');
+            document.getElementById('initial-payment').value = '';
+            
+            // Limpiar ubicación
+            currentLocation = null;
+            const locationStatus = document.getElementById('location-status');
+            if (locationStatus) {
+                locationStatus.innerHTML = `
+                    <div class="location-icon">📍</div>
+                    <div class="location-text">
+                        <div class="location-title">Sin ubicación</div>
+                        <div class="location-subtitle">Obtén tu ubicación actual o ingrésala manualmente</div>
+                    </div>
+                `;
+            }
+            
+            const locationBtn = document.getElementById('get-location-btn');
+            if (locationBtn) {
+                locationBtn.textContent = '📱 Obtener Mi Ubicación';
+                locationBtn.style.backgroundColor = '';
+                locationBtn.disabled = false;
+            }
+            
+            document.querySelectorAll('.quantity-input').forEach(input => {
+                input.value = 1;
+            });
+        }
+
+        function handleClearOrder() {
+            if (orderProducts.length === 0) {
+                if (window.showNotification) {
+                    window.showNotification('No hay productos en el pedido', 'info');
+                }
+                return;
+            }
+            
+            if (confirm('¿Limpiar todo el pedido?')) {
+                clearOrderForm();
+                if (window.showNotification) {
+                    window.showNotification('Pedido limpiado', 'success');
+                }
+            }
+        }
+
+        function removeFromOrder(index) {
+            const product = orderProducts[index];
+            if (!product) return;
+            
+            if (confirm(`¿Remover ${product.name}?`)) {
+                orderProducts.splice(index, 1);
+                updateOrderTable();
+                if (window.showNotification) {
+                    window.showNotification('Producto removido', 'info');
+                }
+            }
+        }
+
+        function displaySubstoreError(errorMessage) {
+            const container = document.getElementById('substore-status-container');
+            container.innerHTML = `
+                <div class="substore-status no-trip">
+                    <div class="substore-header">
+                        <h3 class="substore-title">❌ Error de Conexión</h3>
+                    </div>
+                    <p>No se pudo verificar el estado de tu subalmacén: ${errorMessage}</p>
+                    <button onclick="loadSubstoreStatus()" class="btn btn-primary" style="margin-top: 1rem;">
+                        🔄 Reintentar
+                    </button>
+                </div>
+            `;
+        }
+
         function showOrderForm() {
             document.getElementById('order-form-container').style.display = 'block';
         }
@@ -1047,33 +1259,7 @@ Verifica la información e intenta nuevamente.`);
         }
 
         function refreshSubstoreStatus() {
-            console.log('🔄 Refrescando estado del subalmacén...');
             loadSubstoreStatus();
-        }
-
-        function contactAdmin() {
-            alert(`📞 Contacta al Administrador
-
-Para obtener productos en tu subalmacén:
-
-1. Solicita al administrador que cree un nuevo subalmacén
-2. El administrador debe asignarte productos específicos
-3. Una vez asignados, podrás crear pedidos desde tu subalmacén
-
-Mientras tanto, el administrador puede crear pedidos directamente desde el almacén principal.`);
-        }
-
-        function removeFromOrder(index) {
-            const product = orderProducts[index];
-            if (!product) return;
-            
-            if (confirm(`¿Remover ${product.name} del subalmacén?`)) {
-                orderProducts.splice(index, 1);
-                updateOrderTable();
-                if (window.showNotification) {
-                    window.showNotification('Producto removido', 'info');
-                }
-            }
         }
 
         let searchTimeout;
@@ -1211,12 +1397,15 @@ Mientras tanto, el administrador puede crear pedidos directamente desde el almac
         window.removePhoto = removePhoto;
         window.logout = logout;
         window.refreshSubstoreStatus = refreshSubstoreStatus;
-        window.contactAdmin = contactAdmin;
-        window.selectPaymentMethod = selectPaymentMethod; // ✅ FUNCIÓN GLOBAL
+        window.selectPaymentMethod = selectPaymentMethod;
+        window.selectPaymentType = selectPaymentType;
         window.updatePaymentSummary = updatePaymentSummary;
+        window.getDetailedLocation = getDetailedLocation;
+        window.toggleManualLocation = toggleManualLocation;
+        window.saveManualLocation = saveManualLocation;
 
-        console.log('✅ Página de pedidos con selector de pago mejorado inicializada correctamente');
-        console.log('💳 Método de pago actual:', currentPaymentMethod);
+        console.log('✅ Página de pedidos con tipos de pago y ubicación mejorados inicializada');
     </script>
+
 </body>
 </html>

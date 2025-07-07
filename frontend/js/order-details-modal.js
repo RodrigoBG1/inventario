@@ -1,9 +1,8 @@
-// ===== MODAL FORMAL DE DETALLES DE PEDIDO =====
-// Archivo: frontend/js/order-details-modal.js
-// Versión: 2.0 - Diseño Formal y Profesional
-// Este script debe agregarse DESPUÉS de cargar admin.js y los otros scripts
+// ===== MODAL FORMAL DE DETALLES DE PEDIDO CON HISTORIAL DE ABONOS =====
+// Archivo: frontend/js/order-details-modal-enhanced.js
+// Versión: 2.1 - Incluye historial de abonos integrado
 
-console.log('🔗 Integrando modal formal de detalles de pedido...');
+console.log('🔗 Integrando modal de detalles de pedido con historial de abonos...');
 
 // Asegurar que el modal existe en el DOM
 function ensureOrderDetailsModal() {
@@ -11,11 +10,11 @@ function ensureOrderDetailsModal() {
         return; // Ya existe
     }
     
-    console.log('🔧 Creando modal formal de detalles de pedido...');
+    console.log('🔧 Creando modal de detalles de pedido con historial de abonos...');
     
     // Crear el HTML del modal
     const modalHTML = `
-    <!-- Modal Formal de Detalles de Pedido -->
+    <!-- Modal Formal de Detalles de Pedido con Historial -->
     <div id="orderDetailsModal" class="order-modal">
         <div class="order-modal-container">
             <!-- Header -->
@@ -57,7 +56,7 @@ function ensureOrderDetailsModal() {
                             <td id="clientAddress">-</td>
                         </tr>
                         <tr>
-                            <th>vendedor</th>
+                            <th>Vendedor</th>
                             <td id="employeeName">-</td>
                         </tr>
                         <tr>
@@ -94,6 +93,51 @@ function ensureOrderDetailsModal() {
                     </div>
                 </div>
 
+                <!-- NUEVA SECCIÓN: Estado de Pagos -->
+                <div class="order-section">
+                    <h3 class="section-title">
+                        <span class="section-icon">💰</span>
+                        Estado de Pagos
+                    </h3>
+                    <div class="payment-status-grid">
+                        <div class="payment-info-card">
+                            <div class="payment-info-label">Total del Pedido</div>
+                            <div class="payment-info-amount" id="paymentTotalAmount">$0.00</div>
+                        </div>
+                        <div class="payment-info-card">
+                            <div class="payment-info-label">Total Abonado</div>
+                            <div class="payment-info-amount paid" id="paymentPaidAmount">$0.00</div>
+                        </div>
+                        <div class="payment-info-card">
+                            <div class="payment-info-label">Saldo Pendiente</div>
+                            <div class="payment-info-amount pending" id="paymentBalanceAmount">$0.00</div>
+                        </div>
+                        <div class="payment-info-card full-width">
+                            <div class="payment-progress-container">
+                                <div class="payment-progress-label">Progreso de Pago</div>
+                                <div class="payment-progress-bar">
+                                    <div class="payment-progress-fill" id="paymentProgressFill" style="width: 0%"></div>
+                                </div>
+                                <div class="payment-progress-text" id="paymentProgressText">0% pagado</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- NUEVA SECCIÓN: Historial de Abonos -->
+                <div class="order-section" id="paymentHistorySection">
+                    <h3 class="section-title">
+                        <span class="section-icon">📋</span>
+                        Historial de Abonos
+                        <button class="btn-refresh" onclick="loadPaymentHistoryForOrder()" title="Actualizar historial">
+                            🔄
+                        </button>
+                    </h3>
+                    <div id="payment-history" class="payment-history-list">
+                        <div class="loading">Cargando historial de abonos...</div>
+                    </div>
+                </div>
+
                 <!-- Fotografía -->
                 <div class="order-section">
                     <h3 class="section-title">
@@ -122,7 +166,7 @@ function ensureOrderDetailsModal() {
                 <div class="order-section">
                     <h3 class="section-title">
                         <span class="section-icon">📝</span>
-                        Notas del vendedor
+                        Notas del Vendedor
                     </h3>
                     <div class="notes-content" id="orderNotes">
                         <span class="no-notes">Sin notas adicionales</span>
@@ -152,10 +196,10 @@ function ensureOrderDetailsModal() {
     // Agregar el modal al final del body
     document.body.insertAdjacentHTML('beforeend', modalHTML);
     
-    console.log('✅ Modal formal de detalles de pedido creado');
+    console.log('✅ Modal de detalles de pedido con historial creado');
 }
 
-// Crear los estilos CSS para el modal
+// Crear los estilos CSS para el modal con historial
 function ensureOrderDetailsModalStyles() {
     if (document.getElementById('orderDetailsModalStyles')) {
         return; // Ya existen
@@ -348,6 +392,248 @@ function ensureOrderDetailsModalStyles() {
             border-radius: 4px;
             font-size: 1rem;
             border: 1px solid var(--modal-border);
+        }
+
+        .btn-refresh {
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid #3b82f6;
+            color: #3b82f6;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            margin-left: auto;
+            transition: all 0.2s ease;
+        }
+
+        .btn-refresh:hover {
+            background: #3b82f6;
+            color: white;
+        }
+
+        /* ===== NUEVOS ESTILOS PARA PAGOS ===== */
+
+        /* Grid de información de pagos */
+        .payment-status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .payment-info-card {
+            background: #f8fafc;
+            padding: 1.5rem;
+            border-radius: 8px;
+            border-left: 4px solid var(--modal-primary);
+            text-align: center;
+            transition: transform 0.2s ease;
+        }
+
+        .payment-info-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .payment-info-card.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .payment-info-label {
+            font-size: 0.875rem;
+            color: var(--modal-text-light);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.5rem;
+        }
+
+        .payment-info-amount {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--modal-text);
+        }
+
+        .payment-info-amount.paid {
+            color: var(--modal-success);
+        }
+
+        .payment-info-amount.pending {
+            color: var(--modal-warning);
+        }
+
+        /* Barra de progreso de pagos */
+        .payment-progress-container {
+            text-align: center;
+        }
+
+        .payment-progress-label {
+            font-size: 0.875rem;
+            color: var(--modal-text-light);
+            font-weight: 600;
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .payment-progress-bar {
+            background: #e5e7eb;
+            height: 8px;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 0.5rem;
+            position: relative;
+        }
+
+        .payment-progress-fill {
+            background: linear-gradient(90deg, var(--modal-success), #10b981);
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.5s ease;
+            position: relative;
+        }
+
+        .payment-progress-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            animation: shimmer 2s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        .payment-progress-text {
+            font-size: 0.875rem;
+            color: var(--modal-text);
+            font-weight: 600;
+        }
+
+        /* Historial de abonos */
+        .payment-history-list {
+            background: #f8fafc;
+            border-radius: 8px;
+            border: 1px solid var(--modal-border);
+            min-height: 200px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .payment-item {
+            padding: 1rem;
+            border-bottom: 1px solid var(--modal-border);
+            transition: background-color 0.2s ease;
+        }
+
+        .payment-item:last-child {
+            border-bottom: none;
+        }
+
+        .payment-item:hover {
+            background: rgba(255, 255, 255, 0.5);
+        }
+
+        .payment-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .payment-amount {
+            font-size: 1.125rem;
+            font-weight: 700;
+            color: var(--modal-success);
+        }
+
+        .payment-method {
+            background: var(--modal-primary);
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .payment-date {
+            font-size: 0.875rem;
+            color: var(--modal-text-light);
+            font-weight: 500;
+        }
+
+        .payment-details {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.875rem;
+            color: var(--modal-text-light);
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .payment-notes {
+            background: rgba(59, 130, 246, 0.1);
+            color: #3b82f6;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-style: italic;
+        }
+
+        .no-payments {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 3rem 2rem;
+            color: var(--modal-text-light);
+            text-align: center;
+        }
+
+        .no-payments::before {
+            content: '💰';
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+            color: var(--modal-text-light);
+            font-style: italic;
+        }
+
+        .loading::before {
+            content: '⏳';
+            margin-right: 0.5rem;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error-message {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+            color: var(--modal-danger);
+            background: rgba(239, 68, 68, 0.1);
+            border-radius: 4px;
+            text-align: center;
         }
 
         /* Tabla de información del cliente */
@@ -636,6 +922,16 @@ function ensureOrderDetailsModalStyles() {
             transform: translateY(-1px);
         }
 
+        .btn-payment {
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            color: white;
+        }
+
+        .btn-payment:hover {
+            background: linear-gradient(135deg, #1d4ed8, #1e40af);
+            transform: translateY(-1px);
+        }
+
         /* Responsive Design */
         @media (max-width: 768px) {
             .order-modal {
@@ -657,6 +953,21 @@ function ensureOrderDetailsModalStyles() {
 
             .order-section {
                 padding: 1.5rem;
+            }
+
+            .payment-status-grid {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+
+            .payment-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .payment-details {
+                flex-direction: column;
+                align-items: flex-start;
             }
 
             .client-info-table th {
@@ -705,20 +1016,24 @@ function ensureOrderDetailsModalStyles() {
         }
 
         /* Scrollbar personalizado */
-        .order-modal-content::-webkit-scrollbar {
+        .order-modal-content::-webkit-scrollbar,
+        .payment-history-list::-webkit-scrollbar {
             width: 6px;
         }
 
-        .order-modal-content::-webkit-scrollbar-track {
+        .order-modal-content::-webkit-scrollbar-track,
+        .payment-history-list::-webkit-scrollbar-track {
             background: #f1f5f9;
         }
 
-        .order-modal-content::-webkit-scrollbar-thumb {
+        .order-modal-content::-webkit-scrollbar-thumb,
+        .payment-history-list::-webkit-scrollbar-thumb {
             background: var(--modal-primary);
             border-radius: 3px;
         }
 
-        .order-modal-content::-webkit-scrollbar-thumb:hover {
+        .order-modal-content::-webkit-scrollbar-thumb:hover,
+        .payment-history-list::-webkit-scrollbar-thumb:hover {
             background: #052e5b;
         }
     `;
@@ -731,7 +1046,7 @@ let currentOrderData = null;
 
 // Función principal para mostrar el modal con datos del pedido
 function showOrderDetails(orderData) {
-    console.log('🔍 Mostrando detalles del pedido:', orderData);
+    console.log('🔍 Mostrando detalles del pedido con historial de abonos:', orderData);
     
     currentOrderData = orderData;
     
@@ -769,6 +1084,12 @@ function showOrderDetails(orderData) {
     // Total
     document.getElementById('orderTotal').textContent = formatCurrency(orderData.total || 0);
 
+    // ===== NUEVA FUNCIONALIDAD: Estado de Pagos =====
+    fillPaymentStatus(orderData);
+
+    // ===== NUEVA FUNCIONALIDAD: Historial de Abonos =====
+    loadPaymentHistoryForOrder();
+
     // Fotografía
     fillPhotoSection(orderData.photo_url);
 
@@ -787,6 +1108,127 @@ function showOrderDetails(orderData) {
     // Mostrar modal
     modal.classList.add('show');
     document.body.style.overflow = 'hidden';
+}
+
+// ===== NUEVAS FUNCIONES PARA MANEJO DE PAGOS =====
+
+// Función para llenar el estado de pagos
+function fillPaymentStatus(orderData) {
+    const total = parseFloat(orderData.total) || 0;
+    const paidAmount = parseFloat(orderData.paid_amount) || 0;
+    const balance = Math.max(0, total - paidAmount);
+    const paymentPercentage = total > 0 ? (paidAmount / total * 100) : 0;
+
+    // Actualizar los montos
+    document.getElementById('paymentTotalAmount').textContent = formatCurrency(total);
+    document.getElementById('paymentPaidAmount').textContent = formatCurrency(paidAmount);
+    document.getElementById('paymentBalanceAmount').textContent = formatCurrency(balance);
+
+    // Actualizar la barra de progreso
+    const progressFill = document.getElementById('paymentProgressFill');
+    const progressText = document.getElementById('paymentProgressText');
+    
+    progressFill.style.width = `${Math.min(paymentPercentage, 100)}%`;
+    progressText.textContent = `${paymentPercentage.toFixed(1)}% pagado`;
+
+    // Cambiar color de la barra según el porcentaje
+    if (paymentPercentage >= 100) {
+        progressFill.style.background = 'linear-gradient(90deg, #059669, #10b981)';
+    } else if (paymentPercentage >= 50) {
+        progressFill.style.background = 'linear-gradient(90deg, #d97706, #f59e0b)';
+    } else {
+        progressFill.style.background = 'linear-gradient(90deg, #dc2626, #ef4444)';
+    }
+
+    console.log('💰 Estado de pagos actualizado:', {
+        total: total,
+        paid: paidAmount,
+        balance: balance,
+        percentage: paymentPercentage
+    });
+}
+
+// Función para cargar el historial de abonos
+async function loadPaymentHistoryForOrder() {
+    if (!currentOrderData) {
+        console.error('No hay datos de pedido disponibles');
+        return;
+    }
+
+    const container = document.getElementById('payment-history');
+    const orderId = currentOrderData.id;
+    
+    try {
+        container.innerHTML = '<div class="loading">Cargando historial de abonos...</div>';
+        
+        console.log('📋 Cargando historial de abonos para pedido:', orderId);
+        
+        const response = await fetch(`${window.API_BASE_URL}/api/orders/${orderId}/payments`, {
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Error ${response.status}: ${response.statusText}`);
+        }
+        
+        const payments = await response.json();
+        
+        console.log('💰 Historial de abonos obtenido:', payments);
+        
+        if (payments.length === 0) {
+            container.innerHTML = `
+                <div class="no-payments">
+                    <div>No hay abonos registrados para este pedido</div>
+                    <small style="margin-top: 0.5rem; opacity: 0.7;">
+                        Los abonos aparecerán aquí cuando se registren
+                    </small>
+                </div>
+            `;
+            return;
+        }
+        
+        container.innerHTML = payments.map(payment => `
+            <div class="payment-item">
+                <div class="payment-header">
+                    <span class="payment-amount">${formatCurrency(payment.amount)}</span>
+                    <span class="payment-method">${getPaymentMethodIcon(payment.payment_method)} ${payment.payment_method}</span>
+                    <span class="payment-date">${formatDate(payment.created_at)}</span>
+                </div>
+                <div class="payment-details">
+                    <span>Registrado por: ${payment.recorded_by_code || 'Sistema'}</span>
+                    ${payment.notes ? `<span class="payment-notes">📝 ${payment.notes}</span>` : ''}
+                </div>
+            </div>
+        `).join('');
+        
+        console.log('✅ Historial de abonos mostrado correctamente');
+        
+    } catch (error) {
+        console.error('❌ Error cargando historial de pagos:', error);
+        container.innerHTML = `
+            <div class="error-message">
+                ❌ Error cargando historial: ${error.message}
+                <div style="margin-top: 0.5rem;">
+                    <button onclick="loadPaymentHistoryForOrder()" class="btn-refresh" style="font-size: 0.75rem;">
+                        🔄 Reintentar
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+}
+
+// Función para obtener icono del método de pago
+function getPaymentMethodIcon(method) {
+    const icons = {
+        'efectivo': '💵',
+        'tarjeta': '💳',
+        'transferencia': '🏦',
+        'cheque': '📝'
+    };
+    return icons[method] || '💰';
 }
 
 // Función para cerrar el modal
@@ -915,24 +1357,53 @@ function fillNotesSection(notes) {
 function fillOrderActions(orderData) {
     const container = document.getElementById('orderActions');
     const status = orderData.status;
+    const total = parseFloat(orderData.total) || 0;
+    const paidAmount = parseFloat(orderData.paid_amount) || 0;
+    const balance = total - paidAmount;
+    
+    let actions = '';
     
     if (status === 'hold') {
-        container.innerHTML = `
-            <button class="modal-btn btn-success" onclick="confirmOrderFromModal(${orderData.id})">
-                ✅ Confirmar Pedido
-            </button>
-            <button class="modal-btn btn-danger" onclick="cancelOrderFromModal(${orderData.id})">
-                ❌ Cancelar Pedido
-            </button>
-        `;
+           confirmOrderFromModal(orderData.id);
     } else if (status === 'confirmed') {
-        container.innerHTML = `
-            <button class="modal-btn btn-secondary" onclick="printOrder(${orderData.id})">
-                Imprimir
-            </button>
-        `;
+        // Mostrar botón de abono solo si hay saldo pendiente
+        if (balance > 0) {
+            actions = `
+                <button class="modal-btn btn-payment" onclick="openPaymentModalFromOrderDetails(${orderData.id})">
+                    💰 Registrar Abono
+                </button>
+                <button class="modal-btn btn-secondary" onclick="printOrder(${orderData.id})">
+                    🖨️ Imprimir
+                </button>
+            `;
+        } else {
+            actions = `
+                <button class="modal-btn btn-secondary" onclick="printOrder(${orderData.id})">
+                    🖨️ Imprimir
+                </button>
+                <span style="color: var(--modal-success); font-weight: 600; padding: 0.75rem;">
+                    ✅ Pedido Pagado Completamente
+                </span>
+            `;
+        }
+    }
+    
+    container.innerHTML = actions;
+}
+
+// Función para abrir el modal de pagos desde el detalle del pedido
+function openPaymentModalFromOrderDetails(orderId) {
+    // Cerrar el modal de detalles
+    closeOrderModal();
+    
+    // Abrir el modal de pagos (usando la función existente)
+    if (typeof openPaymentModal === 'function') {
+        openPaymentModal(orderId);
     } else {
-        container.innerHTML = '';
+        console.error('Función openPaymentModal no encontrada');
+        if (window.showNotification) {
+            window.showNotification('Error: Modal de pagos no disponible', 'error');
+        }
     }
 }
 
@@ -1088,6 +1559,13 @@ function printOrder(orderId) {
                     margin: 20px 0;
                     color: #0d2975;
                 }
+                .payment-info {
+                    background: #f0f9ff;
+                    padding: 15px;
+                    border-radius: 5px;
+                    margin: 15px 0;
+                    border-left: 4px solid #3b82f6;
+                }
                 .status {
                     display: inline-block;
                     padding: 4px 8px;
@@ -1103,10 +1581,8 @@ function printOrder(orderId) {
         </head>
         <body>
             <div class="header">
-                <h1>Sistema de Aceites</h1>
                 <h2>Pedido ${currentOrderData.order_number}</h2>
                 <p>Fecha: ${formatDate(currentOrderData.created_at)}</p>
-                <p>Estado: <span class="status status-${currentOrderData.status}">${getStatusText(currentOrderData.status)}</span></p>
             </div>
             
             <div class="section">
@@ -1146,6 +1622,15 @@ function printOrder(orderId) {
                 <div class="total">Total: ${formatCurrency(currentOrderData.total || 0)}</div>
             </div>
             
+            <div class="payment-info">
+                <h3>Información de Pagos</h3>
+                <table>
+                    <tr><th>Total del Pedido:</th><td>${formatCurrency(currentOrderData.total || 0)}</td></tr>
+                    <tr><th>Total Abonado:</th><td>${formatCurrency(currentOrderData.paid_amount || 0)}</td></tr>
+                    <tr><th>Saldo Pendiente:</th><td>${formatCurrency(Math.max(0, (currentOrderData.total || 0) - (currentOrderData.paid_amount || 0)))}</td></tr>
+                </table>
+            </div>
+            
             ${currentOrderData.notes ? `
             <div class="section">
                 <h3>Notas</h3>
@@ -1156,7 +1641,7 @@ function printOrder(orderId) {
             <div class="section">
                 <h3>Información Adicional</h3>
                 <table>
-                    <tr><th>vendedor:</th><td>${currentOrderData.employee_name || currentOrderData.employee_code || 'N/A'}</td></tr>
+                    <tr><th>Vendedor:</th><td>${currentOrderData.employee_name || currentOrderData.employee_code || 'N/A'}</td></tr>
                     ${currentOrderData.location ? `<tr><th>Ubicación:</th><td>${currentOrderData.location.latitude.toFixed(6)}, ${currentOrderData.location.longitude.toFixed(6)}</td></tr>` : ''}
                     <tr><th>Fecha de Impresión:</th><td>${formatDate(new Date().toISOString())}</td></tr>
                 </table>

@@ -88,7 +88,7 @@ async function confirmOrderModal(orderId) {
     
     try {
         // Mostrar modal de confirmación personalizado
-        paymentMethod = prompt(`¿Confirmar el pedido ${order.order_number}?\n\nIngresa el método de pago:\n- efectivo\n- tarjeta\n- transferencia`, 'efectivo');
+        paymentMethod = efectivo;
         
         if (!paymentMethod) {
             console.log('❌ Confirmación cancelada por el usuario');
