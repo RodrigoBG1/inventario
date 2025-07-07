@@ -772,19 +772,13 @@
                     notes: document.getElementById('order-notes')?.value?.trim() || '',
                     total: total,
                     
-                    // Información de pagos
+                    // Información de pagos (usando campos existentes en BD)
                     paid_amount: initialPayment,
                     balance: total - initialPayment,
                     is_fully_paid: initialPayment >= total,
-                    payment_status: initialPayment >= total ? 'paid' : (initialPayment > 0 ? 'partial' : 'pending'),
+                    payment_status: initialPayment >= total ? 'paid' : (initialPayment > 0 ? 'partial' : 'pending')
                     
-                    // Información adicional para el backend
-                    payment_details: {
-                        method: currentPaymentMethod,
-                        type: currentPaymentType,
-                        initial_amount: initialPayment,
-                        balance: total - initialPayment
-                    }
+                    // REMOVIDO: payment_details (no existe la columna)
                 };
                 
                 // Manejar foto
