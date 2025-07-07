@@ -755,7 +755,7 @@
                     submitBtn.textContent = '⚡ Procesando Venta...';
                 }
                 
-                // Preparar datos con información mejorada
+                // Preparar datos SOLO con campos que existen en la BD
                 const formData = {
                     client_info: {
                         name: clientName,
@@ -764,22 +764,30 @@
                         email: document.getElementById('client-email')?.value?.trim() || ''
                     },
                     products: orderProducts,
-                    payment_method: currentPaymentMethod,
-                    payment_type: currentPaymentType, // NUEVO: Tipo específico de pago
+                    payment_method: currentPaymentMethod, // Este campo SÍ existe
                     inventory_source: 'substore',
                     trip_id: substoreInfo.id,
-                    location: currentLocation, // Información completa de ubicación
+                    location: currentLocation,
                     notes: document.getElementById('order-notes')?.value?.trim() || '',
                     total: total,
                     
-                    // Información de pagos (usando campos existentes en BD)
+                    // Campos de pago que SÍ existen en la BD
                     paid_amount: initialPayment,
                     balance: total - initialPayment,
                     is_fully_paid: initialPayment >= total,
                     payment_status: initialPayment >= total ? 'paid' : (initialPayment > 0 ? 'partial' : 'pending')
                     
-                    // REMOVIDO: payment_details (no existe la columna)
+                    // REMOVIDOS: payment_type y payment_details (no existen las columnas)
+                    // La información del tipo de pago se guardará en las notas
                 };
+                
+                // Agregar información del tipo de pago a las notas
+                const paymentTypeInfo = `Tipo de pago: ${getPaymentTypeLabel(currentPaymentType)}`;
+                if (formData.notes) {
+                    formData.notes += ` | ${paymentTypeInfo}`;
+                } else {
+                    formData.notes = paymentTypeInfo;
+                }
                 
                 // Manejar foto
                 const photoFile = document.getElementById('order-photo')?.files[0];
@@ -792,7 +800,7 @@
                     }
                 }
                 
-                console.log('📤 Enviando pedido:', formData);
+                console.log('📤 Enviando pedido (solo campos existentes):', formData);
                 
                 // Enviar pedido
                 const response = await fetch(`${window.API_BASE_URL}/api/orders`, {
@@ -843,18 +851,18 @@
                     
                     const confirmationMessage = `🎉 ¡VENTA COMPLETADA EXITOSAMENTE!
 
-📋 Pedido: ${orderNumber}
-💰 Venta: ${saleNumber}
-👤 Cliente: ${formData.client_info.name}
-📦 Productos: ${orderProducts.length}
-💵 Total: ${formatCurrency(formData.total)}${paymentInfo}${locationInfo}
-🚛 Subalmacén: ${tripNumber}
+        📋 Pedido: ${orderNumber}
+        💰 Venta: ${saleNumber}
+        👤 Cliente: ${formData.client_info.name}
+        📦 Productos: ${orderProducts.length}
+        💵 Total: ${formatCurrency(formData.total)}${paymentInfo}${locationInfo}
+        🚛 Subalmacén: ${tripNumber}
 
-✅ La venta ha sido procesada automáticamente
-📦 El inventario de tu subalmacén ha sido actualizado
-📊 El registro de venta ha sido creado
+        ✅ La venta ha sido procesada automáticamente
+        📦 El inventario de tu subalmacén ha sido actualizado
+        📊 El registro de venta ha sido creado
 
-¡Felicidades por tu venta! 🎊`;
+        ¡Felicidades por tu venta! 🎊`;
                     
                     alert(confirmationMessage);
                     
@@ -882,9 +890,9 @@
                 
                 alert(`❌ Error al procesar la venta:
 
-${error.message}
+        ${error.message}
 
-Verifica la información e intenta nuevamente.`);
+        Verifica la información e intenta nuevamente.`);
                 
             } finally {
                 isProcessing = false;
@@ -894,7 +902,6 @@ Verifica la información e intenta nuevamente.`);
                 }
             }
         }
-
         // Resto de funciones auxiliares
         async function loadSubstoreProducts() {
             console.log('📦 Cargando productos del subalmacén...');
