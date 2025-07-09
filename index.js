@@ -744,29 +744,47 @@ async function getOrders(employeeId = null, role = null) {
 }
 
 async function createOrder(orderData) {
-  console.log('🔄 Creating order with simplified payment status:', orderData);
+  console.log('🔄 Creating order with custom pricing support:', orderData.custom_pricing_summary ? 'HAS_CUSTOM_PRICES' : 'STANDARD_PRICES');
+  
+  // Validar precios personalizados si existen
+  if (orderData.custom_pricing_summary) {
+    const validation = validateCustomPricing(orderData);
+    
+    if (!validation.valid) {
+      throw new Error(`Validación de precios fallida: ${validation.errors.join(', ')}`);
+    }
+    
+    if (validation.warnings.length > 0) {
+      console.warn('⚠️ Advertencias en precios personalizados:', validation.warnings);
+    }
+  }
   
   // Calcular balance de pagos
   const paymentBalance = calculatePaymentBalance(orderData.total, orderData.paid_amount || 0);
   
-  // ===== NUEVO SISTEMA: Solo 2 estados =====
-  // payment_status: 'paid' | 'not_paid'
+  // Solo 2 estados de pago
   const paymentStatus = paymentBalance.is_fully_paid ? 'paid' : 'not_paid';
   
-  // Preparar datos del pedido con información de pagos simplificada
+  // Preparar datos del pedido
   const orderWithPayments = {
     ...orderData,
     paid_amount: paymentBalance.paid_amount,
     balance: paymentBalance.balance,
     is_fully_paid: paymentBalance.is_fully_paid,
     payment_percentage: paymentBalance.payment_percentage,
-    payment_status: paymentStatus, //  NUEVO: Solo 'paid' o 'not_paid'
+    payment_status: paymentStatus,
     
-    // Mantener compatibilidad con el sistema anterior
+    // Mantener compatibilidad
     status: paymentBalance.is_fully_paid ? 'confirmed' : 'hold',
+    
+    // Información de precios personalizados
+    has_custom_pricing: !!orderData.custom_pricing_summary,
+    custom_pricing_summary: orderData.custom_pricing_summary,
     
     created_at: new Date().toISOString()
   };
+  
+  let newOrder;
   
   if (supabase) {
     try {
@@ -777,26 +795,38 @@ async function createOrder(orderData) {
         .single();
       
       if (error) {
-        console.error('❌ Supabase error creating order:', error);
+        console.error('❌ Supabase error creating order with custom pricing:', error);
         throw new Error(`Database error: ${error.message}`);
       }
       
-      console.log('✅ Order created with simplified payment status:', data);
-      return data;
+      newOrder = data;
+      console.log('✅ Order with custom pricing created in Supabase:', newOrder.id);
+      
+      // Registrar log de precios personalizados
+      if (orderData.custom_pricing_summary) {
+        await logCustomPricing({ ...orderData, order_id: newOrder.id }, orderData.employee_id);
+      }
+      
     } catch (error) {
-      console.error('❌ Error creating order in Supabase:', error);
+      console.error('❌ Error creating order with custom pricing in Supabase:', error);
       throw error;
+    }
+  } else {
+    // Fallback: create in memory
+    newOrder = {
+      id: fallbackDatabase.orders.length + 1,
+      ...orderWithPayments
+    };
+    
+    fallbackDatabase.orders.push(newOrder);
+    console.log('✅ Order with custom pricing created in memory:', newOrder.id);
+    
+    // Registrar log en memoria
+    if (orderData.custom_pricing_summary) {
+      await logCustomPricing({ ...orderData, order_id: newOrder.id }, orderData.employee_id);
     }
   }
   
-  // Fallback: create in memory
-  const newOrder = {
-    id: fallbackDatabase.orders.length + 1,
-    ...orderWithPayments
-  };
-  
-  fallbackDatabase.orders.push(newOrder);
-  console.log('✅ Order created in memory with simplified payment status:', newOrder);
   return newOrder;
 }
 
@@ -2143,6 +2173,93 @@ async function confirmOrderFromSubstore(orderId, tripId, paymentInfo) {
   }
 }
 
+// Función para validar precios personalizados
+function validateCustomPricing(orderData) {
+  const validationResult = {
+    valid: true,
+    warnings: [],
+    errors: []
+  };
+
+  if (orderData.custom_pricing_summary) {
+    const summary = orderData.custom_pricing_summary;
+    
+    // Validar que los productos existan y los precios sean razonables
+    for (const detail of summary.custom_price_details || []) {
+      // Verificar descuentos excesivos (más del 80%)
+      const discountPercentage = ((detail.original_price - detail.custom_price) / detail.original_price) * 100;
+      
+      if (discountPercentage > 80) {
+        validationResult.errors.push(`Descuento excesivo en ${detail.product_code}: ${discountPercentage.toFixed(1)}%`);
+        validationResult.valid = false;
+      } else if (discountPercentage > 50) {
+        validationResult.warnings.push(`Descuento alto en ${detail.product_code}: ${discountPercentage.toFixed(1)}%`);
+      }
+      
+      // Verificar precios muy bajos
+      if (detail.custom_price < 1) {
+        validationResult.errors.push(`Precio muy bajo en ${detail.product_code}: ${detail.custom_price}`);
+        validationResult.valid = false;
+      }
+      
+      // Verificar que tenga motivo para descuentos significativos
+      if (discountPercentage > 20 && (!detail.reason || detail.reason.trim().length < 5)) {
+        validationResult.warnings.push(`${detail.product_code} tiene descuento significativo sin motivo detallado`);
+      }
+    }
+  }
+
+  return validationResult;
+}
+
+// Función para registrar log de precios personalizados
+async function logCustomPricing(orderData, employeeId) {
+  if (!orderData.custom_pricing_summary) return;
+
+  const logEntry = {
+    order_id: null, // Se actualiza después
+    employee_id: employeeId,
+    employee_code: orderData.employee_code || '',
+    client_name: orderData.client_info?.name || 'Sin nombre',
+    custom_pricing_summary: orderData.custom_pricing_summary,
+    total_savings: orderData.custom_pricing_summary.total_savings || 0,
+    products_count: orderData.custom_pricing_summary.products_with_custom_price || 0,
+    timestamp: new Date().toISOString(),
+    session_info: {
+      user_agent: 'Employee App',
+      ip_address: 'Internal'
+    }
+  };
+
+  console.log('📝 Registrando log de precios personalizados:', logEntry);
+
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('custom_pricing_logs')
+        .insert([logEntry])
+        .select()
+        .single();
+
+      if (error) {
+        console.warn('⚠️ Error registrando log de precio personalizado:', error);
+      } else {
+        console.log('✅ Log de precio personalizado registrado:', data.id);
+      }
+    } catch (error) {
+      console.warn('⚠️ Error en log de precio personalizado:', error);
+    }
+  } else {
+    // Fallback: guardar en memoria
+    if (!fallbackDatabase.custom_pricing_logs) {
+      fallbackDatabase.custom_pricing_logs = [];
+    }
+    
+    logEntry.id = fallbackDatabase.custom_pricing_logs.length + 1;
+    fallbackDatabase.custom_pricing_logs.push(logEntry);
+  }
+}
+
 // Función helper para obtener número de semana
 function getWeekNumber(date) {
   const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
@@ -3033,9 +3150,18 @@ app.get("/api/orders", auth, async (req, res) => {
 // POST Orders - Crear nuevo pedido CON VALIDACIÓN DE STOCK
 app.post("/api/orders", auth, async (req, res) => {
   try {
-    console.log('🔍 POST /api/orders CORREGIDO - User:', req.user?.role, 'ID:', req.user?.id);
+    console.log('🔍 POST /api/orders WITH CUSTOM PRICING SUPPORT - User:', req.user?.role, 'ID:', req.user?.id);
     
-    const { products, payment_method = 'cash' } = req.body;
+    const { products, payment_method = 'cash', custom_pricing_summary } = req.body;
+    
+    // Log de precios personalizados si existen
+    if (custom_pricing_summary) {
+      console.log('💰 Pedido con precios personalizados:', {
+        products_with_custom_price: custom_pricing_summary.products_with_custom_price,
+        total_savings: custom_pricing_summary.total_savings,
+        employee: req.user.employee_code
+      });
+    }
     
     // Validar que hay productos en el pedido
     if (!products || !Array.isArray(products) || products.length === 0) {
@@ -3048,7 +3174,7 @@ app.post("/api/orders", auth, async (req, res) => {
     let orderData;
     let inventorySource = 'main_store';
     let autoConfirm = false;
-    let substoreData = null; // ✅ DECLARAR AQUÍ PARA AMBOS CASOS
+    let substoreData = null;
     
     if (req.user.role === 'admin') {
       console.log('👑 Admin creando pedido desde almacén principal');
@@ -3081,10 +3207,9 @@ app.post("/api/orders", auth, async (req, res) => {
       autoConfirm = false;
       
     } else if (req.user.role === 'employee') {
-      console.log('👤 vendedor creando pedido con AUTO-CONFIRMACIÓN');
+      console.log('👤 Vendedor creando pedido con AUTO-CONFIRMACIÓN Y PRECIOS PERSONALIZADOS');
       
       try {
-        // ✅ ASIGNAR substoreData AQUÍ
         substoreData = await getEmployeeSubstoreProducts(req.user.id);
         console.log('📦 Datos del subalmacén obtenidos:', {
           has_active_trip: substoreData.has_active_trip,
@@ -3101,19 +3226,19 @@ app.post("/api/orders", auth, async (req, res) => {
       
       if (!substoreData.has_active_trip) {
         return res.status(400).json({
-          message: 'No tienes un subalmacen activo. Contacta al administrador para que te asigne productos.',
+          message: 'No tienes un subalmacén activo. Contacta al administrador para que te asigne productos.',
           error: 'no_active_trip'
         });
       }
 
-      // Validar stock en subalmacén
+      // Validar stock en subalmacén con consideración de precios personalizados
       const substoreStockIssues = [];
       const validatedProducts = [];
       
       for (const orderProduct of products) {
-        const { product_id, quantity } = orderProduct;
+        const { product_id, quantity, custom_price_info } = orderProduct;
         
-        console.log(`🔍 Validando producto ${product_id}, cantidad: ${quantity}`);
+        console.log(`🔍 Validando producto ${product_id}, cantidad: ${quantity}, precio personalizado: ${!!custom_price_info}`);
         
         const substoreProduct = substoreData.products.find(p => p.id === product_id);
         
@@ -3140,17 +3265,27 @@ app.post("/api/orders", auth, async (req, res) => {
           continue;
         }
         
+        // Determinar precio a usar (personalizado o normal)
+        let unitPrice;
+        if (custom_price_info && custom_price_info.custom_price) {
+          unitPrice = custom_price_info.custom_price;
+          console.log(`💰 Usando precio personalizado para ${substoreProduct.name}: ${unitPrice} (original: ${custom_price_info.original_price})`);
+        } else {
+          unitPrice = substoreProduct.substore_info?.substore_price || substoreProduct.price;
+        }
+        
         // Producto válido
         validatedProducts.push({
           ...orderProduct,
           product_name: substoreProduct.name,
           product_code: substoreProduct.code,
-          unit_price: substoreProduct.substore_info?.substore_price || substoreProduct.price,
-          line_total: (substoreProduct.substore_info?.substore_price || substoreProduct.price) * quantity,
-          substore_info: substoreProduct.substore_info
+          unit_price: unitPrice,
+          line_total: unitPrice * quantity,
+          substore_info: substoreProduct.substore_info,
+          custom_price_info: custom_price_info || null
         });
         
-        console.log(`✅ Producto ${product_id} validado exitosamente`);
+        console.log(`✅ Producto ${product_id} validado exitosamente con precio: ${unitPrice}`);
       }
       
       if (substoreStockIssues.length > 0) {
@@ -3188,12 +3323,12 @@ app.post("/api/orders", auth, async (req, res) => {
     }
 
     try {
-      // Crear el pedido
+      // Crear el pedido usando la nueva función
       const newOrder = await createOrder(orderData);
       
       console.log(`✅ Pedido creado desde ${inventorySource}:`, newOrder.id, autoConfirm ? '(AUTO-CONFIRMADO)' : '(PENDIENTE)');
       
-      // Auto-confirmación para vendedors
+      // Auto-confirmación para vendedores
       let saleRecord = null;
       let inventoryUpdate = null;
       
@@ -3236,9 +3371,11 @@ app.post("/api/orders", auth, async (req, res) => {
               auto_confirmed: true,
               confirmed_at: new Date().toISOString()
             },
-            inventory_source: 'substore', // ✅ AHORA ESTA COLUMNA EXISTE
+            inventory_source: 'substore',
             location: newOrder.location,
             notes: newOrder.notes,
+            has_custom_pricing: newOrder.has_custom_pricing || false,
+            custom_pricing_summary: newOrder.custom_pricing_summary,
             created_at: new Date().toISOString()
           };
           
@@ -3254,7 +3391,6 @@ app.post("/api/orders", auth, async (req, res) => {
               console.log('✅ Venta creada automáticamente:', newSale.sale_number);
             } else {
               console.warn('⚠️ Error creando venta automática:', saleError);
-              // No fallar todo el proceso por esto
             }
           } else {
             saleRecord = {
@@ -3307,9 +3443,11 @@ app.post("/api/orders", auth, async (req, res) => {
         inventory_source: inventorySource,
         auto_confirmed: autoConfirm,
         inventory_update: inventoryUpdate,
+        has_custom_pricing: !!orderData.custom_pricing_summary,
+        custom_pricing_summary: orderData.custom_pricing_summary,
         trip_info: inventorySource === 'substore' ? {
           trip_id: orderData.trip_id,
-          trip_number: substoreData?.trip?.trip_number // ✅ AHORA substoreData ESTÁ DEFINIDO
+          trip_number: substoreData?.trip?.trip_number
         } : null
       };
       
@@ -3326,7 +3464,7 @@ app.post("/api/orders", auth, async (req, res) => {
     }
     
   } catch (error) {
-    console.error('❌ Error crítico en POST /api/orders:', error);
+    console.error('❌ Error crítico en POST /api/orders con precios personalizados:', error);
     console.error('❌ Stack trace:', error.stack);
     
     res.status(500).json({ 
@@ -3336,7 +3474,6 @@ app.post("/api/orders", auth, async (req, res) => {
     });
   }
 });
-
 
 app.get("/api/orders/stats", auth, async (req, res) => {
   try {
@@ -5479,100 +5616,6 @@ app.get("/api/reports/employee-sales-history", auth, async (req, res) => {
   }
 });
 
-// Función helper para agrupar datos por período
-function groupDataByPeriod(salesData, paymentsData, groupBy) {
-  const grouped = {};
-  
-  // Función para obtener la clave de agrupación
-  const getGroupKey = (date) => {
-    const d = new Date(date);
-    switch (groupBy) {
-      case 'day':
-        return d.toISOString().split('T')[0];
-      case 'week':
-        const week = getWeekNumber(d);
-        return `${d.getFullYear()}-W${week}`;
-      case 'month':
-        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      case 'year':
-        return d.getFullYear().toString();
-      default:
-        return d.toISOString().split('T')[0];
-    }
-  };
-  
-  // Procesar ventas
-  salesData.forEach(sale => {
-    const key = getGroupKey(sale.created_at);
-    if (!grouped[key]) {
-      grouped[key] = {
-        period: key,
-        sales: [],
-        payments: [],
-        totals: {
-          sales_amount: 0,
-          payments_amount: 0,
-          sales_count: 0,
-          payments_count: 0
-        }
-      };
-    }
-    
-    grouped[key].sales.push(sale);
-    grouped[key].totals.sales_amount += parseFloat(sale.total) || 0;
-    grouped[key].totals.sales_count += 1;
-  });
-  
-  // Procesar pagos
-  paymentsData.forEach(payment => {
-    const key = getGroupKey(payment.created_at);
-    if (!grouped[key]) {
-      grouped[key] = {
-        period: key,
-        sales: [],
-        payments: [],
-        totals: {
-          sales_amount: 0,
-          payments_amount: 0,
-          sales_count: 0,
-          payments_count: 0
-        }
-      };
-    }
-    
-    grouped[key].payments.push(payment);
-    grouped[key].totals.payments_amount += parseFloat(payment.amount) || 0;
-    grouped[key].totals.payments_count += 1;
-  });
-  
-  // Convertir a array y ordenar
-  return Object.values(grouped).sort((a, b) => a.period.localeCompare(b.period));
-}
-// ========== RUTAS DEL FRONTEND ==========
-
-// Página principal
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, 'frontend', 'index.html'));
-});
-
-// Rutas específicas del frontend
-app.get("/admin/dashboard.html", (req, res) => {
-  res.sendFile(path.join(__dirname, 'frontend', 'admin', 'dashboard.html'));
-});
-
-app.get("/admin/products.html", (req, res) => {
-  res.sendFile(path.join(__dirname, 'frontend', 'admin', 'products.html'));
-});
-
-app.get("/admin/employees.html", (req, res) => {
-  res.sendFile(path.join(__dirname, 'frontend', 'admin', 'employees.html'));
-});
-
-app.get("/admin/subalmacenes.html", (req, res) => {
-  res.sendFile(path.join(__dirname, 'frontend', 'admin', 'subalmacenes.html'));
-});
-
-
 // RUTA para confirmar pedido desde subalmacén
 app.put("/api/orders/:id/confirm-substore", auth, async (req, res) => {
   try {
@@ -5722,6 +5765,474 @@ app.get("/api/reports/trip-inventory", auth, adminOnly, async (req, res) => {
     });
   }
 });
+
+app.get("/api/admin/custom-pricing-logs", auth, adminOnly, async (req, res) => {
+  try {
+    const { limit = 50, offset = 0, employee_id, start_date, end_date } = req.query;
+    
+    console.log('📊 Obteniendo logs de precios personalizados:', { limit, offset, employee_id });
+    
+    if (supabase) {
+      let query = supabase
+        .from('custom_pricing_logs')
+        .select('*')
+        .order('timestamp', { ascending: false })
+        .range(offset, offset + limit - 1);
+      
+      if (employee_id) {
+        query = query.eq('employee_id', employee_id);
+      }
+      
+      if (start_date) {
+        query = query.gte('timestamp', start_date);
+      }
+      
+      if (end_date) {
+        query = query.lte('timestamp', end_date);
+      }
+      
+      const { data, error } = await query;
+      
+      if (error) throw error;
+      
+      res.json({
+        logs: data || [],
+        pagination: {
+          limit: parseInt(limit),
+          offset: parseInt(offset),
+          total: data?.length || 0
+        }
+      });
+    } else {
+      // Fallback: buscar en memoria
+      let logs = fallbackDatabase.custom_pricing_logs || [];
+      
+      // Aplicar filtros
+      if (employee_id) {
+        logs = logs.filter(log => log.employee_id === parseInt(employee_id));
+      }
+      
+      if (start_date) {
+        logs = logs.filter(log => new Date(log.timestamp) >= new Date(start_date));
+      }
+      
+      if (end_date) {
+        logs = logs.filter(log => new Date(log.timestamp) <= new Date(end_date));
+      }
+      
+      // Ordenar y paginar
+      logs = logs
+        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+        .slice(offset, offset + limit);
+      
+      res.json({
+        logs: logs,
+        pagination: {
+          limit: parseInt(limit),
+          offset: parseInt(offset),
+          total: logs.length
+        }
+      });
+    }
+    
+  } catch (error) {
+    console.error('❌ Error obteniendo logs de precios personalizados:', error);
+    res.status(500).json({ 
+      message: 'Error obteniendo logs', 
+      error: error.message 
+    });
+  }
+});
+
+// GET - Estadísticas de precios personalizados por empleado
+app.get("/api/admin/custom-pricing-stats", auth, adminOnly, async (req, res) => {
+  try {
+    const { period = 'month' } = req.query; // week, month, quarter, year
+    
+    console.log('📊 Generando estadísticas de precios personalizados:', period);
+    
+    // Calcular fechas del período
+    const endDate = new Date();
+    const startDate = new Date();
+    
+    switch (period) {
+      case 'week':
+        startDate.setDate(endDate.getDate() - 7);
+        break;
+      case 'month':
+        startDate.setMonth(endDate.getMonth() - 1);
+        break;
+      case 'quarter':
+        startDate.setMonth(endDate.getMonth() - 3);
+        break;
+      case 'year':
+        startDate.setFullYear(endDate.getFullYear() - 1);
+        break;
+    }
+    
+    let logs = [];
+    
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('custom_pricing_logs')
+        .select('*')
+        .gte('timestamp', startDate.toISOString())
+        .lte('timestamp', endDate.toISOString());
+      
+      if (error) {
+        console.warn('⚠️ Error obteniendo logs de Supabase:', error);
+      } else {
+        logs = data || [];
+      }
+    } else {
+      // Fallback: memoria
+      logs = (fallbackDatabase.custom_pricing_logs || [])
+        .filter(log => {
+          const logDate = new Date(log.timestamp);
+          return logDate >= startDate && logDate <= endDate;
+        });
+    }
+    
+    // Procesar estadísticas
+    const employeeStats = {};
+    let totalSavings = 0;
+    let totalOrders = logs.length;
+    let totalProductsWithCustomPrice = 0;
+    
+    logs.forEach(log => {
+      const employeeId = log.employee_id;
+      
+      if (!employeeStats[employeeId]) {
+        employeeStats[employeeId] = {
+          employee_id: employeeId,
+          employee_code: log.employee_code,
+          orders_with_custom_pricing: 0,
+          total_savings: 0,
+          products_with_custom_price: 0,
+          avg_discount_percentage: 0,
+          max_single_discount: 0
+        };
+      }
+      
+      const stats = employeeStats[employeeId];
+      stats.orders_with_custom_pricing++;
+      stats.total_savings += log.total_savings || 0;
+      stats.products_with_custom_price += log.products_count || 0;
+      
+      totalSavings += log.total_savings || 0;
+      totalProductsWithCustomPrice += log.products_count || 0;
+      
+      // Calcular descuento máximo
+      if (log.custom_pricing_summary && log.custom_pricing_summary.custom_price_details) {
+        log.custom_pricing_summary.custom_price_details.forEach(detail => {
+          const discountPercentage = ((detail.original_price - detail.custom_price) / detail.original_price) * 100;
+          if (discountPercentage > stats.max_single_discount) {
+            stats.max_single_discount = discountPercentage;
+          }
+        });
+      }
+    });
+    
+    // Calcular promedios
+    Object.values(employeeStats).forEach(stats => {
+      if (stats.orders_with_custom_pricing > 0) {
+        stats.avg_discount_percentage = (stats.total_savings / stats.orders_with_custom_pricing);
+      }
+    });
+    
+    const response = {
+      period: {
+        type: period,
+        start_date: startDate.toISOString(),
+        end_date: endDate.toISOString(),
+        days: Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24))
+      },
+      summary: {
+        total_orders_with_custom_pricing: totalOrders,
+        total_savings: totalSavings,
+        total_products_with_custom_price: totalProductsWithCustomPrice,
+        avg_savings_per_order: totalOrders > 0 ? totalSavings / totalOrders : 0,
+        employees_using_feature: Object.keys(employeeStats).length
+      },
+      employee_stats: Object.values(employeeStats)
+        .sort((a, b) => b.total_savings - a.total_savings),
+      generated_at: new Date().toISOString()
+    };
+    
+    res.json(response);
+    
+  } catch (error) {
+    console.error('❌ Error generando estadísticas de precios personalizados:', error);
+    res.status(500).json({ 
+      message: 'Error generando estadísticas', 
+      error: error.message 
+    });
+  }
+});
+
+// GET - Reporte de precios personalizados por período
+app.get("/api/admin/custom-pricing-report", auth, adminOnly, async (req, res) => {
+  try {
+    const { start_date, end_date, employee_id, format = 'json' } = req.query;
+    
+    if (!start_date || !end_date) {
+      return res.status(400).json({ 
+        message: 'start_date y end_date son requeridos' 
+      });
+    }
+    
+    console.log('📊 Generando reporte de precios personalizados:', { start_date, end_date, employee_id });
+    
+    let logs = [];
+    
+    if (supabase) {
+      let query = supabase
+        .from('custom_pricing_logs')
+        .select('*')
+        .gte('timestamp', start_date)
+        .lte('timestamp', end_date)
+        .order('timestamp', { ascending: false });
+      
+      if (employee_id) {
+        query = query.eq('employee_id', employee_id);
+      }
+      
+      const { data, error } = await query;
+      
+      if (error) throw error;
+      logs = data || [];
+    } else {
+      // Fallback: memoria
+      logs = (fallbackDatabase.custom_pricing_logs || [])
+        .filter(log => {
+          const logDate = new Date(log.timestamp);
+          const matchesDate = logDate >= new Date(start_date) && logDate <= new Date(end_date);
+          const matchesEmployee = !employee_id || log.employee_id === parseInt(employee_id);
+          return matchesDate && matchesEmployee;
+        })
+        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    }
+    
+    // Procesar datos del reporte
+    const reportData = {
+      period: {
+        start_date,
+        end_date,
+        employee_id: employee_id || 'all'
+      },
+      summary: {
+        total_orders: logs.length,
+        total_savings: logs.reduce((sum, log) => sum + (log.total_savings || 0), 0),
+        total_products: logs.reduce((sum, log) => sum + (log.products_count || 0), 0),
+        unique_employees: [...new Set(logs.map(log => log.employee_id))].length
+      },
+      details: logs.map(log => ({
+        timestamp: log.timestamp,
+        employee_code: log.employee_code,
+        client_name: log.client_name,
+        products_count: log.products_count,
+        total_savings: log.total_savings,
+        custom_price_details: log.custom_pricing_summary?.custom_price_details || []
+      })),
+      generated_at: new Date().toISOString()
+    };
+    
+    if (format === 'csv') {
+      // Generar CSV
+      const csvRows = [
+        'Fecha,Empleado,Cliente,Productos,Ahorro Total,Detalles'
+      ];
+      
+      reportData.details.forEach(detail => {
+        const detailsText = detail.custom_price_details
+          .map(d => `${d.product_code}:${d.total_savings}`)
+          .join(';');
+        
+        csvRows.push([
+          detail.timestamp,
+          detail.employee_code,
+          detail.client_name,
+          detail.products_count,
+          detail.total_savings,
+          `"${detailsText}"`
+        ].join(','));
+      });
+      
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="custom-pricing-report-${start_date}-${end_date}.csv"`);
+      res.send(csvRows.join('\n'));
+    } else {
+      res.json(reportData);
+    }
+    
+  } catch (error) {
+    console.error('❌ Error generando reporte de precios personalizados:', error);
+    res.status(500).json({ 
+      message: 'Error generando reporte', 
+      error: error.message 
+    });
+  }
+});
+
+// PUT - Configurar límites de descuento por empleado (futura implementación)
+app.put("/api/admin/employee-discount-limits", auth, adminOnly, async (req, res) => {
+  try {
+    const { employee_id, max_discount_percentage, requires_approval_over } = req.body;
+    
+    console.log('⚙️ Configurando límites de descuento:', { employee_id, max_discount_percentage });
+    
+    if (!employee_id || max_discount_percentage === undefined) {
+      return res.status(400).json({ 
+        message: 'employee_id y max_discount_percentage son requeridos' 
+      });
+    }
+    
+    const limits = {
+      employee_id: parseInt(employee_id),
+      max_discount_percentage: parseFloat(max_discount_percentage),
+      requires_approval_over: parseFloat(requires_approval_over) || max_discount_percentage,
+      updated_at: new Date().toISOString()
+    };
+    
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('employee_discount_limits')
+        .upsert([limits])
+        .select()
+        .single();
+      
+      if (error) throw error;
+      
+      res.json({
+        message: 'Límites de descuento actualizados',
+        limits: data
+      });
+    } else {
+      // Fallback: guardar en memoria
+      if (!fallbackDatabase.employee_discount_limits) {
+        fallbackDatabase.employee_discount_limits = [];
+      }
+      
+      const existingIndex = fallbackDatabase.employee_discount_limits
+        .findIndex(l => l.employee_id === limits.employee_id);
+      
+      if (existingIndex >= 0) {
+        fallbackDatabase.employee_discount_limits[existingIndex] = limits;
+      } else {
+        limits.id = fallbackDatabase.employee_discount_limits.length + 1;
+        fallbackDatabase.employee_discount_limits.push(limits);
+      }
+      
+      res.json({
+        message: 'Límites de descuento actualizados',
+        limits: limits
+      });
+    }
+    
+  } catch (error) {
+    console.error('❌ Error configurando límites de descuento:', error);
+    res.status(500).json({ 
+      message: 'Error configurando límites', 
+      error: error.message 
+    });
+  }
+});
+
+// Función helper para agrupar datos por período
+function groupDataByPeriod(salesData, paymentsData, groupBy) {
+  const grouped = {};
+  
+  // Función para obtener la clave de agrupación
+  const getGroupKey = (date) => {
+    const d = new Date(date);
+    switch (groupBy) {
+      case 'day':
+        return d.toISOString().split('T')[0];
+      case 'week':
+        const week = getWeekNumber(d);
+        return `${d.getFullYear()}-W${week}`;
+      case 'month':
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      case 'year':
+        return d.getFullYear().toString();
+      default:
+        return d.toISOString().split('T')[0];
+    }
+  };
+  
+  // Procesar ventas
+  salesData.forEach(sale => {
+    const key = getGroupKey(sale.created_at);
+    if (!grouped[key]) {
+      grouped[key] = {
+        period: key,
+        sales: [],
+        payments: [],
+        totals: {
+          sales_amount: 0,
+          payments_amount: 0,
+          sales_count: 0,
+          payments_count: 0
+        }
+      };
+    }
+    
+    grouped[key].sales.push(sale);
+    grouped[key].totals.sales_amount += parseFloat(sale.total) || 0;
+    grouped[key].totals.sales_count += 1;
+  });
+  
+  // Procesar pagos
+  paymentsData.forEach(payment => {
+    const key = getGroupKey(payment.created_at);
+    if (!grouped[key]) {
+      grouped[key] = {
+        period: key,
+        sales: [],
+        payments: [],
+        totals: {
+          sales_amount: 0,
+          payments_amount: 0,
+          sales_count: 0,
+          payments_count: 0
+        }
+      };
+    }
+    
+    grouped[key].payments.push(payment);
+    grouped[key].totals.payments_amount += parseFloat(payment.amount) || 0;
+    grouped[key].totals.payments_count += 1;
+  });
+  
+  // Convertir a array y ordenar
+  return Object.values(grouped).sort((a, b) => a.period.localeCompare(b.period));
+}
+// ========== RUTAS DEL FRONTEND ==========
+
+// Página principal
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, 'frontend', 'index.html'));
+});
+
+// Rutas específicas del frontend
+app.get("/admin/dashboard.html", (req, res) => {
+  res.sendFile(path.join(__dirname, 'frontend', 'admin', 'dashboard.html'));
+});
+
+app.get("/admin/products.html", (req, res) => {
+  res.sendFile(path.join(__dirname, 'frontend', 'admin', 'products.html'));
+});
+
+app.get("/admin/employees.html", (req, res) => {
+  res.sendFile(path.join(__dirname, 'frontend', 'admin', 'employees.html'));
+});
+
+app.get("/admin/subalmacenes.html", (req, res) => {
+  res.sendFile(path.join(__dirname, 'frontend', 'admin', 'subalmacenes.html'));
+});
+
+
+
 
 app.get("/admin/orders.html", (req, res) => {
   res.sendFile(path.join(__dirname, 'frontend', 'admin', 'orders.html'));

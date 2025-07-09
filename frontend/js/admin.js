@@ -2395,15 +2395,13 @@ const autoConfirmStyles = `
 }
 
 .btn-primary {
-    background: linear-gradient(135deg, #3b82f6, #052e5b);
+    background: linear-gradient(135deg, #052e5b, #052e5b);
     color: white;
-    box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
 }
 
 .btn-primary:hover {
     background: linear-gradient(135deg, #052e5b, #052e5b);
     transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(59, 130, 246, 0.4);
 }
 
 /* Dashboard stats update for auto-confirmed orders */

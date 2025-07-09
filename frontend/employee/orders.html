@@ -68,10 +68,10 @@
 
                 <!-- Productos del Subalmacén -->
                 <div class="form-section">
-                    <h3 class="section-title">📦 Productos Disponibles en mi Subalmacén</h3>
+                    <h3 class="section-title"> Productos Disponibles en mi Subalmacén</h3>
                     <div style="padding: 1rem; border-bottom: 1px solid #e2e8f0;">
                         <input type="text" id="product-search" class="search-input" 
-                               placeholder="🔍 Buscar productos en mi subalmacén...">
+                               placeholder=" Buscar productos en mi subalmacén...">
                     </div>
                     
                     <div style="padding: 1.5rem;">
@@ -286,6 +286,7 @@
         let currentPaymentMethod = 'cash';
         let currentPaymentType = 'efectivo'; // NUEVA VARIABLE
         let substoreInfo = null;
+        let customPrices = {};
 
         // Inicialización
         document.addEventListener('DOMContentLoaded', function() {
@@ -691,10 +692,11 @@
         async function handleCreateOrder() {
             if (isProcessing) return;
             
-            console.log('📤 Iniciando creación de pedido:', {
+            console.log('📤 Iniciando creación de pedido con precios personalizados:', {
                 paymentMethod: currentPaymentMethod,
                 paymentType: currentPaymentType,
-                location: currentLocation
+                location: currentLocation,
+                customPrices: Object.keys(customPrices).length
             });
             
             // Validaciones existentes
@@ -746,6 +748,31 @@
                 initialPayment = total;
             }
             
+            // Verificar si hay precios personalizados y generar resumen
+            let customPricingSummary = null;
+            if (Object.keys(customPrices).length > 0) {
+                customPricingSummary = {
+                    products_with_custom_price: Object.keys(customPrices).length,
+                    total_savings: 0,
+                    custom_price_details: []
+                };
+                
+                orderProducts.forEach(product => {
+                    if (product.custom_price_info) {
+                        customPricingSummary.total_savings += product.custom_price_info.discount_amount * product.quantity;
+                        customPricingSummary.custom_price_details.push({
+                            product_code: product.code,
+                            product_name: product.name,
+                            quantity: product.quantity,
+                            original_price: product.custom_price_info.original_price,
+                            custom_price: product.custom_price_info.custom_price,
+                            total_savings: product.custom_price_info.discount_amount * product.quantity,
+                            reason: product.custom_price_info.reason
+                        });
+                    }
+                });
+            }
+            
             isProcessing = true;
             const submitBtn = document.getElementById('submit-order-btn');
             
@@ -755,7 +782,7 @@
                     submitBtn.textContent = '⚡ Procesando Venta...';
                 }
                 
-                // Preparar datos SOLO con campos que existen en la BD
+                // Preparar datos con información mejorada
                 const formData = {
                     client_info: {
                         name: clientName,
@@ -764,30 +791,23 @@
                         email: document.getElementById('client-email')?.value?.trim() || ''
                     },
                     products: orderProducts,
-                    payment_method: currentPaymentMethod, // Este campo SÍ existe
+                    payment_method: currentPaymentMethod,
+                    payment_type: currentPaymentType,
                     inventory_source: 'substore',
                     trip_id: substoreInfo.id,
                     location: currentLocation,
                     notes: document.getElementById('order-notes')?.value?.trim() || '',
                     total: total,
                     
-                    // Campos de pago que SÍ existen en la BD
+                    // Información de pagos
                     paid_amount: initialPayment,
                     balance: total - initialPayment,
                     is_fully_paid: initialPayment >= total,
-                    payment_status: initialPayment >= total ? 'paid' : (initialPayment > 0 ? 'partial' : 'pending')
+                    payment_status: initialPayment >= total ? 'paid' : (initialPayment > 0 ? 'partial' : 'pending'),
                     
-                    // REMOVIDOS: payment_type y payment_details (no existen las columnas)
-                    // La información del tipo de pago se guardará en las notas
+                    // NUEVA: Información de precios personalizados
+                    custom_pricing_summary: customPricingSummary
                 };
-                
-                // Agregar información del tipo de pago a las notas
-                const paymentTypeInfo = `Tipo de pago: ${getPaymentTypeLabel(currentPaymentType)}`;
-                if (formData.notes) {
-                    formData.notes += ` | ${paymentTypeInfo}`;
-                } else {
-                    formData.notes = paymentTypeInfo;
-                }
                 
                 // Manejar foto
                 const photoFile = document.getElementById('order-photo')?.files[0];
@@ -800,7 +820,7 @@
                     }
                 }
                 
-                console.log('📤 Enviando pedido (solo campos existentes):', formData);
+                console.log('📤 Enviando pedido con precios personalizados:', formData);
                 
                 // Enviar pedido
                 const response = await fetch(`${window.API_BASE_URL}/api/orders`, {
@@ -840,6 +860,25 @@
                         paymentInfo += '\n💵 PAGO COMPLETO AL CONTADO';
                     }
                     
+                    // Información de precios personalizados
+                    let customPriceInfo = '';
+                    if (customPricingSummary && customPricingSummary.products_with_custom_price > 0) {
+                        customPriceInfo = `\n\n💰 PRECIOS PERSONALIZADOS:`;
+                        customPriceInfo += `\n• ${customPricingSummary.products_with_custom_price} producto(s) con precio especial`;
+                        if (customPricingSummary.total_savings > 0) {
+                            customPriceInfo += `\n• Ahorro total: ${formatCurrency(customPricingSummary.total_savings)}`;
+                        }
+                        
+                        customPricingSummary.custom_price_details.forEach(detail => {
+                            if (detail.total_savings > 0) {
+                                customPriceInfo += `\n  - ${detail.product_code}: Ahorro ${formatCurrency(detail.total_savings)}`;
+                                if (detail.reason) {
+                                    customPriceInfo += ` (${detail.reason})`;
+                                }
+                            }
+                        });
+                    }
+                    
                     // Información de ubicación
                     let locationInfo = '';
                     if (currentLocation) {
@@ -855,7 +894,7 @@
         💰 Venta: ${saleNumber}
         👤 Cliente: ${formData.client_info.name}
         📦 Productos: ${orderProducts.length}
-        💵 Total: ${formatCurrency(formData.total)}${paymentInfo}${locationInfo}
+        💵 Total: ${formatCurrency(formData.total)}${paymentInfo}${customPriceInfo}${locationInfo}
         🚛 Subalmacén: ${tripNumber}
 
         ✅ La venta ha sido procesada automáticamente
@@ -870,7 +909,7 @@
                         window.showNotification(`¡Venta ${methodText.toLowerCase()} completada! 🎉`, 'success');
                     }
                     
-                    // Limpiar formulario
+                    // Limpiar formulario (esto también limpia customPrices)
                     clearOrderForm();
                     
                     // Recargar productos del subalmacén
@@ -1061,7 +1100,14 @@
                 return;
             }
             
-            const prices = getProductPrices(product, currentPaymentMethod);
+            // Usar precio personalizado si existe, sino usar precio normal
+            let unitPrice;
+            if (customPrices[productId]) {
+                unitPrice = customPrices[productId].price;
+            } else {
+                const prices = getProductPrices(product, currentPaymentMethod);
+                unitPrice = prices.box;
+            }
             
             const existingIndex = orderProducts.findIndex(p => 
                 p.product_id === productId && p.payment_method === currentPaymentMethod
@@ -1076,27 +1122,43 @@
                     return;
                 }
                 orderProducts[existingIndex].quantity = newQuantity;
-                orderProducts[existingIndex].line_total = prices.box * newQuantity;
+                orderProducts[existingIndex].line_total = unitPrice * newQuantity;
             } else {
-                orderProducts.push({
+                const orderProduct = {
                     product_id: productId,
                     name: product.name,
                     code: product.code,
-                    unit_price: prices.box,
+                    unit_price: unitPrice,
                     quantity: quantity,
-                    line_total: prices.box * quantity,
+                    line_total: unitPrice * quantity,
                     payment_method: currentPaymentMethod,
                     unit_type: 'box',
                     substore_info: product.substore_info
-                });
+                };
+                
+                // Agregar información de precio personalizado si existe
+                if (customPrices[productId]) {
+                    orderProduct.custom_price_info = {
+                        original_price: customPrices[productId].originalPrice,
+                        custom_price: customPrices[productId].price,
+                        reason: customPrices[productId].reason,
+                        discount_amount: customPrices[productId].originalPrice - customPrices[productId].price,
+                        discount_percentage: ((customPrices[productId].originalPrice - customPrices[productId].price) / customPrices[productId].originalPrice * 100).toFixed(2)
+                    };
+                }
+                
+                orderProducts.push(orderProduct);
             }
             
             updateOrderTable();
             
             if (quantityInput) quantityInput.value = 1;
             
+            const productName = customPrices[productId] ? 
+                `${product.name} (precio especial)` : product.name;
+            
             if (window.showNotification) {
-                window.showNotification(`${product.name} agregado`, 'success');
+                window.showNotification(`${productName} agregado`, 'success');
             }
         }
 
@@ -1120,18 +1182,31 @@
                         ? '<small style="background: #fbbf24; color: #92400e; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.7rem; font-weight: 600; margin-left: 0.5rem;">CRÉDITO</small>'
                         : '<small style="background: #10b981; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.7rem; font-weight: 600; margin-left: 0.5rem;">CONTADO</small>';
                     
+                    const customPriceBadge = product.custom_price_info ? 
+                        `<small style="background: #f59e0b; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.7rem; font-weight: 600; margin-left: 0.5rem;" title="${product.custom_price_info.reason}">
+                            ${product.custom_price_info.discount_amount > 0 ? '💰 DESCUENTO' : '⭐ ESPECIAL'}
+                        </small>` : '';
+                    
+                    const priceInfo = product.custom_price_info ? 
+                        `<small style="color: #059669; display: block; margin-top: 0.25rem;">
+                            Precio original: ${formatCurrency(product.custom_price_info.original_price)} 
+                            ${product.custom_price_info.discount_amount > 0 ? `(Ahorro: ${formatCurrency(product.custom_price_info.discount_amount)})` : ''}
+                        </small>` : '';
+                    
                     return `
                         <tr>
                             <td>
                                 <div style="font-weight: 600;">${product.code} - ${product.name}</div>
                                 <small style="color: #059669;">🚛 Desde subalmacén</small>
                                 ${methodBadge}
+                                ${customPriceBadge}
+                                ${priceInfo}
                             </td>
                             <td>${formatCurrency(product.unit_price)}</td>
                             <td>${product.quantity}</td>
                             <td>${formatCurrency(product.line_total)}</td>
                             <td>
-                                <button class="remove-product" onclick="removeFromOrder(${index})">🗑️</button>
+                                <button class="remove-product" onclick="removeFromOrder(${index})" title="Remover producto">🗑️</button>
                             </td>
                         </tr>
                     `;
@@ -1165,6 +1240,7 @@
 
         function clearOrderForm() {
             orderProducts = [];
+            customPrices = {}; // Limpiar precios personalizados
             updateOrderTable();
             
             const fields = ['client-name', 'client-phone', 'client-address', 'client-email', 'order-notes'];
@@ -1205,6 +1281,11 @@
             document.querySelectorAll('.quantity-input').forEach(input => {
                 input.value = 1;
             });
+            
+            // Actualizar vista de productos para remover indicadores de precio personalizado
+            if (substoreProducts && substoreProducts.length > 0) {
+                displaySubstoreProducts(substoreProducts);
+            }
         }
 
         function handleClearOrder() {
@@ -1385,6 +1466,392 @@
             }).format(amount);
         }
 
+        // Función para mostrar el botón de precio personalizado en los productos
+        function displaySubstoreProducts(productsToShow) {
+            const container = document.getElementById('products-list');
+            if (!container) return;
+            
+            if (productsToShow.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 2rem; color: #64748b;">
+                        <p>📦 No hay productos disponibles en tu subalmacén</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = productsToShow.map(product => {
+                const stockClass = product.stock > 10 ? 'stock-high' : product.stock > 3 ? 'stock-medium' : 'stock-low';
+                const stockText = `${product.stock} disponibles`;
+                const isOutOfStock = product.stock === 0;
+                
+                // Verificar si tiene precio personalizado
+                const hasCustomPrice = customPrices[product.id];
+                const displayPrice = hasCustomPrice ? hasCustomPrice.price : getProductPrices(product, currentPaymentMethod).box;
+                
+                const paymentBadge = currentPaymentMethod === 'credit' 
+                    ? '<span style="background: #fbbf24; color: #92400e; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">📋 CRÉDITO</span>'
+                    : '<span style="background: #10b981; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">💵 CONTADO</span>';
+                
+                const customPriceIndicator = hasCustomPrice 
+                    ? `<span class="custom-price-indicator" style="background: linear-gradient(135deg, #f59e0b, #d97706); color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.7rem; font-weight: 600; margin-left: 0.5rem;">
+                        ${hasCustomPrice.price < hasCustomPrice.originalPrice ? '💰 DESCUENTO' : '⭐ ESPECIAL'}
+                    </span>`
+                    : '';
+                
+                return `
+                    <div class="product-card substore-product-card">
+                        <div class="substore-badge">SUBALMACÉN</div>
+                        ${paymentBadge}
+                        
+                        <div class="product-header">
+                            <div class="product-code">${product.code || 'N/A'}</div>
+                            <div class="product-price">
+                                ${formatCurrency(displayPrice)}
+                                ${customPriceIndicator}
+                            </div>
+                        </div>
+                        <div class="product-name">${product.name || 'Producto sin nombre'}</div>
+                        <div class="product-details">${product.brand || 'N/A'} • ${product.viscosity || 'N/A'} • ${product.capacity || 'N/A'}</div>
+                        <div class="stock-info ${stockClass}">📦 ${stockText}</div>
+                        
+                        <div class="product-actions">
+                            <input type="number" style="width: 60px; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 6px;" class="quantity-input" data-product-id="${product.id}" 
+                                min="1" max="${product.stock || 1}" value="1" ${isOutOfStock ? 'disabled' : ''}>
+                            <button class="btn btn-primary" onclick="addToOrder(${product.id})" 
+                                    ${isOutOfStock ? 'disabled' : ''}>
+                                ${isOutOfStock ? 'Sin Stock' : 'Agregar'}
+                            </button>
+                            <button class="btn btn-primary" style="background-color: #33557a;" onclick="openPriceOverride(${product.id}, '${product.code}', '${product.name}', ${getProductPrices(product, currentPaymentMethod).box})"
+                                    ${isOutOfStock ? 'disabled' : ''} title="Establecer precio personalizado">
+                                Dif precio
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Función para abrir el modal de precio personalizado
+        function openPriceOverride(productId, productCode, productName, currentPrice) {
+            window.currentProductId = productId;
+            window.currentProductCode = productCode;
+            window.currentProductName = productName;
+            window.originalPrice = currentPrice;
+            window.customPrice = currentPrice;
+
+            // Crear modal si no existe
+            if (!document.getElementById('priceOverrideModal')) {
+                createPriceOverrideModal();
+            }
+
+            // Actualizar información en el modal
+            document.getElementById('product-name-display').textContent = `${productName} (${productCode})`;
+            document.getElementById('current-price-display').textContent = formatCurrency(currentPrice);
+            document.getElementById('new-price-display').textContent = formatCurrency(currentPrice);
+            
+            // Si ya tiene precio personalizado, mostrarlo
+            const existing = customPrices[productId];
+            if (existing) {
+                document.getElementById('custom-price-input').value = existing.price;
+                document.getElementById('price-reason').value = existing.reason;
+                window.customPrice = existing.price;
+                document.getElementById('new-price-display').textContent = formatCurrency(existing.price);
+            } else {
+                document.getElementById('custom-price-input').value = currentPrice;
+                document.getElementById('price-reason').value = '';
+            }
+
+            // Limpiar validaciones
+            const validation = document.getElementById('price-validation');
+            validation.className = 'price-validation';
+            validation.textContent = '';
+
+            // Mostrar modal
+            document.getElementById('priceOverrideModal').classList.add('show');
+            document.body.style.overflow = 'hidden';
+
+            // Focus en el input de precio
+            setTimeout(() => {
+                document.getElementById('custom-price-input').focus();
+                document.getElementById('custom-price-input').select();
+            }, 100);
+        }
+
+        // Función para crear el modal de precio personalizado
+        function createPriceOverrideModal() {
+            const modalHTML = `
+                <div id="priceOverrideModal" class="price-override-modal">
+                    <div class="price-override-content">
+                        <div class="price-override-header">
+                            <h3 class="price-override-title">💰 Precio Personalizado</h3>
+                            <p class="price-override-subtitle" id="product-name-display">Producto</p>
+                        </div>
+
+                        <div class="price-info-card">
+                            <div class="price-comparison">
+                                <div class="price-item current-price">
+                                    <div class="price-label">Precio Actual</div>
+                                    <div class="price-value" id="current-price-display">$0.00</div>
+                                </div>
+                                <div class="price-item new-price">
+                                    <div class="price-label">Precio Nuevo</div>
+                                    <div class="price-value" id="new-price-display">$0.00</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="price-presets">
+                            <div class="presets-label">⚡ Descuentos Rápidos</div>
+                            <div class="presets-grid">
+                                <button class="preset-btn" onclick="applyDiscount(5)">-5%</button>
+                                <button class="preset-btn" onclick="applyDiscount(10)">-10%</button>
+                                <button class="preset-btn" onclick="applyDiscount(15)">-15%</button>
+                                <button class="preset-btn" onclick="applyDiscount(20)">-20%</button>
+                                <button class="preset-btn" onclick="applyDiscount(25)">-25%</button>
+                                <button class="preset-btn" onclick="resetToOriginal()">Original</button>
+                            </div>
+                        </div>
+
+                        <div class="price-input-group">
+                            <label class="price-input-label" for="custom-price-input">💵 Precio Personalizado</label>
+                            <input 
+                                type="number" 
+                                id="custom-price-input" 
+                                class="price-input" 
+                                step="0.01" 
+                                min="1" 
+                                placeholder="Ingresa el precio..."
+                                oninput="updateNewPrice()"
+                            >
+                            <div id="price-validation" class="price-validation"></div>
+                        </div>
+
+                        <div class="price-input-group">
+                            <label class="price-input-label" for="price-reason">📝 Motivo del Precio Especial</label>
+                            <textarea 
+                                id="price-reason" 
+                                class="reason-input" 
+                                placeholder="Ej: Cliente mayorista, descuento por volumen, promoción especial..."
+                            ></textarea>
+                        </div>
+
+                        <div class="price-override-actions">
+                            <button class="btn-cancel-override" onclick="closePriceOverride()">
+                                ❌ Cancelar
+                            </button>
+                            <button class="btn-apply-override" id="apply-btn" onclick="applyPriceOverride()">
+                                ✅ Aplicar Precio
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.body.insertAdjacentHTML('beforeend', modalHTML);
+            
+            // Agregar event listeners
+            document.getElementById('priceOverrideModal').addEventListener('click', function(e) {
+                if (e.target === this) closePriceOverride();
+            });
+
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    const modal = document.getElementById('priceOverrideModal');
+                    if (modal && modal.classList.contains('show')) {
+                        closePriceOverride();
+                    }
+                }
+            });
+
+            document.getElementById('custom-price-input').addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    applyPriceOverride();
+                }
+            });
+        }
+
+        // Función para cerrar el modal
+        function closePriceOverride() {
+            const modal = document.getElementById('priceOverrideModal');
+            if (modal) {
+                modal.classList.remove('show');
+                document.body.style.overflow = 'auto';
+                
+                // Limpiar presets activos
+                document.querySelectorAll('.preset-btn').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+            }
+        }
+
+        // Función para aplicar descuentos predefinidos
+        function applyDiscount(percentage) {
+            const discountedPrice = window.originalPrice * (1 - percentage / 100);
+            window.customPrice = Math.round(discountedPrice * 100) / 100;
+            
+            document.getElementById('custom-price-input').value = window.customPrice;
+            updateNewPrice();
+
+            // Marcar preset como activo
+            document.querySelectorAll('.preset-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+
+            // Auto-llenar razón
+            if (percentage > 0) {
+                const reasonField = document.getElementById('price-reason');
+                if (!reasonField.value.trim()) {
+                    reasonField.value = `Descuento del ${percentage}% aplicado`;
+                }
+            }
+        }
+
+        // Función para resetear al precio original
+        function resetToOriginal() {
+            window.customPrice = window.originalPrice;
+            document.getElementById('custom-price-input').value = window.originalPrice;
+            updateNewPrice();
+            
+            // Marcar preset como activo
+            document.querySelectorAll('.preset-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+
+            // Limpiar razón
+            document.getElementById('price-reason').value = '';
+        }
+
+        // Función para actualizar el precio nuevo en tiempo real
+        function updateNewPrice() {
+            const input = document.getElementById('custom-price-input');
+            const newPrice = parseFloat(input.value) || 0;
+            
+            window.customPrice = newPrice;
+            document.getElementById('new-price-display').textContent = formatCurrency(newPrice);
+
+            validatePrice(newPrice);
+            
+            // Limpiar presets activos si el precio fue cambiado manualmente
+            document.querySelectorAll('.preset-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+        }
+
+        // Función para validar el precio ingresado
+        function validatePrice(price) {
+            const validation = document.getElementById('price-validation');
+            const applyBtn = document.getElementById('apply-btn');
+            
+            if (price <= 0) {
+                validation.className = 'price-validation error';
+                validation.textContent = '❌ El precio debe ser mayor a $0.00';
+                applyBtn.disabled = true;
+                return;
+            }
+            
+            if (price < window.originalPrice * 0.3) {
+                validation.className = 'price-validation error';
+                validation.textContent = '❌ Precio muy bajo (más del 70% de descuento)';
+                applyBtn.disabled = true;
+                return;
+            }
+            
+            if (price < window.originalPrice * 0.5) {
+                validation.className = 'price-validation warning';
+                validation.textContent = '⚠️ Precio muy bajo: ' + ((window.originalPrice - price) / window.originalPrice * 100).toFixed(1) + '% de descuento';
+                applyBtn.disabled = false;
+                return;
+            }
+            
+            if (price > window.originalPrice * 1.5) {
+                validation.className = 'price-validation warning';
+                validation.textContent = '⚠️ Precio muy alto: ' + ((price - window.originalPrice) / window.originalPrice * 100).toFixed(1) + '% de incremento';
+                applyBtn.disabled = false;
+                return;
+            }
+            
+            if (price === window.originalPrice) {
+                validation.className = 'price-validation';
+                validation.textContent = '';
+                applyBtn.disabled = false;
+                return;
+            }
+            
+            const difference = Math.abs((window.originalPrice - price) / window.originalPrice * 100).toFixed(1);
+            if (price < window.originalPrice) {
+                validation.className = 'price-validation success';
+                validation.textContent = `✅ Descuento del ${difference}% aplicado`;
+            } else {
+                validation.className = 'price-validation success';
+                validation.textContent = `✅ Incremento del ${difference}% aplicado`;
+            }
+            
+            applyBtn.disabled = false;
+        }
+
+        // Función para aplicar el precio personalizado
+        function applyPriceOverride() {
+            const newPrice = parseFloat(document.getElementById('custom-price-input').value);
+            const reason = document.getElementById('price-reason').value.trim();
+            
+            if (newPrice <= 0) {
+                alert('❌ Ingresa un precio válido');
+                return;
+            }
+            
+            if (newPrice < window.originalPrice * 0.3) {
+                alert('❌ El precio es demasiado bajo (más del 70% de descuento)');
+                return;
+            }
+            
+            if (!reason && newPrice !== window.originalPrice) {
+                if (!confirm('⚠️ No especificaste un motivo para el precio especial.\n\n¿Continuar sin motivo?')) {
+                    return;
+                }
+            }
+            
+            // Guardar precio personalizado
+            if (newPrice !== window.originalPrice) {
+                customPrices[window.currentProductId] = {
+                    price: newPrice,
+                    reason: reason,
+                    originalPrice: window.originalPrice,
+                    timestamp: new Date().toISOString()
+                };
+            } else {
+                // Si vuelve al precio original, remover override
+                delete customPrices[window.currentProductId];
+            }
+            
+            console.log('🔄 Precio personalizado aplicado:', {
+                productId: window.currentProductId,
+                productCode: window.currentProductCode,
+                originalPrice: window.originalPrice,
+                newPrice: newPrice,
+                reason: reason,
+                savings: window.originalPrice - newPrice
+            });
+
+            // Actualizar la vista del producto
+            displaySubstoreProducts(substoreProducts);
+            
+            // Mostrar notificación de éxito
+            const action = newPrice < window.originalPrice ? 'Descuento aplicado' : 
+                        newPrice > window.originalPrice ? 'Precio incrementado' : 'Precio restaurado';
+            
+            if (window.showNotification) {
+                window.showNotification(`${action}: ${formatCurrency(newPrice)}`, 'success');
+            } else {
+                alert(`✅ ${action}\n\nNuevo precio: ${formatCurrency(newPrice)}\nMotivo: ${reason || 'Sin motivo especificado'}`);
+            }
+            
+            closePriceOverride();
+        }
+
         function logout() {
             if (confirm('¿Cerrar sesión?')) {
                 localStorage.clear();
@@ -1392,7 +1859,8 @@
             }
         }
 
-        // Hacer funciones globales
+
+    // Funciones globales
         window.addToOrder = addToOrder;
         window.removeFromOrder = removeFromOrder;
         window.removePhoto = removePhoto;

@@ -1,4 +1,4 @@
-/* Estilos específicos para el panel de administrador */
+/* Estilos específicos para el panel de administrador *
 
 .dashboard-content {
     display: grid;
@@ -119,26 +119,6 @@
     gap: 0.5rem;
 }
 
-.btn-sm {
-    padding: 0.25rem 0.5rem;
-    font-size: 0.75rem;
-    border-radius: 4px;
-}
-
-.btn-edit {
-    background: #052e5b;
-    color: white;
-}
-
-.btn-delete {
-    background: #5b0509;
-    color: white;
-}
-
-.btn-confirm {
-    background: var(--success-color);
-    color: white;
-}
 
 /* Estados de pedidos */
 .status-badge {
@@ -948,20 +928,6 @@
     justify-content: center;
 }
 
-.action-buttons .btn {
-    font-size: 0.75rem;
-    padding: 0.375rem 0.75rem;
-    border-radius: 4px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.25px;
-    transition: all 0.2s ease;
-}
-
-.action-buttons .btn:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-}
 
 /* ===== PAYMENT MODAL SCROLLBAR ENHANCEMENT ===== */
 /* Add this CSS to your existing admin.css file */
@@ -1252,50 +1218,6 @@
   border-color: #adb5bd;
 }
 
-/* Estilos para los botones */
-.btn {
-  padding: 10px 16px;
-  border: 1px solid transparent;
-  border-radius: 4px;
-  font-size: 14px;
-  font-weight: 400;
-  cursor: pointer;
-  transition: all 0.15s ease-in-out;
-  text-decoration: none;
-  display: inline-block;
-  line-height: 1.5;
-}
-
-.btn:hover {
-  text-decoration: none;
-}
-
-.btn:focus {
-  outline: none;
-  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
-}
-
-.btn-secondary {
-  background-color: #6c757d;
-  border-color: #6c757d;
-  color: #fff;
-}
-
-.btn-secondary:hover {
-  background-color: #5a6268;
-  border-color: #545b62;
-}
-
-.btn-primary {
-  background-color: #052e5b;
-  border-color: #052e5b;
-  color: #fff;
-}
-
-.btn-primary:hover {
-  background-color: #052e5b;
-  border-color: #052e5b;
-}
 
 /* Responsivo para pantallas pequeñas */
 @media (max-width: 768px) {
@@ -1312,11 +1234,7 @@
     width: 100%;
     min-width: 100%;
   }
-  
-  .btn {
-    width: 100%;
-  }
-  
+
   .content-header {
     padding: 1rem;
   }
@@ -1791,5 +1709,464 @@
     
     .summary-amount {
         font-size: 1.5rem;
+    }
+}
+
+/* Estilos específicos para reporte de ventas y cobranzas */
+.report-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+.report-header {
+    background: #052e5b;
+    color: white;
+    padding: 2rem;
+    border-radius: 12px;
+    margin-bottom: 2rem;
+    text-align: center;
+}
+
+.report-header h1 {
+    margin: 0 0 1rem 0;
+    font-size: 2rem;
+    font-weight: 700;
+}
+
+.report-header p {
+    margin: 0;
+    opacity: 0.9;
+    font-size: 1.1rem;
+}
+
+.report-controls {
+    background: white;
+    padding: 2rem;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    margin-bottom: 2rem;
+}
+
+.controls-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.control-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.control-group label {
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 0.5rem;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.control-group input,
+.control-group select {
+    padding: 0.75rem;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 1rem;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.control-group input:focus,
+.control-group select:focus {
+    outline: none;
+    border-color: #052e5b;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.action-buttons {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+}
+
+.btn,
+.action-buttons .btn,
+button {
+  /* Tamaño compacto */
+  padding: 6px 12px !important;
+  border: 1px solid transparent !important;
+  border-radius: 4px !important;
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease-in-out !important;
+  text-decoration: none !important;
+  display: inline-block !important;
+  line-height: 1.3 !important;
+  box-sizing: border-box !important;
+  vertical-align: middle !important;
+  
+  /* ELIMINAR GRADIENTES - COLOR SÓLIDO */
+  background-color: #f8f9fa !important;
+  background-image: none !important;
+  background: #f8f9fa !important;
+  color: #212529 !important;
+  border-color: #dee2e6 !important;
+  box-shadow: none !important;
+}
+
+/* Estados hover SIN efectos de transformación */
+.btn:hover,
+.action-buttons .btn:hover {
+  border-color: #adb5bd !important;
+  box-shadow: none !important;
+  transform: none !important; /* Sin movimiento */
+}
+
+/* Colores específicos SIN gradientes */
+.btn-primary {
+  background-color: #052e5b !important;
+  color: white !important;
+  border-color: #052e5b !important;
+}
+
+.btn-primary:hover {
+  background-color: #041f42 !important;
+  background-image: none !important;
+  background: #041f42 !important;
+}
+
+.btn-secondary {
+  background-color: #6c757d !important;
+  background-image: none !important;
+  background: #6c757d !important;
+  color: white !important;
+  border-color: #6c757d !important;
+}
+
+.btn-secondary:hover {
+  background-color: #5a6268 !important;
+  background-image: none !important;
+  background: #5a6268 !important;
+}
+
+.btn-edit {
+  background-color: #052e5b !important;
+  background-image: none !important;
+  background: #052e5b !important;
+  color: white !important;
+}
+
+.btn-delete {
+  background-color: #5b0509 !important;
+  background-image: none !important;
+  background: #5b0509 !important;
+  color: white !important;
+}
+
+.btn-confirm {
+  background-color: #28a745 !important;
+  background-image: none !important;
+  background: #28a745 !important;
+  color: white !important;
+}
+
+/* Eliminar efectos especiales */
+.btn::before,
+.btn::after {
+  display: none !important;
+}
+
+/* Sin animaciones complejas */
+.btn {
+  animation: none !important;
+}
+
+/* Modal del reporte */
+.report-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(4px);
+    z-index: 10000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+}
+
+.report-modal.show {
+    display: flex;
+}
+
+.modal-content {
+    background: white;
+    width: 100%;
+    max-width: 1400px;
+    max-height: 95vh;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
+    display: flex;
+    flex-direction: column;
+}
+
+.modal-header {
+    background: linear-gradient(135deg, #052e5b, #052e5b);
+    color: white;
+    padding: 1.5rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin: 0;
+}
+
+.modal-close {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: white;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    font-size: 1.5rem;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.modal-close:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.modal-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 2rem;
+}
+
+.report-section {
+    margin-bottom: 3rem;
+}
+
+.section-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #052e5b;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid #e5e7eb;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.section-icon {
+    background: #052e5b;
+    color: white;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+}
+
+.report-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    border: 1px solid #e5e7eb;
+}
+
+.report-table th {
+    background: #f8fafc;
+    color: #374151;
+    padding: 1rem;
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 2px solid #e5e7eb;
+}
+
+.report-table td {
+    padding: 0.875rem 1rem;
+    border-bottom: 1px solid #e5e7eb;
+    color: #374151;
+}
+
+.report-table tr:last-child td {
+    border-bottom: none;
+}
+
+.report-table tr:hover {
+    background: #f8fafc;
+}
+
+.amount-cell {
+    font-weight: 600;
+    color: #052e5b;
+    text-align: right;
+}
+
+.date-cell {
+    font-size: 0.875rem;
+    color: #6b7280;
+}
+
+.payment-method {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.method-efectivo {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.method-cheque {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.method-transferencia {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+.method-tarjeta {
+    background: #fce7f3;
+    color: #be185d;
+}
+
+.summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin-top: 2rem;
+}
+
+.summary-card {
+    background: linear-gradient(135deg, #f8fafc, #e2e8f0);
+    padding: 1.5rem;
+    border-radius: 12px;
+    text-align: center;
+    border: 1px solid #e5e7eb;
+}
+
+.summary-card h4 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1rem;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.summary-amount {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #052e5b;
+    margin: 0;
+}
+
+.total-card {
+    background: linear-gradient(135deg, #052e5b, #052e5b);
+    color: white;
+}
+
+.total-card h4 {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.total-card .summary-amount {
+    color: white;
+}
+
+.no-data {
+    text-align: center;
+    padding: 3rem;
+    color: #6b7280;
+    font-size: 1.1rem;
+}
+
+.print-section {
+    margin-top: 2rem;
+    padding-top: 2rem;
+    border-top: 2px solid #e5e7eb;
+    text-align: center;
+}
+
+@media print {
+    .modal-header,
+    .modal-close,
+    .print-section {
+        display: none !important;
+    }
+
+    .modal-content {
+        max-width: none;
+        max-height: none;
+        box-shadow: none;
+        border-radius: 0;
+    }
+
+    .modal-body {
+        padding: 1rem;
+    }
+
+    .report-table {
+        font-size: 0.875rem;
+    }
+
+    .summary-grid {
+        break-inside: avoid;
+    }
+}
+
+@media (max-width: 768px) {
+    .controls-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .action-buttons {
+        flex-direction: column;
+    }
+
+
+    .modal-content {
+        margin: 0.5rem;
+        max-height: calc(100vh - 1rem);
+    }
+
+    .summary-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .report-table {
+        font-size: 0.875rem;
+    }
+
+    .report-table th,
+    .report-table td {
+        padding: 0.5rem;
     }
 }
