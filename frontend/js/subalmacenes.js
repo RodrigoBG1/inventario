@@ -164,7 +164,7 @@ async function getTripsAPI(status = null, employeeId = null) {
 }
 
 async function addProductToTripAPI(tripId, productData) {
-    console.log('➕ addProductToTripAPI llamado con:', { tripId, productData });
+    console.log(' addProductToTripAPI llamado con:', { tripId, productData });
     
     try {
         const url = `${window.API_BASE_URL}/api/trips/${tripId}/add-product`;
@@ -524,11 +524,11 @@ function populateEmployeeSelectors() {
 }
 
 function populateProductSelector() {
-    console.log('📦 Poblando selector de productos...');
+    console.log('Poblando selector de productos...');
     
     const productSelect = document.getElementById('product-select');
     if (!productSelect) {
-        console.warn('⚠️ Selector de productos no encontrado');
+        console.warn('Selector de productos no encontrado');
         return;
     }
     

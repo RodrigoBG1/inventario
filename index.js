@@ -1629,7 +1629,7 @@ async function addProductToExistingTrip(tripId, productData) {
       // 2. Verificar stock disponible en almacén principal
       const { data: mainProduct, error: getError } = await supabase
         .from('products')
-        .select('id, code, name, stock')
+        .select('id, code, name, stock, price')
         .eq('id', product_id)
         .single();
       
@@ -1641,6 +1641,8 @@ async function addProductToExistingTrip(tripId, productData) {
         throw new Error(`Stock insuficiente en almacén principal. Disponible: ${mainProduct.stock}, solicitado: ${quantity}`);
       }
       
+      console.log(`📊 Producto encontrado: ${mainProduct.name}, stock disponible: ${mainProduct.stock}`);
+      
       // 3. Verificar si el producto ya existe en el subalmacén
       const { data: existingItem, error: checkError } = await supabase
         .from('substore_inventory')
@@ -1649,76 +1651,117 @@ async function addProductToExistingTrip(tripId, productData) {
         .eq('product_id', product_id)
         .single();
       
+      // ✅ CORRECCIÓN PRINCIPAL: Manejar casos de producto existente vs nuevo
       if (existingItem) {
-        // Producto ya existe, agregar cantidad
-        const newQuantity = existingItem.current_quantity + quantity;
+        // ===== PRODUCTO YA EXISTE: AGREGAR CANTIDAD =====
+        console.log(`📦 Producto ya existe en subalmacén. Cantidad actual: ${existingItem.current_quantity}`);
+        
+        const newCurrentQuantity = existingItem.current_quantity + quantity;
+        const newInitialQuantity = existingItem.initial_quantity + quantity; // ✅ CRÍTICO: Actualizar también initial_quantity
+        
+        console.log(`📊 Actualizando cantidades: initial(${existingItem.initial_quantity} → ${newInitialQuantity}), current(${existingItem.current_quantity} → ${newCurrentQuantity})`);
         
         const { error: updateError } = await supabase
           .from('substore_inventory')
           .update({
-            current_quantity: newQuantity,
-            out_of_stock_since: null // Remover marca de agotado
+            initial_quantity: newInitialQuantity, // ✅ AGREGAR ESTA LÍNEA
+            current_quantity: newCurrentQuantity,
+            out_of_stock_since: null // Remover marca de agotado si existe
           })
           .eq('id', existingItem.id);
         
-        if (updateError) throw updateError;
+        if (updateError) {
+          console.error('❌ Error actualizando inventario existente:', updateError);
+          throw updateError;
+        }
         
         console.log(`✅ Cantidad agregada a producto existente: ${mainProduct.name} (+${quantity})`);
+        
       } else {
-        // Producto nuevo, crear entrada
+        // ===== PRODUCTO NUEVO: CREAR ENTRADA =====
+        console.log(`📦 Creando nueva entrada para producto: ${mainProduct.name}`);
+        
+        // ✅ CORRECCIÓN: initial_quantity y current_quantity deben ser iguales al inicio
+        const substoreData = {
+          trip_id: tripId,
+          product_id: product_id,
+          product_code: mainProduct.code,
+          product_name: mainProduct.name,
+          initial_quantity: quantity,    // ✅ Cantidad inicial = cantidad agregada
+          current_quantity: quantity,    // ✅ Cantidad actual = cantidad agregada
+          sold_quantity: 0,              // ✅ Vendido = 0 al inicio
+          returned_quantity: 0,          // ✅ Devuelto = 0 al inicio
+          price: price || mainProduct.price || 0,
+          created_at: new Date().toISOString()
+        };
+        
+        console.log('📝 Datos para insertar:', substoreData);
+        
         const { error: insertError } = await supabase
           .from('substore_inventory')
-          .insert([{
-            trip_id: tripId,
-            product_id: product_id,
-            product_code: mainProduct.code,
-            product_name: mainProduct.name,
-            initial_quantity: quantity,
-            current_quantity: quantity,
-            sold_quantity: 0,
-            returned_quantity: 0,
-            price: price || mainProduct.price || 0,
-            created_at: new Date().toISOString()
-          }]);
+          .insert([substoreData]);
         
-        if (insertError) throw insertError;
+        if (insertError) {
+          console.error('❌ Error insertando nuevo producto:', insertError);
+          throw insertError;
+        }
         
         console.log(`✅ Nuevo producto agregado al subalmacén: ${mainProduct.name}`);
       }
       
-      // 4. Reducir stock del almacén principal
+      // 4. Reducir stock del almacén principal (SOLO la cantidad agregada)
       const { error: reduceError } = await supabase
         .from('products')
         .update({ stock: mainProduct.stock - quantity })
         .eq('id', product_id);
       
-      if (reduceError) throw reduceError;
+      if (reduceError) {
+        console.error('❌ Error reduciendo stock principal:', reduceError);
+        throw reduceError;
+      }
       
-      // 5. Registrar movimiento
-      await supabase
-        .from('substore_movements')
-        .insert([{
-          trip_id: tripId,
-          product_id: product_id,
-          product_code: mainProduct.code,
+      console.log(`📉 Stock principal actualizado: ${mainProduct.name} (${mainProduct.stock} → ${mainProduct.stock - quantity})`);
+      
+      // 5. Registrar movimiento (opcional, si tienes tabla de movimientos)
+      try {
+        await supabase
+          .from('substore_movements')
+          .insert([{
+            trip_id: tripId,
+            product_id: product_id,
+            product_code: mainProduct.code,
+            product_name: mainProduct.name,
+            movement_type: 'transfer_in',
+            quantity: quantity,
+            previous_quantity: existingItem?.current_quantity || 0,
+            new_quantity: (existingItem?.current_quantity || 0) + quantity,
+            reference_type: 'manual_add',
+            notes: `Transferencia manual al subalmacén (+${quantity})`,
+            created_at: new Date().toISOString()
+          }]);
+        
+        console.log('📝 Movimiento registrado');
+        
+      } catch (movementError) {
+        console.warn('⚠️ Error registrando movimiento (no crítico):', movementError);
+      }
+      
+      return { 
+        success: true, 
+        action: existingItem ? 'quantity_added' : 'product_added',
+        details: {
           product_name: mainProduct.name,
-          movement_type: 'transfer_in',
-          quantity: quantity,
-          previous_quantity: existingItem?.current_quantity || 0,
-          new_quantity: (existingItem?.current_quantity || 0) + quantity,
-          reference_type: 'manual_add',
-          notes: `Transferencia manual al subalmacén`,
-          created_at: new Date().toISOString()
-        }]);
-      
-      return { success: true, action: existingItem ? 'quantity_added' : 'product_added' };
+          quantity_added: quantity,
+          new_total: (existingItem?.current_quantity || 0) + quantity
+        }
+      };
       
     } catch (error) {
       console.error('❌ Error agregando producto al subalmacén:', error);
       throw error;
     }
   } else {
-    // Fallback en memoria
+    // ===== FALLBACK: MEMORIA =====
     const trip = (fallbackDatabase.trips || []).find(t => t.id === tripId && t.status === 'active');
     if (!trip) {
       throw new Error('Subalmacén no encontrado o no está activo');
@@ -1733,40 +1776,54 @@ async function addProductToExistingTrip(tripId, productData) {
       throw new Error(`Stock insuficiente en almacén principal`);
     }
     
+    // Inicializar array si no existe
+    if (!fallbackDatabase.substore_inventory) {
+      fallbackDatabase.substore_inventory = [];
+    }
+    
     // Buscar si ya existe
-    const existingItemIndex = (fallbackDatabase.substore_inventory || [])
+    const existingItemIndex = fallbackDatabase.substore_inventory
       .findIndex(item => item.trip_id === tripId && item.product_id === product_id);
     
     if (existingItemIndex >= 0) {
-      // Agregar cantidad
-      fallbackDatabase.substore_inventory[existingItemIndex].current_quantity += quantity;
-      fallbackDatabase.substore_inventory[existingItemIndex].out_of_stock_since = null;
+      // ✅ CORRECCIÓN: Actualizar tanto initial como current
+      const existingItem = fallbackDatabase.substore_inventory[existingItemIndex];
+      existingItem.initial_quantity += quantity;  // ✅ CRÍTICO
+      existingItem.current_quantity += quantity;
+      existingItem.out_of_stock_since = null;
+      
+      console.log(`✅ Cantidad agregada a producto existente (memoria): ${mainProduct.name} (+${quantity})`);
     } else {
-      // Crear nuevo
+      // ✅ CORRECCIÓN: Crear con cantidades correctas
       const newItem = {
         id: (fallbackDatabase.substore_inventory?.length || 0) + 1,
         trip_id: tripId,
         product_id: product_id,
         product_code: mainProduct.code,
         product_name: mainProduct.name,
-        initial_quantity: quantity,
-        current_quantity: quantity,
+        initial_quantity: quantity,    // ✅ Igual a current al inicio
+        current_quantity: quantity,    // ✅ Igual a initial al inicio
         sold_quantity: 0,
         returned_quantity: 0,
         price: price || mainProduct.price || 0,
         created_at: new Date().toISOString()
       };
       
-      if (!fallbackDatabase.substore_inventory) {
-        fallbackDatabase.substore_inventory = [];
-      }
       fallbackDatabase.substore_inventory.push(newItem);
+      console.log(`✅ Nuevo producto agregado (memoria): ${mainProduct.name}`);
     }
     
     // Reducir stock principal
     mainProduct.stock -= quantity;
     
-    return { success: true, action: existingItemIndex >= 0 ? 'quantity_added' : 'product_added' };
+    return { 
+      success: true, 
+      action: existingItemIndex >= 0 ? 'quantity_added' : 'product_added',
+      details: {
+        product_name: mainProduct.name,
+        quantity_added: quantity
+      }
+    };
   }
 }
 
@@ -2087,6 +2144,7 @@ async function completeTrip(tripId, returnProducts = []) {
     throw error;
   }
 }
+
 // PUT - Modificar la función de confirmación de pedidos para manejar productos agotados
 async function confirmOrderFromSubstorePermanent(orderId, tripId, paymentInfo) {
   console.log('🔄 Confirmando pedido desde subalmacén permanente:', { orderId, tripId });
@@ -2316,6 +2374,83 @@ async function confirmOrderFromSubstore(orderId, tripId, paymentInfo) {
     throw error;
   }
 }
+
+async function repairSubstoreQuantities(tripId = null) {
+  console.log('🔧 Reparando inconsistencias en cantidades del subalmacén...');
+  
+  let repairedCount = 0;
+  let issues = [];
+  
+  try {
+    if (supabase) {
+      let query = supabase
+        .from('substore_inventory')
+        .select('*');
+      
+      if (tripId) {
+        query = query.eq('trip_id', tripId);
+      }
+      
+      const { data: inventoryItems, error } = await query;
+      
+      if (error) throw error;
+      
+      for (const item of inventoryItems || []) {
+        const expectedInitial = item.current_quantity + item.sold_quantity + item.returned_quantity;
+        
+        if (item.initial_quantity !== expectedInitial) {
+          console.log(`🔧 Reparando item ${item.id}: initial(${item.initial_quantity} → ${expectedInitial})`);
+          
+          const { error: updateError } = await supabase
+            .from('substore_inventory')
+            .update({ initial_quantity: expectedInitial })
+            .eq('id', item.id);
+          
+          if (!updateError) {
+            repairedCount++;
+          } else {
+            issues.push({
+              item_id: item.id,
+              error: updateError.message
+            });
+          }
+        }
+      }
+      
+    } else {
+      // Reparar en memoria
+      const inventory = fallbackDatabase.substore_inventory || [];
+      
+      inventory.forEach(item => {
+        if (tripId && item.trip_id !== tripId) return;
+        
+        const expectedInitial = item.current_quantity + item.sold_quantity + item.returned_quantity;
+        
+        if (item.initial_quantity !== expectedInitial) {
+          console.log(`🔧 Reparando item ${item.id} en memoria: initial(${item.initial_quantity} → ${expectedInitial})`);
+          item.initial_quantity = expectedInitial;
+          repairedCount++;
+        }
+      });
+    }
+    
+    console.log(`✅ Reparación completada: ${repairedCount} items corregidos`);
+    
+    return {
+      success: true,
+      repaired_count: repairedCount,
+      issues: issues
+    };
+    
+  } catch (error) {
+    console.error('❌ Error en reparación:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
 
 // Función para validar precios personalizados
 function validateCustomPricing(orderData) {
@@ -5343,6 +5478,94 @@ app.post("/api/trips/cleanup-depleted", auth, adminOnly, async (req, res) => {
     res.status(500).json({ 
       message: 'Error en limpieza automática', 
       error: error.message 
+    });
+  }
+});
+
+app.post("/api/debug/repair-substore-quantities", auth, adminOnly, async (req, res) => {
+  try {
+    const { trip_id } = req.body;
+    
+    console.log('🔧 Iniciando reparación de cantidades...', trip_id ? `para trip ${trip_id}` : 'para todos');
+    
+    const result = await repairSubstoreQuantities(trip_id || null);
+    
+    res.json({
+      message: 'Reparación completada',
+      ...result,
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    res.status(500).json({
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+// ===== ENDPOINT PARA DIAGNOSTICAR PROBLEMAS =====
+app.get("/api/debug/substore-quantities/:tripId?", auth, adminOnly, async (req, res) => {
+  try {
+    const tripId = req.params.tripId ? parseInt(req.params.tripId) : null;
+    
+    console.log('🔍 Diagnosticando cantidades del subalmacén...', tripId || 'todos');
+    
+    let inventory = [];
+    let inconsistencies = [];
+    
+    if (supabase) {
+      let query = supabase
+        .from('substore_inventory')
+        .select('*');
+      
+      if (tripId) {
+        query = query.eq('trip_id', tripId);
+      }
+      
+      const { data, error } = await query;
+      if (error) throw error;
+      
+      inventory = data || [];
+    } else {
+      inventory = (fallbackDatabase.substore_inventory || [])
+        .filter(item => !tripId || item.trip_id === tripId);
+    }
+    
+    // Analizar inconsistencias
+    inventory.forEach(item => {
+      const expectedInitial = item.current_quantity + item.sold_quantity + item.returned_quantity;
+      const isConsistent = item.initial_quantity === expectedInitial;
+      
+      if (!isConsistent) {
+        inconsistencies.push({
+          id: item.id,
+          trip_id: item.trip_id,
+          product_code: item.product_code,
+          product_name: item.product_name,
+          current_initial: item.initial_quantity,
+          expected_initial: expectedInitial,
+          difference: item.initial_quantity - expectedInitial,
+          current_quantity: item.current_quantity,
+          sold_quantity: item.sold_quantity,
+          returned_quantity: item.returned_quantity
+        });
+      }
+    });
+    
+    res.json({
+      trip_id: tripId,
+      total_items: inventory.length,
+      inconsistencies_found: inconsistencies.length,
+      inconsistencies: inconsistencies,
+      all_consistent: inconsistencies.length === 0,
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    res.status(500).json({
+      error: error.message,
+      timestamp: new Date().toISOString()
     });
   }
 });
