@@ -217,7 +217,7 @@
         }
 
         // Renderizar reporte
-        function renderReport(data) {
+       function renderReport(data) {
             const employee = currentEmployees.find(emp => emp.id === parseInt(data.employee_id));
             const reportDate = new Date(data.date).toLocaleDateString('es-MX', {
                 year: 'numeric',
@@ -225,7 +225,6 @@
                 day: 'numeric'
             });
             
-            // Actualizar título del modal
             document.getElementById('modalTitle').textContent = 
                 `Reporte de ${employee?.name || 'vendedor'} - ${reportDate}`;
             
@@ -235,7 +234,7 @@
                 <!-- Información del vendedor -->
                 <div class="report-section">
                     <div class="section-title">
-                        <span class="section-icon"></span>
+                        <span class="section-icon">👤</span>
                         Información del vendedor
                     </div>
                     <div class="summary-grid">
@@ -254,13 +253,13 @@
                     </div>
                 </div>
 
-                <!-- Tabla de Ventas -->
+                <!-- Tabla de Ventas - ACTUALIZADA -->
                 <div class="report-section">
                     <div class="section-title">
                         <span class="section-icon">💰</span>
                         Ventas del Día
                     </div>
-                    ${renderSalesTable(data.sales)}
+                    ${renderSalesTable(data.sales, data.payments)}
                 </div>
 
                 <!-- Tabla de Cobranzas -->
@@ -275,56 +274,109 @@
                 <!-- Resumen por Método de Pago -->
                 <div class="report-section">
                     <div class="section-title">
-                        <span class="section-icon"></span>
+                        <span class="section-icon">📊</span>
                         Resumen por Método de Pago
                     </div>
                     ${renderPaymentSummary(data.payment_summary)}
                 </div>
             `;
         }
+        
+        // Función corregida para construir ventas desde pagos cuando sales está vacío
+        function renderSalesFromPayments(payments) {
+            console.log('🔄 Construyendo ventas desde pagos iniciales...');
+            
+            if (!payments || payments.length === 0) {
+                return [];
+            }
+            
+            // Filtrar solo abonos iniciales que representan ventas
+            const initialPayments = payments.filter(payment => 
+                payment.payment_type === 'initial_payment' && 
+                payment.order_total && 
+                payment.order_total > 0
+            );
+            
+            console.log('💰 Abonos iniciales encontrados:', initialPayments.length);
+            
+            // Convertir abonos iniciales a formato de ventas
+            const salesFromPayments = initialPayments.map(payment => {
+                return {
+                    id: payment.order_id,
+                    order_number: payment.order_number,
+                    sale_number: payment.order_number, // Usar order_number como sale_number
+                    total: payment.order_total,
+                    paid_amount: payment.amount,
+                    client_info: {
+                        name: payment.client_name
+                    },
+                    client_name: payment.client_name,
+                    created_at: payment.created_at,
+                    employee_id: payment.recorded_by,
+                    employee_code: payment.recorded_by_code,
+                    payment_method: payment.payment_method,
+                    // Marcar como construido desde pagos
+                    _source: 'from_payments'
+                };
+            });
+            
+            console.log('✅ Ventas construidas desde pagos:', salesFromPayments.length);
+            return salesFromPayments;
+        }
+
 
         // Renderizar tabla de ventas
-        function renderSalesTable(sales) {
-            console.log('🔍 DEBUG renderSalesTable - Datos recibidos:', sales);
+        function renderSalesTable(sales, payments) {
+            console.log('🔍 DEBUG renderSalesTable - Datos recibidos:', { 
+                sales: sales?.length || 0, 
+                payments: payments?.length || 0 
+            });
             
-            if (!sales || sales.length === 0) {
-                console.log('❌ No hay ventas para mostrar');
+            let processedSales = sales || [];
+            
+            // Si no hay ventas pero hay pagos, construir ventas desde pagos
+            if ((!sales || sales.length === 0) && payments && payments.length > 0) {
+                console.log('🔄 No hay ventas directas, construyendo desde pagos...');
+                processedSales = renderSalesFromPayments(payments);
+            }
+            
+            if (!processedSales || processedSales.length === 0) {
+                console.log('❌ No hay ventas para mostrar después de procesar pagos');
                 return `
                     <div class="no-data">
                         <h3>📝 No hay ventas registradas</h3>
                         <p>No se encontraron ventas para este vendedor en la fecha seleccionada</p>
+                        ${payments && payments.length > 0 ? `
+                            <details style="margin-top: 1rem; text-align: left;">
+                                <summary style="cursor: pointer; color: #0369a1;">
+                                    🔍 Información de debug (${payments.length} pagos encontrados)
+                                </summary>
+                                <pre style="font-size: 0.8rem; background: #f8fafc; padding: 1rem; border-radius: 4px; margin-top: 0.5rem; overflow-x: auto;">
+        ${JSON.stringify(payments.slice(0, 2), null, 2)}
+                                </pre>
+                            </details>
+                        ` : ''}
                     </div>
                 `;
             }
             
-            // DEBUG: Log detallado de los datos
-            console.log('📊 DEBUG - Total de ventas:', sales.length);
-            if (sales.length > 0) {
-                console.log('📊 DEBUG - Primera venta completa:', JSON.stringify(sales[0], null, 2));
-                console.log('📊 DEBUG - Campos disponibles en primera venta:', Object.keys(sales[0]));
-            }
+            console.log(`📊 DEBUG - Procesando ${processedSales.length} ventas`);
             
             let totalVentas = 0;
             
-            const salesRows = sales.map((sale, index) => {
+            const salesRows = processedSales.map((sale, index) => {
                 console.log(`🔍 DEBUG - Procesando venta ${index + 1}:`, {
                     id: sale.id,
                     order_number: sale.order_number,
-                    sale_number: sale.sale_number,
                     total: sale.total,
-                    paid_amount: sale.paid_amount,
-                    client_info: sale.client_info,
-                    created_at: sale.created_at
+                    source: sale._source || 'direct'
                 });
                 
-                // Obtener total de la venta de forma segura
                 const total = parseFloat(sale.total) || 0;
                 totalVentas += total;
                 
-                // Obtener número de folio de forma segura
                 const folio = sale.order_number || sale.sale_number || `VENTA-${sale.id}` || 'N/A';
                 
-                // Obtener fecha de forma segura
                 let fechaFormateada = 'Fecha no disponible';
                 try {
                     if (sale.created_at) {
@@ -335,20 +387,16 @@
                     fechaFormateada = sale.created_at || 'Fecha inválida';
                 }
                 
-                // Obtener nombre del cliente de forma segura
                 let clienteName = 'Cliente directo';
                 try {
                     if (sale.client_info) {
                         if (typeof sale.client_info === 'string') {
-                            // Si client_info es un string JSON, parsearlo
                             const parsed = JSON.parse(sale.client_info);
                             clienteName = parsed.name || 'Cliente directo';
                         } else if (typeof sale.client_info === 'object' && sale.client_info.name) {
-                            // Si client_info es un objeto
                             clienteName = sale.client_info.name;
                         }
                     } else if (sale.client_name) {
-                        // Fallback a client_name si existe
                         clienteName = sale.client_name;
                     }
                 } catch (error) {
@@ -356,18 +404,16 @@
                     clienteName = sale.client_name || 'Cliente directo';
                 }
                 
-                console.log(`✅ DEBUG - Venta procesada:`, {
-                    folio,
-                    fecha: fechaFormateada,
-                    cliente: clienteName,
-                    total: `$${total.toFixed(2)}`
-                });
+                // Indicador visual si la venta fue construida desde pagos
+                const sourceIndicator = sale._source === 'from_payments' ? 
+                    '<small style="color: #059669; font-weight: 600;">📋 Desde subalmacén</small>' : '';
                 
                 return `
                     <tr>
                         <td>
                             <div class="sale-info">
                                 <strong>${folio}</strong>
+                                ${sourceIndicator}
                             </div>
                         </td>
                         <td class="date-cell">${fechaFormateada}</td>
@@ -393,7 +439,7 @@
                         ${salesRows}
                         <tr style="background: #f0f9ff; border-top: 2px solid #0369a1;">
                             <td colspan="2"><strong>ESTADÍSTICAS</strong></td>
-                            <td><strong>Ventas: ${sales.length}</strong></td>
+                            <td><strong>Ventas: ${processedSales.length}</strong></td>
                             <td class="amount-cell"><strong>$${totalVentas.toFixed(2)}</strong></td>
                         </tr>
                         <tr style="background: #f8fafc; font-weight: 600;">
