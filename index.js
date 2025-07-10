@@ -2444,6 +2444,78 @@ async function cleanupOrphanedData() {
   }
 }
 
+async function verifySupabaseSchema() {
+  if (!supabase) {
+    return { available: false, reason: 'Supabase not configured' };
+  }
+  
+  try {
+    console.log('🔍 Verificando esquema de Supabase...');
+    
+    // Test 1: Verificar tabla trips
+    const { data: tripsTest, error: tripsError } = await supabase
+      .from('trips')
+      .select('id')
+      .limit(1);
+    
+    if (tripsError) {
+      return { 
+        available: false, 
+        reason: 'trips table not accessible',
+        error: tripsError.message 
+      };
+    }
+    
+    // Test 2: Verificar tabla substore_inventory
+    const { data: inventoryTest, error: inventoryError } = await supabase
+      .from('substore_inventory')
+      .select('id')
+      .limit(1);
+    
+    if (inventoryError) {
+      return { 
+        available: false, 
+        reason: 'substore_inventory table not accessible',
+        error: inventoryError.message 
+      };
+    }
+    
+    // Test 3: Verificar columna is_permanent
+    let hasPermanentColumn = false;
+    try {
+      const { error: permanentTest } = await supabase
+        .from('trips')
+        .select('is_permanent')
+        .limit(1);
+      
+      hasPermanentColumn = !permanentTest;
+    } catch (e) {
+      hasPermanentColumn = false;
+    }
+    
+    console.log('✅ Verificación de esquema completada');
+    
+    return {
+      available: true,
+      tables: {
+        trips: true,
+        substore_inventory: true
+      },
+      columns: {
+        is_permanent: hasPermanentColumn
+      }
+    };
+    
+  } catch (error) {
+    console.error('❌ Error verificando esquema:', error);
+    return {
+      available: false,
+      reason: 'Schema verification failed',
+      error: error.message
+    };
+  }
+}
+
 // ========== ARCHIVOS ESTÁTICOS ==========
 app.use(express.static(path.join(__dirname, 'frontend')));
 
