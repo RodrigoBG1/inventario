@@ -150,7 +150,7 @@
             }
             
             try {
-                console.log('📊 Generando reporte:', { date, employeeId });
+                console.log('📊 Generando reporte con debug activado...');
                 
                 // Mostrar indicador de carga
                 const reportContent = document.getElementById('reportContent');
@@ -161,8 +161,8 @@
                     </div>
                 `;
                 
-                // Obtener datos del reporte
-                const reportData = await fetchReportData(employeeId, date);
+                // DEBUG: Usar la función de debug
+                const reportData = await debugReportData(employeeId, date);
                 currentReportData = reportData;
                 
                 // Renderizar reporte
@@ -177,9 +177,20 @@
             } catch (error) {
                 console.error('❌ Error generando reporte:', error);
                 showNotification('Error al generar reporte: ' + error.message, 'error');
+                
+                // Mostrar error detallado en el contenido
+                document.getElementById('reportContent').innerHTML = `
+                    <div class="no-data" style="color: #dc2626;">
+                        <h3>❌ Error al generar reporte</h3>
+                        <p><strong>Error:</strong> ${error.message}</p>
+                        <details>
+                            <summary>Detalles técnicos</summary>
+                            <pre style="text-align: left; font-size: 0.8rem; margin-top: 1rem;">${error.stack}</pre>
+                        </details>
+                    </div>
+                `;
             }
         }
-
         // Obtener datos del reporte
         async function fetchReportData(employeeId, date) {
             try {
@@ -274,7 +285,10 @@
 
         // Renderizar tabla de ventas
         function renderSalesTable(sales) {
+            console.log('🔍 DEBUG renderSalesTable - Datos recibidos:', sales);
+            
             if (!sales || sales.length === 0) {
+                console.log('❌ No hay ventas para mostrar');
                 return `
                     <div class="no-data">
                         <h3>📝 No hay ventas registradas</h3>
@@ -283,144 +297,87 @@
                 `;
             }
             
-            // DEBUG: Veamos qué datos están llegando
-            console.log('📊 DEBUG - Datos de ventas:', sales);
+            // DEBUG: Log detallado de los datos
+            console.log('📊 DEBUG - Total de ventas:', sales.length);
             if (sales.length > 0) {
-                console.log('📊 DEBUG - Primera venta:', sales[0]);
-                console.log('📊 DEBUG - Campos disponibles:', Object.keys(sales[0]));
+                console.log('📊 DEBUG - Primera venta completa:', JSON.stringify(sales[0], null, 2));
+                console.log('📊 DEBUG - Campos disponibles en primera venta:', Object.keys(sales[0]));
             }
             
             let totalVentas = 0;
-            let totalAbonos = 0;
             
-            const salesRows = sales.map(sale => {
+            const salesRows = sales.map((sale, index) => {
+                console.log(`🔍 DEBUG - Procesando venta ${index + 1}:`, {
+                    id: sale.id,
+                    order_number: sale.order_number,
+                    sale_number: sale.sale_number,
+                    total: sale.total,
+                    paid_amount: sale.paid_amount,
+                    client_info: sale.client_info,
+                    created_at: sale.created_at
+                });
+                
+                // Obtener total de la venta de forma segura
                 const total = parseFloat(sale.total) || 0;
-                
-                // MÚLTIPLES INTENTOS para encontrar el abono inicial
-                let abono = 0;
-                
-                // Intentar diferentes nombres de campo posibles
-                const possibleFields = [
-                    'paid_amount',
-                    'initial_payment',
-                    'abono_inicial',
-                    'advance_payment',
-                    'down_payment',
-                    'amount_paid',
-                    'initial_amount',
-                    'first_payment'
-                ];
-                
-                for (const field of possibleFields) {
-                    if (sale[field] !== undefined && sale[field] !== null) {
-                        abono = parseFloat(sale[field]) || 0;
-                        console.log(`📊 DEBUG - Campo encontrado: ${field} = ${abono}`);
-                        break;
-                    }
-                }
-                
-                // Si no se encontró en campos directos, buscar en objetos anidados
-                if (abono === 0) {
-                    // Buscar en payment_info si existe
-                    if (sale.payment_info && typeof sale.payment_info === 'object') {
-                        for (const field of possibleFields) {
-                            if (sale.payment_info[field] !== undefined) {
-                                abono = parseFloat(sale.payment_info[field]) || 0;
-                                console.log(`📊 DEBUG - Campo en payment_info: ${field} = ${abono}`);
-                                break;
-                            }
-                        }
-                    }
-                    
-                    // Buscar en payments array si existe
-                    if (sale.payments && Array.isArray(sale.payments)) {
-                        // Sumar todos los pagos iniciales
-                        abono = sale.payments.reduce((sum, payment) => {
-                            if (payment.payment_type === 'initial_payment' || payment.is_initial) {
-                                return sum + (parseFloat(payment.amount) || 0);
-                            }
-                            return sum;
-                        }, 0);
-                        console.log(`📊 DEBUG - Abono calculado desde payments array: ${abono}`);
-                    }
-                }
-                
                 totalVentas += total;
-                totalAbonos += abono;
                 
-                // Determinar clase según el abono
-                let abonoClass = 'abono-none';
-                if (abono >= total) {
-                    abonoClass = 'abono-complete';
-                } else if (abono > 0) {
-                    abonoClass = 'abono-partial';
+                // Obtener número de folio de forma segura
+                const folio = sale.order_number || sale.sale_number || `VENTA-${sale.id}` || 'N/A';
+                
+                // Obtener fecha de forma segura
+                let fechaFormateada = 'Fecha no disponible';
+                try {
+                    if (sale.created_at) {
+                        fechaFormateada = formatDate(sale.created_at);
+                    }
+                } catch (error) {
+                    console.warn('⚠️ Error formateando fecha:', error);
+                    fechaFormateada = sale.created_at || 'Fecha inválida';
                 }
+                
+                // Obtener nombre del cliente de forma segura
+                let clienteName = 'Cliente directo';
+                try {
+                    if (sale.client_info) {
+                        if (typeof sale.client_info === 'string') {
+                            // Si client_info es un string JSON, parsearlo
+                            const parsed = JSON.parse(sale.client_info);
+                            clienteName = parsed.name || 'Cliente directo';
+                        } else if (typeof sale.client_info === 'object' && sale.client_info.name) {
+                            // Si client_info es un objeto
+                            clienteName = sale.client_info.name;
+                        }
+                    } else if (sale.client_name) {
+                        // Fallback a client_name si existe
+                        clienteName = sale.client_name;
+                    }
+                } catch (error) {
+                    console.warn('⚠️ Error parseando client_info:', error);
+                    clienteName = sale.client_name || 'Cliente directo';
+                }
+                
+                console.log(`✅ DEBUG - Venta procesada:`, {
+                    folio,
+                    fecha: fechaFormateada,
+                    cliente: clienteName,
+                    total: `$${total.toFixed(2)}`
+                });
                 
                 return `
-                    <tr class="${abonoClass}">
+                    <tr>
                         <td>
                             <div class="sale-info">
-                                <strong>${sale.order_number || sale.sale_number || 'N/A'}</strong>
+                                <strong>${folio}</strong>
                             </div>
                         </td>
-                        <td class="date-cell">${formatDate(sale.created_at)}</td>
-                        <td>${sale.client_info?.name || sale.client_name || 'Cliente directo'}</td>
+                        <td class="date-cell">${fechaFormateada}</td>
+                        <td>${clienteName}</td>
                         <td class="amount-cell">$${total.toFixed(2)}</td>
-
                     </tr>
                 `;
             }).join('');
             
-            // Calcular estadísticas
-            const ventasConAbono = sales.filter(sale => {
-                // Aplicar la misma lógica para encontrar abonos
-                let abono = 0;
-                const possibleFields = ['paid_amount', 'initial_payment', 'abono_inicial', 'advance_payment', 'down_payment', 'amount_paid', 'initial_amount', 'first_payment'];
-                
-                for (const field of possibleFields) {
-                    if (sale[field] !== undefined && sale[field] !== null) {
-                        abono = parseFloat(sale[field]) || 0;
-                        break;
-                    }
-                }
-                
-                if (abono === 0 && sale.payments && Array.isArray(sale.payments)) {
-                    abono = sale.payments.reduce((sum, payment) => {
-                        if (payment.payment_type === 'initial_payment' || payment.is_initial) {
-                            return sum + (parseFloat(payment.amount) || 0);
-                        }
-                        return sum;
-                    }, 0);
-                }
-                
-                return abono > 0;
-            }).length;
-            
-            const ventasPagadas = sales.filter(sale => {
-                const total = parseFloat(sale.total) || 0;
-                
-                // Misma lógica para encontrar abonos
-                let abono = 0;
-                const possibleFields = ['paid_amount', 'initial_payment', 'abono_inicial', 'advance_payment', 'down_payment', 'amount_paid', 'initial_amount', 'first_payment'];
-                
-                for (const field of possibleFields) {
-                    if (sale[field] !== undefined && sale[field] !== null) {
-                        abono = parseFloat(sale[field]) || 0;
-                        break;
-                    }
-                }
-                
-                if (abono === 0 && sale.payments && Array.isArray(sale.payments)) {
-                    abono = sale.payments.reduce((sum, payment) => {
-                        if (payment.payment_type === 'initial_payment' || payment.is_initial) {
-                            return sum + (parseFloat(payment.amount) || 0);
-                        }
-                        return sum;
-                    }, 0);
-                }
-                
-                return abono >= total;
-            }).length;
+            console.log('📊 DEBUG - Total de ventas calculado:', totalVentas);
             
             return `
                 <table class="report-table">
@@ -440,7 +397,7 @@
                             <td class="amount-cell"><strong>$${totalVentas.toFixed(2)}</strong></td>
                         </tr>
                         <tr style="background: #f8fafc; font-weight: 600;">
-                            <td colspan="3"><strong>TOTALES</strong></td>
+                            <td colspan="3"><strong>TOTAL VENTAS</strong></td>
                             <td class="amount-cell"><strong>$${totalVentas.toFixed(2)}</strong></td>
                         </tr>
                     </tbody>
@@ -453,31 +410,30 @@
                     gap: 0.25rem;
                 }
                 
-                .summary-stat {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 0.25rem;
-                    padding: 0.5rem;
-                    background: white;
-                    border-radius: 6px;
-                    border: 1px solid #e2e8f0;
+                .amount-cell {
+                    text-align: right;
+                    font-weight: 600;
                 }
                 
+                .date-cell {
+                    font-size: 0.9rem;
+                    color: #64748b;
+                }
                 
                 @media (max-width: 768px) {
-                    .sales-summary {
-                        margin-top: 1rem;
+                    .report-table {
+                        font-size: 0.9rem;
                     }
                     
-                    .sales-summary > div {
-                        grid-template-columns: 1fr;
-                        gap: 0.5rem;
+                    .report-table th,
+                    .report-table td {
+                        padding: 0.5rem 0.25rem;
                     }
                 }
                 </style>
             `;
         }
-        
+
         // Renderizar tabla de cobranzas - CON COLUMNA POR PAGAR
         function renderPaymentsTable(payments) {
             if (!payments || payments.length === 0) {
@@ -1148,15 +1104,30 @@
 
         // Formatear fecha
         function formatDate(dateString) {
-            return new Date(dateString).toLocaleDateString('es-MX', {
-                year: 'numeric',
-                month: '2-digit',
-                day: '2-digit',
-                hour: '2-digit',
-                minute: '2-digit'
-            });
+            if (!dateString) return 'Sin fecha';
+            
+            try {
+                const date = new Date(dateString);
+                
+                // Verificar si la fecha es válida
+                if (isNaN(date.getTime())) {
+                    console.warn('⚠️ Fecha inválida:', dateString);
+                    return 'Fecha inválida';
+                }
+                
+                return date.toLocaleDateString('es-MX', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            } catch (error) {
+                console.error('❌ Error formateando fecha:', error);
+                return dateString;
+            }
         }
-
+        
         // Función para obtener icono de método de pago
         function getPaymentMethodIcon(method) {
             const icons = {
@@ -1206,6 +1177,59 @@
                 window.location.href = '/';
             }
         }
+            
+        // Función de debug temporal - agregar al inicio de generateReport()
+        async function debugReportData(employeeId, date) {
+            console.log('🔍 DEBUG - Iniciando debug de datos del reporte');
+            console.log('🔍 DEBUG - Parámetros:', { employeeId, date });
+            
+            try {
+                // Test de conexión a la API
+                const testResponse = await fetch(`${window.API_BASE_URL}/test`);
+                const testData = await testResponse.json();
+                console.log('🔍 DEBUG - Test de API:', testData);
+                
+                // Test específico del endpoint de reporte
+                const reportUrl = `${window.API_BASE_URL}/api/reports/sales-collection?employee_id=${employeeId}&date=${date}`;
+                console.log('🔍 DEBUG - URL del reporte:', reportUrl);
+                
+                const reportResponse = await fetch(reportUrl, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+                
+                console.log('🔍 DEBUG - Status de respuesta:', reportResponse.status);
+                console.log('🔍 DEBUG - Headers de respuesta:', [...reportResponse.headers.entries()]);
+                
+                if (!reportResponse.ok) {
+                    const errorText = await reportResponse.text();
+                    console.error('❌ DEBUG - Error en respuesta:', errorText);
+                    throw new Error(`Error ${reportResponse.status}: ${errorText}`);
+                }
+                
+                const reportData = await reportResponse.json();
+                console.log('🔍 DEBUG - Datos completos del reporte:', reportData);
+                console.log('🔍 DEBUG - Ventas recibidas:', reportData.sales?.length || 0);
+                console.log('🔍 DEBUG - Pagos recibidos:', reportData.payments?.length || 0);
+                
+                if (reportData.sales && reportData.sales.length > 0) {
+                    console.log('🔍 DEBUG - Primera venta detallada:', JSON.stringify(reportData.sales[0], null, 2));
+                }
+                
+                if (reportData.payments && reportData.payments.length > 0) {
+                    console.log('🔍 DEBUG - Primer pago detallado:', JSON.stringify(reportData.payments[0], null, 2));
+                }
+                
+                return reportData;
+                
+            } catch (error) {
+                console.error('❌ DEBUG - Error completo:', error);
+                console.error('❌ DEBUG - Stack trace:', error.stack);
+                throw error;
+            }
+        }
+    
     </script>
 </body>
 </html>
