@@ -1011,6 +1011,55 @@ async function getEmployeeSubstoreProducts(employeeId) {
   };
 }
 
+async function generateOrderNumber() {
+  try {
+    let orderCount = 0;
+    
+    if (supabase) {
+      const { count, error } = await supabase
+        .from('orders')
+        .select('*', { count: 'exact', head: true });
+      
+      if (!error) {
+        orderCount = count || 0;
+      }
+    } else {
+      orderCount = fallbackDatabase.orders.length;
+    }
+    
+    return `ORD-${String(orderCount + 1).padStart(4, '0')}`;
+    // Resultado: ORD-0001, ORD-0002, etc.
+  } catch (error) {
+    console.error('Error generating order number:', error);
+    return `ORD-${Date.now()}`; // Fallback al sistema actual
+  }
+}
+
+// Función helper para generar número de venta secuencial
+async function generateSaleNumber() {
+  try {
+    let saleCount = 0;
+    
+    if (supabase) {
+      const { count, error } = await supabase
+        .from('sales')
+        .select('*', { count: 'exact', head: true });
+      
+      if (!error) {
+        saleCount = count || 0;
+      }
+    } else {
+      saleCount = fallbackDatabase.sales.length;
+    }
+    
+    return `SALE-${String(saleCount + 1).padStart(4, '0')}`;
+    // Resultado: SALE-0001, SALE-0002, etc.
+  } catch (error) {
+    console.error('Error generating sale number:', error);
+    return `SALE-${Date.now()}`; // Fallback al sistema actual
+  }
+}
+
 // Función helper para obtener pagos recientes de un vendedor
 async function getRecentPaymentsByEmployee(employeeId, limit = 5) {
   try {
@@ -2021,7 +2070,7 @@ async function confirmOrderFromSubstorePermanent(orderId, tripId, paymentInfo) {
     const saleData = {
       order_id: orderId,
       trip_id: tripId,
-      sale_number: `SALE-${Date.now()}`,
+      sale_number: await generateSaleNumber(),
       employee_id: order.employee_id,
       employee_code: order.employee_code,
       client_info: order.client_info,
@@ -2134,7 +2183,7 @@ async function confirmOrderFromSubstore(orderId, tripId, paymentInfo) {
     const saleData = {
       order_id: orderId,
       trip_id: tripId,
-      sale_number: `SALE-${Date.now()}`,
+      sale_number: await generateSaleNumber(),
       employee_id: order.employee_id,
       employee_code: order.employee_code,
       client_info: order.client_info,
@@ -3191,7 +3240,7 @@ app.post("/api/orders", auth, async (req, res) => {
       }
       
       orderData = {
-        order_number: `ORD-${Date.now()}`,
+        order_number: await generateOrderNumber(),
         employee_id: req.user.id,
         employee_code: req.user.employee_code,
         status: 'hold',
@@ -3300,7 +3349,7 @@ app.post("/api/orders", auth, async (req, res) => {
       const subtotal = validatedProducts.reduce((sum, p) => sum + p.line_total, 0);
       
       orderData = {
-        order_number: `ORD-${Date.now()}`,
+        order_number: await generateOrderNumber(),
         employee_id: req.user.id,
         employee_code: req.user.employee_code,
         trip_id: substoreData.trip.id,
@@ -3360,7 +3409,7 @@ app.post("/api/orders", auth, async (req, res) => {
           const saleData = {
             order_id: newOrder.id,
             trip_id: orderData.trip_id,
-            sale_number: `SALE-${Date.now()}`,
+            sale_number: await generateSaleNumber(),
             employee_id: newOrder.employee_id,
             employee_code: newOrder.employee_code,
             client_info: newOrder.client_info,
@@ -3748,7 +3797,7 @@ app.put("/api/orders/:id/confirm", auth, adminOnly, async (req, res) => {
     const saleData = {
       order_id: orderId,
       trip_id: order.trip_id || null,
-      sale_number: `SALE-${Date.now()}`,
+      sale_number: await generateSaleNumber(),
       employee_id: order.employee_id,
       employee_code: order.employee_code,
       client_info: order.client_info,

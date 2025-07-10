@@ -350,7 +350,7 @@ function displayTrips() {
             <div style="text-align: center; padding: 2rem; color: var(--secondary-color);">
                 <h3>🔍 No hay subalmacenes activos</h3>
                 <button onclick="openNewTripModal()" class="btn btn-primary">
-                    ➕ Crear Subalmacén
+                     Crear Subalmacén
                 </button>
             </div>
         `;

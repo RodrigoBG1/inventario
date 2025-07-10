@@ -723,10 +723,10 @@ function displayProducts() {
             <td>${window.formatCurrency ? window.formatCurrency(product.price) : `${product.price}`}</td>
             <td>
                 <div class="action-buttons">
-                    <button class="btn btn-sm btn-edit" onclick="editProduct(${product.id})">
+                    <button class="btn btn-edit" onclick="editProduct(${product.id})">
                          Editar
                     </button>
-                    <button class="btn btn-sm btn-delete" onclick="deleteProductConfirm(${product.id})">
+                    <button class="btn btn-delete" onclick="deleteProductConfirm(${product.id})">
                         Elimin
                     </button>
                 </div>
@@ -775,10 +775,10 @@ function displayFilteredProducts(filteredProducts) {
             <td>${window.formatCurrency ? window.formatCurrency(product.price) : `${product.price}`}</td>
             <td>
                 <div class="action-buttons">
-                    <button class="btn btn-sm btn-edit" onclick="editProduct(${product.id})">
+                    <button class="btn btn-edit" onclick="editProduct(${product.id})">
                          Editar
                     </button>
-                    <button class="btn btn-sm btn-delete" onclick="deleteProductConfirm(${product.id})">
+                    <button class="btn btn-delete" onclick="deleteProductConfirm(${product.id})">
                          Elimin
                     </button>
                 </div>
@@ -895,11 +895,11 @@ function displayEmployees() {
             <td>${window.formatDate ? window.formatDate(employee.created_at) : employee.created_at}</td>
             <td>
                 <div class="action-buttons">
-                    <button class="btn btn-sm btn-edit" onclick="editEmployee(${employee.id})" title="Editar vendedor">
+                    <button class="btn btn-edit" onclick="editEmployee(${employee.id})" title="Editar vendedor">
                          Editar
                     </button>
                     ${employee.role !== 'admin' ? `
-                        <button class="btn btn-sm btn-danger" onclick="deleteEmployeeConfirm(${employee.id})" title="Eliminar vendedor">
+                        <button class="btn btn-danger" onclick="deleteEmployeeConfirm(${employee.id})" title="Eliminar vendedor">
                              Elimin
                         </button>
                     ` : ''}
@@ -982,10 +982,10 @@ function displayOrdersWithPayments() {
             statusBadge = `<span class="status-badge status-paid"> Pagado</span>`;
             
             actionButtons = `
-                <button class="btn btn-sm btn-primary" onclick="viewOrderDetails(${order.id})">
+                <button class="btn btn-primary" style="background-color: #052e5b;" onclick="viewOrderDetails(${order.id})">
                     Ver
                 </button>
-                <button class="btn btn-sm btn-secondary" onclick="printOrder(${order.id})">
+                <button class="btn btn-secondary" onclick="printOrder(${order.id})">
                     Imprimir
                 </button>
             `;
@@ -993,13 +993,13 @@ function displayOrdersWithPayments() {
             statusBadge = `<span class="status-badge status-not-paid">⏳ No Pagado</span>`;
             
             actionButtons = `
-                <button class="btn btn-sm btn-primary" onclick="viewOrderDetails(${order.id})">
+                <button class="btn btn-primary" style="background-color: #052e5b;" onclick="viewOrderDetails(${order.id})">
                     Ver
                 </button>
-                <button class="btn btn-sm btn-success" onclick="openPaymentModal(${order.id})">
+                <button class="btn btn-success" onclick="openPaymentModal(${order.id})">
                     Abonar
                 </button>
-                <button class="btn btn-sm btn-delete" onclick="cancelOrderModal(${order.id})">
+                <button class="btn btn-delete" onclick="cancelOrderModal(${order.id})">
                     Cancelar
                 </button>
             `;
@@ -2351,57 +2351,98 @@ const autoConfirmStyles = `
     border: 1px solid #3b82f6;
 }
 
-/* Enhanced action buttons */
-.action-buttons {
-    display: flex;
-    gap: 0.25rem;
-    flex-wrap: wrap;
+btn,
+.action-buttons .btn,
+button {
+  /* Tamaño compacto */
+  padding: 6px 12px !important;
+  border: 1px solid transparent !important;
+  border-radius: 4px !important;
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease-in-out !important;
+  text-decoration: none !important;
+  display: inline-block !important;
+  line-height: 1.3 !important;
+  box-sizing: border-box !important;
+  vertical-align: middle !important;
+  
+  /* ELIMINAR GRADIENTES - COLOR SÓLIDO */
+  background-color: #f8f9fa !important;
+  background-image: none !important;
+  background: #f8f9fa !important;
+  color: #212529 !important;
+  border-color: #dee2e6 !important;
+  box-shadow: none !important;
 }
 
-.btn-sm {
-    padding: 0.375rem 0.75rem;
-    font-size: 0.75rem;
-    border-radius: 4px;
-    border: none;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    font-weight: 600;
+/* Estados hover SIN efectos de transformación */
+.btn:hover,
+.action-buttons .btn:hover {
+
+  border-color: #adb5bd !important;
+  box-shadow: none !important;
+  transform: none !important; /* Sin movimiento */
 }
 
-.btn-confirm {
-    background: linear-gradient(135deg, #10b981, #059669);
-    color: white;
-    box-shadow: 0 2px 4px rgba(16, 185, 129, 0.3);
-}
-
-.btn-confirm:hover {
-    background: linear-gradient(135deg, #059669, #047857);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(16, 185, 129, 0.4);
-}
-
-.btn-delete {
-    background: linear-gradient(135deg, #ef4444, #dc2626);
-    color: white;
-    box-shadow: 0 2px 4px rgba(239, 68, 68, 0.3);
-}
-
-.btn-delete:hover {
-    background: linear-gradient(135deg, #dc2626, #b91c1c);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(239, 68, 68, 0.4);
-}
-
+/* Colores específicos SIN gradientes */
 .btn-primary {
-    background: linear-gradient(135deg, #052e5b, #052e5b);
-    color: white;
+  background-color: #052e5b !important;
+  color: white !important;
+  border-color: #052e5b !important;
 }
 
 .btn-primary:hover {
-    background: linear-gradient(135deg, #052e5b, #052e5b);
-    transform: translateY(-1px);
+  background-color: #041f42 !important;
+  background-image: none !important;
+  background: #041f42 !important;
+}
+
+.btn-secondary {
+  background-color: #6c757d !important;
+  background-image: none !important;
+  background: #6c757d !important;
+  color: white !important;
+  border-color: #6c757d !important;
+}
+
+.btn-secondary:hover {
+  background-color: #5a6268 !important;
+  background-image: none !important;
+  background: #5a6268 !important;
+}
+
+.btn-edit {
+  background-color: #052e5b !important;
+  background-image: none !important;
+  background: #052e5b !important;
+  color: white !important;
+}
+
+.btn-delete {
+  background-color: #5b0509 !important;
+  background-image: none !important;
+  background: #5b0509 !important;
+  color: white !important;
+}
+
+.btn-confirm {
+  background-color: #28a745 !important;
+  background-image: none !important;
+  background: #28a745 !important;
+  color: white !important;
+}
+
+/* Eliminar efectos especiales */
+.btn::before,
+.btn::after {
+  display: none !important;
+}
+
+/* Sin animaciones complejas */
+.btn {
+  animation: none !important;
 }
 
 /* Dashboard stats update for auto-confirmed orders */

@@ -272,7 +272,8 @@
             `;
         }
 
-        // Renderizar tabla de ventas
+        // Renderizar tabla de ventas - CORREGIDO PARA MOSTRAR ABONOS
+        // Renderizar tabla de ventas - CORREGIDO con debug para mostrar abonos
         function renderSalesTable(sales) {
             if (!sales || sales.length === 0) {
                 return `
@@ -283,24 +284,76 @@
                 `;
             }
             
+            // DEBUG: Veamos qué datos están llegando
+            console.log('📊 DEBUG - Datos de ventas:', sales);
+            if (sales.length > 0) {
+                console.log('📊 DEBUG - Primera venta:', sales[0]);
+                console.log('📊 DEBUG - Campos disponibles:', Object.keys(sales[0]));
+            }
+            
             let totalVentas = 0;
             let totalAbonos = 0;
             
             const salesRows = sales.map(sale => {
                 const total = parseFloat(sale.total) || 0;
-                const abono = parseFloat(sale.paid_amount) || 0; // CORREGIDO: usar paid_amount
+                
+                // MÚLTIPLES INTENTOS para encontrar el abono inicial
+                let abono = 0;
+                
+                // Intentar diferentes nombres de campo posibles
+                const possibleFields = [
+                    'paid_amount',
+                    'initial_payment',
+                    'abono_inicial',
+                    'advance_payment',
+                    'down_payment',
+                    'amount_paid',
+                    'initial_amount',
+                    'first_payment'
+                ];
+                
+                for (const field of possibleFields) {
+                    if (sale[field] !== undefined && sale[field] !== null) {
+                        abono = parseFloat(sale[field]) || 0;
+                        console.log(`📊 DEBUG - Campo encontrado: ${field} = ${abono}`);
+                        break;
+                    }
+                }
+                
+                // Si no se encontró en campos directos, buscar en objetos anidados
+                if (abono === 0) {
+                    // Buscar en payment_info si existe
+                    if (sale.payment_info && typeof sale.payment_info === 'object') {
+                        for (const field of possibleFields) {
+                            if (sale.payment_info[field] !== undefined) {
+                                abono = parseFloat(sale.payment_info[field]) || 0;
+                                console.log(`📊 DEBUG - Campo en payment_info: ${field} = ${abono}`);
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // Buscar en payments array si existe
+                    if (sale.payments && Array.isArray(sale.payments)) {
+                        // Sumar todos los pagos iniciales
+                        abono = sale.payments.reduce((sum, payment) => {
+                            if (payment.payment_type === 'initial_payment' || payment.is_initial) {
+                                return sum + (parseFloat(payment.amount) || 0);
+                            }
+                            return sum;
+                        }, 0);
+                        console.log(`📊 DEBUG - Abono calculado desde payments array: ${abono}`);
+                    }
+                }
                 
                 totalVentas += total;
                 totalAbonos += abono;
                 
-                // Calcular porcentaje de abono
-                const abonoPercentage = total > 0 ? ((abono / total) * 100) : 0;
-                
-                // Determinar clase según el porcentaje de abono
+                // Determinar clase según el abono
                 let abonoClass = 'abono-none';
-                if (abonoPercentage >= 100) {
+                if (abono >= total) {
                     abonoClass = 'abono-complete';
-                } else if (abonoPercentage > 0) {
+                } else if (abono > 0) {
                     abonoClass = 'abono-partial';
                 }
                 
@@ -312,15 +365,14 @@
                             </div>
                         </td>
                         <td class="date-cell">${formatDate(sale.created_at)}</td>
-                        <td>${sale.client_info?.name || 'Cliente directo'}</td>
+                        <td>${sale.client_info?.name || sale.client_name || 'Cliente directo'}</td>
                         <td class="amount-cell">$${total.toFixed(2)}</td>
                         <td class="amount-cell ${abonoClass}">
                             <div class="abono-info">
                                 <strong>$${abono.toFixed(2)}</strong>
-                                <small>(${abonoPercentage.toFixed(1)}%)</small>
                             </div>
                             <div class="abono-progress">
-                                <div class="abono-bar" style="width: ${Math.min(abonoPercentage, 100)}%"></div>
+                                <div class="abono-bar" style="width: ${Math.min((abono/total)*100, 100)}%"></div>
                             </div>
                         </td>
                     </tr>
@@ -328,11 +380,53 @@
             }).join('');
             
             // Calcular estadísticas
-            const abonoPromedio = sales.length > 0 ? (totalAbonos / totalVentas * 100) : 0;
-            const ventasConAbono = sales.filter(sale => (parseFloat(sale.paid_amount) || 0) > 0).length;
+            const ventasConAbono = sales.filter(sale => {
+                // Aplicar la misma lógica para encontrar abonos
+                let abono = 0;
+                const possibleFields = ['paid_amount', 'initial_payment', 'abono_inicial', 'advance_payment', 'down_payment', 'amount_paid', 'initial_amount', 'first_payment'];
+                
+                for (const field of possibleFields) {
+                    if (sale[field] !== undefined && sale[field] !== null) {
+                        abono = parseFloat(sale[field]) || 0;
+                        break;
+                    }
+                }
+                
+                if (abono === 0 && sale.payments && Array.isArray(sale.payments)) {
+                    abono = sale.payments.reduce((sum, payment) => {
+                        if (payment.payment_type === 'initial_payment' || payment.is_initial) {
+                            return sum + (parseFloat(payment.amount) || 0);
+                        }
+                        return sum;
+                    }, 0);
+                }
+                
+                return abono > 0;
+            }).length;
+            
             const ventasPagadas = sales.filter(sale => {
                 const total = parseFloat(sale.total) || 0;
-                const abono = parseFloat(sale.paid_amount) || 0;
+                
+                // Misma lógica para encontrar abonos
+                let abono = 0;
+                const possibleFields = ['paid_amount', 'initial_payment', 'abono_inicial', 'advance_payment', 'down_payment', 'amount_paid', 'initial_amount', 'first_payment'];
+                
+                for (const field of possibleFields) {
+                    if (sale[field] !== undefined && sale[field] !== null) {
+                        abono = parseFloat(sale[field]) || 0;
+                        break;
+                    }
+                }
+                
+                if (abono === 0 && sale.payments && Array.isArray(sale.payments)) {
+                    abono = sale.payments.reduce((sum, payment) => {
+                        if (payment.payment_type === 'initial_payment' || payment.is_initial) {
+                            return sum + (parseFloat(payment.amount) || 0);
+                        }
+                        return sum;
+                    }, 0);
+                }
+                
                 return abono >= total;
             }).length;
             
@@ -340,7 +434,7 @@
                 <table class="report-table">
                     <thead>
                         <tr>
-                            <th>No. Nota / Estado</th>
+                            <th>Folio</th>
                             <th>Fecha</th>
                             <th>Cliente</th>
                             <th>Total Venta</th>
@@ -352,13 +446,13 @@
                         <tr style="background: #f0f9ff; border-top: 2px solid #0369a1;">
                             <td colspan="2"><strong>ESTADÍSTICAS</strong></td>
                             <td><strong>Ventas: ${sales.length}</strong></td>
-                            <td class="amount-cell"><strong>${totalVentas.toFixed(2)}</strong></td>
-                            <td class="amount-cell"><strong>${totalAbonos.toFixed(2)}</strong></td>
+                            <td class="amount-cell"><strong>$${totalVentas.toFixed(2)}</strong></td>
+                            <td class="amount-cell"><strong>$${totalAbonos.toFixed(2)}</strong></td>
                         </tr>
                         <tr style="background: #f8fafc; font-weight: 600;">
                             <td colspan="3"><strong>TOTALES</strong></td>
-                            <td class="amount-cell"><strong>${totalVentas.toFixed(2)}</strong></td>
-                            <td class="amount-cell"><strong>${totalAbonos.toFixed(2)}</strong></td>
+                            <td class="amount-cell"><strong>$${totalVentas.toFixed(2)}</strong></td>
+                            <td class="amount-cell"><strong>$${totalAbonos.toFixed(2)}</strong></td>
                         </tr>
                     </tbody>
                 </table>
@@ -372,15 +466,15 @@
                         </div>
                         <div class="summary-stat">
                             <span style="color: #dc2626;">💰 Con Abono:</span> 
-                            <strong>${ventasConAbono} (${((ventasConAbono/sales.length)*100).toFixed(1)}%)</strong>
+                            <strong>${ventasConAbono}</strong>
                         </div>
                         <div class="summary-stat">
                             <span style="color: #10b981;">✅ Pagadas:</span> 
-                            <strong>${ventasPagadas} (${((ventasPagadas/sales.length)*100).toFixed(1)}%)</strong>
+                            <strong>${ventasPagadas}</strong>
                         </div>
                         <div class="summary-stat">
-                            <span style="color: #6366f1;">📈 % Abono Prom:</span> 
-                            <strong>${abonoPromedio.toFixed(1)}%</strong>
+                            <span style="color: #6366f1;">💵 Total Abonado:</span> 
+                            <strong>$${totalAbonos.toFixed(2)}</strong>
                         </div>
                     </div>
                 </div>
@@ -392,14 +486,6 @@
                     gap: 0.25rem;
                 }
                 
-                .sale-status {
-                    font-size: 0.75rem;
-                    padding: 0.125rem 0.375rem;
-                    border-radius: 12px;
-                    font-weight: 500;
-                    width: fit-content;
-                }
-                
                 .summary-stat {
                     display: flex;
                     flex-direction: column;
@@ -408,6 +494,33 @@
                     background: white;
                     border-radius: 6px;
                     border: 1px solid #e2e8f0;
+                }
+                
+                .abono-complete {
+                    background-color: rgba(16, 185, 129, 0.1);
+                }
+                
+                .abono-partial {
+                    background-color: rgba(251, 191, 36, 0.1);
+                }
+                
+                .abono-none {
+                    background-color: rgba(239, 68, 68, 0.1);
+                }
+                
+                .abono-progress {
+                    width: 100%;
+                    height: 4px;
+                    background: #f1f5f9;
+                    border-radius: 2px;
+                    margin-top: 4px;
+                    overflow: hidden;
+                }
+                
+                .abono-bar {
+                    height: 100%;
+                    background: #10b981;
+                    transition: width 0.3s ease;
                 }
                 
                 @media (max-width: 768px) {
@@ -423,8 +536,7 @@
                 </style>
             `;
         }
-        
-        // Renderizar tabla de cobranzas
+        // Renderizar tabla de cobranzas - SIN PORCENTAJES
         function renderPaymentsTable(payments) {
             if (!payments || payments.length === 0) {
                 return `
@@ -573,7 +685,7 @@
             `;
         }
             
-        // Renderizar resumen por método de pago
+        // Renderizar resumen por método de pago - SIN PORCENTAJES
         function renderPaymentSummary(summary) {
             if (!summary) {
                 return `
@@ -584,66 +696,46 @@
                 `;
             }
             
-            // Calcular total y porcentajes
+            // Calcular total
             const total = summary.total || 0;
             const efectivo = summary.efectivo || 0;
             const cheque = summary.cheque || 0;
             const transferencia = summary.transferencia || 0;
             const tarjeta = summary.tarjeta || 0;
             
-            // Calcular porcentajes
-            const calcPercentage = (amount) => total > 0 ? ((amount / total) * 100).toFixed(1) : 0;
-            
             return `
                 <div class="summary-grid enhanced-summary">
                     <div class="summary-card efectivo-card">
                         <div class="card-header">
                             <h4>💵 Efectivo</h4>
-                            <span class="percentage">${calcPercentage(efectivo)}%</span>
                         </div>
                         <p class="summary-amount">$${efectivo.toFixed(2)}</p>
-                        <div class="progress-bar">
-                            <div class="progress-fill" style="width: ${calcPercentage(efectivo)}%; background: #10b981;"></div>
-                        </div>
                     </div>
                     
                     <div class="summary-card cheque-card">
                         <div class="card-header">
                             <h4>📝 Cheque</h4>
-                            <span class="percentage">${calcPercentage(cheque)}%</span>
                         </div>
                         <p class="summary-amount">$${cheque.toFixed(2)}</p>
-                        <div class="progress-bar">
-                            <div class="progress-fill" style="width: ${calcPercentage(cheque)}%; background: #f59e0b;"></div>
-                        </div>
                     </div>
                     
                     <div class="summary-card transferencia-card">
                         <div class="card-header">
                             <h4>🏦 Transferencia</h4>
-                            <span class="percentage">${calcPercentage(transferencia)}%</span>
                         </div>
                         <p class="summary-amount">$${transferencia.toFixed(2)}</p>
-                        <div class="progress-bar">
-                            <div class="progress-fill" style="width: ${calcPercentage(transferencia)}%; background: #3b82f6;"></div>
-                        </div>
                     </div>
                     
                     <div class="summary-card tarjeta-card">
                         <div class="card-header">
                             <h4>💳 Tarjeta</h4>
-                            <span class="percentage">${calcPercentage(tarjeta)}%</span>
                         </div>
                         <p class="summary-amount">$${tarjeta.toFixed(2)}</p>
-                        <div class="progress-bar">
-                            <div class="progress-fill" style="width: ${calcPercentage(tarjeta)}%; background: #8b5cf6;"></div>
-                        </div>
                     </div>
                     
                     <div class="summary-card total-card">
                         <div class="card-header">
                             <h4>💰 Total Cobrado</h4>
-                            <span class="percentage">100%</span>
                         </div>
                         <p class="summary-amount total-amount">$${total.toFixed(2)}</p>
                         <div class="total-breakdown">
@@ -684,15 +776,6 @@
                     color: #334155;
                 }
                 
-                .percentage {
-                    background: #f1f5f9;
-                    color: #475569;
-                    padding: 0.25rem 0.5rem;
-                    border-radius: 6px;
-                    font-size: 0.75rem;
-                    font-weight: 600;
-                }
-                
                 .summary-amount {
                     font-size: 1.5rem;
                     font-weight: 700;
@@ -705,23 +788,8 @@
                     color: #059669;
                 }
                 
-                .progress-bar {
-                    background: #f1f5f9;
-                    height: 6px;
-                    border-radius: 3px;
-                    margin-top: 1rem;
-                    overflow: hidden;
-                }
-                
-                .progress-fill {
-                    height: 100%;
-                    border-radius: 3px;
-                    transition: width 0.3s ease;
-                }
-                
                 .total-card {
                     border: 2px solid #059669;
-                    background: linear-gradient(135deg, #ecfdf5, #f0fdf4);
                 }
                 
                 .total-breakdown {
@@ -729,7 +797,6 @@
                 }
                 
                 .total-breakdown small {
-                    color: #64748b;
                     font-style: italic;
                 }
                 
@@ -784,6 +851,17 @@
             });
         }
 
+        // Función para obtener icono de método de pago
+        function getPaymentMethodIcon(method) {
+            const icons = {
+                'efectivo': '💵',
+                'tarjeta': '💳',
+                'transferencia': '🏦',
+                'cheque': '📝'
+            };
+            return icons[method] || '💰';
+        }
+
         // Cerrar modal al hacer clic fuera
         document.addEventListener('click', function(event) {
             const modal = document.getElementById('reportModal');
@@ -804,10 +882,22 @@
 
         // Función de notificación
         function showNotification(message, type = 'info') {
-            if (window.showNotification) {
+            if (window.showNotification && window.showNotification !== showNotification) {
                 window.showNotification(message, type);
             } else {
-                alert(message);
+                // Fallback simple con console y alert
+                console.log(`${type.toUpperCase()}: ${message}`);
+                if (type === 'error' || type === 'warning') {
+                    alert(`${type.toUpperCase()}: ${message}`);
+                }
+            }
+        }
+
+        // Función para logout
+        function logout() {
+            if (confirm('¿Cerrar sesión?')) {
+                localStorage.clear();
+                window.location.href = '/';
             }
         }
     </script>
