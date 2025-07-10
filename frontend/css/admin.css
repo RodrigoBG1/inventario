@@ -1820,6 +1820,7 @@ button {
 /* Estados hover SIN efectos de transformación */
 .btn:hover,
 .action-buttons .btn:hover {
+
   border-color: #adb5bd !important;
   box-shadow: none !important;
   transform: none !important; /* Sin movimiento */

@@ -3,6 +3,9 @@
 // Versión: 2.1 - Incluye historial de abonos integrado
 
 console.log('🔗 Integrando modal de detalles de pedido con historial de abonos...');
+// Variables globales para el modal
+let currentOrderData = null;
+
 
 // Asegurar que el modal existe en el DOM
 function ensureOrderDetailsModal() {
@@ -95,10 +98,6 @@ function ensureOrderDetailsModal() {
 
                 <!-- NUEVA SECCIÓN: Estado de Pagos -->
                 <div class="order-section">
-                    <h3 class="section-title">
-                        <span class="section-icon">💰</span>
-                        Estado de Pagos
-                    </h3>
                     <div class="payment-status-grid">
                         <div class="payment-info-card">
                             <div class="payment-info-label">Total del Pedido</div>
@@ -1041,9 +1040,6 @@ function ensureOrderDetailsModalStyles() {
     document.head.appendChild(styles);
 }
 
-// Variables globales para el modal
-let currentOrderData = null;
-
 // Función principal para mostrar el modal con datos del pedido
 function showOrderDetails(orderData) {
     console.log('🔍 Mostrando detalles del pedido con historial de abonos:', orderData);
@@ -1109,8 +1105,6 @@ function showOrderDetails(orderData) {
     modal.classList.add('show');
     document.body.style.overflow = 'hidden';
 }
-
-// ===== NUEVAS FUNCIONES PARA MANEJO DE PAGOS =====
 
 // Función para llenar el estado de pagos
 function fillPaymentStatus(orderData) {
@@ -1256,23 +1250,79 @@ function fillProductsTable(products) {
         return;
     }
 
-    tbody.innerHTML = products.map(product => `
-        <tr>
-            <td>
-                <div class="product-info">
-                    <div class="product-name">${product.name || 'Producto sin nombre'}</div>
-                    <div class="product-details">${product.brand || ''} • ${product.viscosity || ''} • ${product.capacity || ''}</div>
-                    <span class="product-code">${product.code || product.product_code || 'N/A'}</span>
-                </div>
-            </td>
-            <td class="price-cell">${formatCurrency(product.price || 0)}</td>
-            <td>
-                <span class="quantity-badge">${product.quantity || 0}</span>
-            </td>
-            <td class="price-cell">${formatCurrency((product.price || 0) * (product.quantity || 0))}</td>
-        </tr>
-    `).join('');
+    tbody.innerHTML = products.map(product => {
+        // ===== CORRECCIÓN: Determinar precio unitario correctamente =====
+        let unitPrice = 0;
+        
+        // Opción 1: Si el producto tiene unit_price (desde el pedido)
+        if (product.unit_price !== undefined && product.unit_price !== null) {
+            unitPrice = parseFloat(product.unit_price) || 0;
+        }
+        // Opción 2: Si el producto tiene price directo
+        else if (product.price !== undefined && product.price !== null) {
+            unitPrice = parseFloat(product.price) || 0;
+        }
+        // Opción 3: Si tiene line_total, calcular precio unitario
+        else if (product.line_total && product.quantity) {
+            unitPrice = (parseFloat(product.line_total) || 0) / (parseInt(product.quantity) || 1);
+        }
+        // Opción 4: Si tiene información de precios personalizados
+        else if (product.custom_price_info && product.custom_price_info.custom_price) {
+            unitPrice = parseFloat(product.custom_price_info.custom_price) || 0;
+        }
+        // Opción 5: Fallback a 0 si no se encuentra precio
+        else {
+            unitPrice = 0;
+            console.warn('⚠️ No se pudo determinar precio para producto:', product.name || product.product_name);
+        }
+        
+        const quantity = parseInt(product.quantity) || 0;
+        const subtotal = unitPrice * quantity;
+        
+        // Log para debugging
+        console.log('💰 Producto:', {
+            name: product.name || product.product_name,
+            unit_price: unitPrice,
+            quantity: quantity,
+            subtotal: subtotal,
+            original_product: product
+        });
+        
+        return `
+            <tr>
+                <td>
+                    <div class="product-info">
+                        <div class="product-name">${product.name || product.product_name || 'Producto sin nombre'}</div>
+                        <div class="product-details">${product.brand || ''} • ${product.viscosity || ''} • ${product.capacity || ''}</div>
+                        <span class="product-code">${product.code || product.product_code || 'N/A'}</span>
+                        ${product.custom_price_info ? `
+                            <div style="margin-top: 0.5rem;">
+                                <span style="background: #fbbf24; color: #92400e; padding: 0.25rem 0.5rem; border-radius: 3px; font-size: 0.75rem;">
+                                    💰 Precio Personalizado
+                                </span>
+                            </div>
+                        ` : ''}
+                    </div>
+                </td>
+                <td class="price-cell">
+                    ${formatCurrency(unitPrice)}
+                    ${product.custom_price_info ? `
+                        <br><small style="color: #6b7280; text-decoration: line-through;">
+                            Original: ${formatCurrency(product.custom_price_info.original_price || 0)}
+                        </small>
+                    ` : ''}
+                </td>
+                <td>
+                    <span class="quantity-badge">${quantity}</span>
+                </td>
+                <td class="price-cell">${formatCurrency(subtotal)}</td>
+            </tr>
+        `;
+    }).join('');
+    
+    console.log('✅ Tabla de productos llenada con precios corregidos');
 }
+
 
 // Llenar sección de foto
 function fillPhotoSection(photoUrl) {
@@ -1426,13 +1476,18 @@ function formatDate(dateString) {
 }
 
 function formatCurrency(amount) {
-    if (typeof amount !== 'number') amount = parseFloat(amount) || 0;
+    if (typeof amount !== 'number') {
+        amount = parseFloat(amount) || 0;
+    }
     
     return new Intl.NumberFormat('es-MX', {
         style: 'currency',
-        currency: 'MXN'
+        currency: 'MXN',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
     }).format(amount);
 }
+
 
 function getStatusText(status) {
     const statusMap = {
@@ -1502,6 +1557,47 @@ function cancelOrderFromModal(orderId) {
 
 function printOrder(orderId) {
     if (!currentOrderData) return;
+    
+    // ===== FUNCIÓN HELPER PARA OBTENER PRECIO CORRECTO =====
+    function getCorrectPrice(product) {
+        // Misma lógica que en el modal
+        if (product.unit_price !== undefined && product.unit_price !== null) {
+            return parseFloat(product.unit_price) || 0;
+        } else if (product.price !== undefined && product.price !== null) {
+            return parseFloat(product.price) || 0;
+        } else if (product.line_total && product.quantity) {
+            return (parseFloat(product.line_total) || 0) / (parseInt(product.quantity) || 1);
+        } else if (product.custom_price_info && product.custom_price_info.custom_price) {
+            return parseFloat(product.custom_price_info.custom_price) || 0;
+        }
+        return 0;
+    }
+    
+    // ===== FUNCIÓN HELPER PARA FORMATEAR MONEDA =====
+    function formatCurrencyForPrint(amount) {
+        if (typeof amount !== 'number') amount = parseFloat(amount) || 0;
+        return new Intl.NumberFormat('es-MX', {
+            style: 'currency',
+            currency: 'MXN'
+        }).format(amount);
+    }
+    
+    // ===== FUNCIÓN HELPER PARA FORMATEAR FECHAS =====
+    function formatDateForPrint(dateString) {
+        if (!dateString) return 'No especificada';
+        try {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('es-MX', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        } catch (error) {
+            return dateString;
+        }
+    }
     
     const printWindow = window.open('', '_blank');
     printWindow.document.write(`
@@ -1582,7 +1678,7 @@ function printOrder(orderId) {
         <body>
             <div class="header">
                 <h2>Pedido ${currentOrderData.order_number}</h2>
-                <p>Fecha: ${formatDate(currentOrderData.created_at)}</p>
+                <p>Fecha: ${formatDateForPrint(currentOrderData.created_at)}</p>
             </div>
             
             <div class="section">
@@ -1608,26 +1704,32 @@ function printOrder(orderId) {
                         </tr>
                     </thead>
                     <tbody>
-                        ${(currentOrderData.products || []).map(product => `
-                            <tr>
-                                <td>${product.code || product.product_code || 'N/A'}</td>
-                                <td>${product.name || 'N/A'}</td>
-                                <td>${formatCurrency(product.price || 0)}</td>
-                                <td>${product.quantity || 0}</td>
-                                <td>${formatCurrency((product.price || 0) * (product.quantity || 0))}</td>
-                            </tr>
-                        `).join('')}
+                        ${(currentOrderData.products || []).map(product => {
+                            const unitPrice = getCorrectPrice(product);
+                            const quantity = parseInt(product.quantity) || 0;
+                            const lineTotal = unitPrice * quantity;
+                            
+                            return `
+                                <tr>
+                                    <td>${product.code || product.product_code || 'N/A'}</td>
+                                    <td>${product.name || 'N/A'}</td>
+                                    <td>${formatCurrencyForPrint(unitPrice)}</td>
+                                    <td>${quantity}</td>
+                                    <td>${formatCurrencyForPrint(lineTotal)}</td>
+                                </tr>
+                            `;
+                        }).join('')}
                     </tbody>
                 </table>
-                <div class="total">Total: ${formatCurrency(currentOrderData.total || 0)}</div>
+                <div class="total">Total: ${formatCurrencyForPrint(currentOrderData.total || 0)}</div>
             </div>
             
             <div class="payment-info">
                 <h3>Información de Pagos</h3>
                 <table>
-                    <tr><th>Total del Pedido:</th><td>${formatCurrency(currentOrderData.total || 0)}</td></tr>
-                    <tr><th>Total Abonado:</th><td>${formatCurrency(currentOrderData.paid_amount || 0)}</td></tr>
-                    <tr><th>Saldo Pendiente:</th><td>${formatCurrency(Math.max(0, (currentOrderData.total || 0) - (currentOrderData.paid_amount || 0)))}</td></tr>
+                    <tr><th>Total del Pedido:</th><td>${formatCurrencyForPrint(currentOrderData.total || 0)}</td></tr>
+                    <tr><th>Total Abonado:</th><td>${formatCurrencyForPrint(currentOrderData.paid_amount || 0)}</td></tr>
+                    <tr><th>Saldo Pendiente:</th><td>${formatCurrencyForPrint(Math.max(0, (currentOrderData.total || 0) - (currentOrderData.paid_amount || 0)))}</td></tr>
                 </table>
             </div>
             
@@ -1643,7 +1745,7 @@ function printOrder(orderId) {
                 <table>
                     <tr><th>Vendedor:</th><td>${currentOrderData.employee_name || currentOrderData.employee_code || 'N/A'}</td></tr>
                     ${currentOrderData.location ? `<tr><th>Ubicación:</th><td>${currentOrderData.location.latitude.toFixed(6)}, ${currentOrderData.location.longitude.toFixed(6)}</td></tr>` : ''}
-                    <tr><th>Fecha de Impresión:</th><td>${formatDate(new Date().toISOString())}</td></tr>
+                    <tr><th>Fecha de Impresión:</th><td>${formatDateForPrint(new Date().toISOString())}</td></tr>
                 </table>
             </div>
         </body>
@@ -1718,6 +1820,190 @@ async function fetchOrderDetails(orderId) {
         } else {
             alert('Error al cargar detalles del pedido: ' + error.message);
         }
+    }
+}
+
+// ===== VERSIÓN ALTERNATIVA DE LA FUNCIÓN PRINCIPAL CON MÁS DEBUGGING =====
+function fillProductsTableWithDebug(products) {
+    console.log('🔄 Iniciando llenado de tabla de productos con debugging...');
+    debugProductData(products);
+    
+    const tbody = document.getElementById('productsTableBody');
+    
+    if (!tbody) {
+        console.error('❌ Elemento tbody no encontrado');
+        return;
+    }
+    
+    if (!products || products.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="4" style="text-align: center; padding: 2rem; color: #6b7280;">
+                    📦 No hay productos en este pedido
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    const processedProducts = products.map((product, index) => {
+        // Estrategia más robusta para encontrar el precio
+        const priceAttempts = [
+            { source: 'unit_price', value: product.unit_price },
+            { source: 'price', value: product.price },
+            { source: 'custom_price', value: product.custom_price_info?.custom_price },
+            { source: 'calculated_from_line_total', value: product.line_total && product.quantity ? (product.line_total / product.quantity) : null }
+        ];
+        
+        let unitPrice = 0;
+        let priceSource = 'none';
+        
+        for (const attempt of priceAttempts) {
+            if (attempt.value !== undefined && attempt.value !== null && !isNaN(parseFloat(attempt.value))) {
+                unitPrice = parseFloat(attempt.value);
+                priceSource = attempt.source;
+                break;
+            }
+        }
+        
+        const quantity = parseInt(product.quantity) || 0;
+        const subtotal = unitPrice * quantity;
+        
+        console.log(`💰 Producto ${index + 1} procesado:`, {
+            name: product.name || product.product_name,
+            price_source: priceSource,
+            unit_price: unitPrice,
+            quantity: quantity,
+            subtotal: subtotal
+        });
+        
+        return {
+            ...product,
+            processed_unit_price: unitPrice,
+            processed_quantity: quantity,
+            processed_subtotal: subtotal,
+            price_source: priceSource
+        };
+    });
+
+    tbody.innerHTML = processedProducts.map(product => `
+        <tr>
+            <td>
+                <div class="product-info">
+                    <div class="product-name">${product.name || product.product_name || 'Producto sin nombre'}</div>
+                    <div class="product-details">
+                        ${product.brand || ''} 
+                        ${product.viscosity ? `• ${product.viscosity}` : ''} 
+                        ${product.capacity ? `• ${product.capacity}` : ''}
+                    </div>
+                    <span class="product-code">${product.code || product.product_code || 'N/A'}</span>
+                    ${product.price_source === 'custom_price' ? `
+                        <div style="margin-top: 0.5rem;">
+                            <span style="background: #fbbf24; color: #92400e; padding: 0.25rem 0.5rem; border-radius: 3px; font-size: 0.75rem;">
+                                💰 Precio Personalizado
+                            </span>
+                        </div>
+                    ` : ''}
+                    ${product.price_source === 'none' ? `
+                        <div style="margin-top: 0.5rem;">
+                            <span style="background: #ef4444; color: white; padding: 0.25rem 0.5rem; border-radius: 3px; font-size: 0.75rem;">
+                                ⚠️ Sin Precio
+                            </span>
+                        </div>
+                    ` : ''}
+                </div>
+            </td>
+            <td class="price-cell">
+                <strong>${formatCurrency(product.processed_unit_price)}</strong>
+                ${product.custom_price_info && product.custom_price_info.original_price ? `
+                    <br><small style="color: #6b7280; text-decoration: line-through;">
+                        Orig: ${formatCurrency(product.custom_price_info.original_price)}
+                    </small>
+                ` : ''}
+                <br><small style="color: #059669; font-size: 0.7rem;">
+                    Fuente: ${product.price_source}
+                </small>
+            </td>
+            <td style="text-align: center;">
+                <span class="quantity-badge">${product.processed_quantity}</span>
+            </td>
+            <td class="price-cell">
+                <strong>${formatCurrency(product.processed_subtotal)}</strong>
+            </td>
+        </tr>
+    `).join('');
+    
+    console.log('✅ Tabla de productos completada con debugging');
+}
+
+// ===== ESTILOS CSS ADICIONALES PARA MEJORAR LA VISUALIZACIÓN =====
+const additionalModalStyles = `
+    .price-cell {
+        text-align: right;
+        font-weight: 600;
+        color: var(--modal-primary);
+    }
+    
+    .quantity-badge {
+        background: var(--modal-success);
+        color: white;
+        padding: 0.5rem 0.75rem;
+        border-radius: 6px;
+        font-weight: 600;
+        display: inline-block;
+        min-width: 60px;
+        text-align: center;
+    }
+    
+    .product-info {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .product-name {
+        font-weight: 600;
+        color: var(--modal-text);
+        font-size: 1rem;
+        line-height: 1.2;
+    }
+    
+    .product-details {
+        font-size: 0.875rem;
+        color: var(--modal-text-light);
+        line-height: 1.3;
+    }
+    
+    .product-code {
+        background: var(--modal-primary);
+        color: white;
+        padding: 0.25rem 0.75rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        display: inline-block;
+        font-family: 'Courier New', monospace;
+        letter-spacing: 0.5px;
+    }
+    
+    .products-table td {
+        vertical-align: top;
+        padding: 1.25rem 1rem;
+    }
+    
+    .products-table tr:hover {
+        background: #f8fafc;
+    }
+`;
+
+// ===== FUNCIÓN PARA INYECTAR ESTILOS ADICIONALES =====
+function injectAdditionalModalStyles() {
+    if (!document.getElementById('additionalModalStyles')) {
+        const styleElement = document.createElement('style');
+        styleElement.id = 'additionalModalStyles';
+        styleElement.textContent = additionalModalStyles;
+        document.head.appendChild(styleElement);
+        console.log('✅ Estilos adicionales para modal inyectados');
     }
 }
 

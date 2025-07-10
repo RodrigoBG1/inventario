@@ -288,45 +288,142 @@
             
             const salesRows = sales.map(sale => {
                 const total = parseFloat(sale.total) || 0;
-                const abono = parseFloat(sale.paid_amount) || 0;
+                const abono = parseFloat(sale.paid_amount) || 0; // CORREGIDO: usar paid_amount
                 
                 totalVentas += total;
                 totalAbonos += abono;
                 
+                // Calcular porcentaje de abono
+                const abonoPercentage = total > 0 ? ((abono / total) * 100) : 0;
+                
+                // Determinar clase según el porcentaje de abono
+                let abonoClass = 'abono-none';
+                if (abonoPercentage >= 100) {
+                    abonoClass = 'abono-complete';
+                } else if (abonoPercentage > 0) {
+                    abonoClass = 'abono-partial';
+                }
+                
                 return `
-                    <tr>
-                        <td>${sale.sale_number || sale.order_number || 'N/A'}</td>
+                    <tr class="${abonoClass}">
+                        <td>
+                            <div class="sale-info">
+                                <strong>${sale.sale_number || sale.order_number || 'N/A'}</strong>
+                            </div>
+                        </td>
                         <td class="date-cell">${formatDate(sale.created_at)}</td>
                         <td>${sale.client_info?.name || 'Cliente directo'}</td>
                         <td class="amount-cell">$${total.toFixed(2)}</td>
-                        <td class="amount-cell">$${abono.toFixed(2)}</td>
+                        <td class="amount-cell ${abonoClass}">
+                            <div class="abono-info">
+                                <strong>$${abono.toFixed(2)}</strong>
+                                <small>(${abonoPercentage.toFixed(1)}%)</small>
+                            </div>
+                            <div class="abono-progress">
+                                <div class="abono-bar" style="width: ${Math.min(abonoPercentage, 100)}%"></div>
+                            </div>
+                        </td>
                     </tr>
                 `;
             }).join('');
+            
+            // Calcular estadísticas
+            const abonoPromedio = sales.length > 0 ? (totalAbonos / totalVentas * 100) : 0;
+            const ventasConAbono = sales.filter(sale => (parseFloat(sale.paid_amount) || 0) > 0).length;
+            const ventasPagadas = sales.filter(sale => {
+                const total = parseFloat(sale.total) || 0;
+                const abono = parseFloat(sale.paid_amount) || 0;
+                return abono >= total;
+            }).length;
             
             return `
                 <table class="report-table">
                     <thead>
                         <tr>
-                            <th>No. Nota</th>
+                            <th>No. Nota / Estado</th>
                             <th>Fecha</th>
                             <th>Cliente</th>
                             <th>Total Venta</th>
-                            <th>Abono</th>
+                            <th>Abono Inicial</th>
                         </tr>
                     </thead>
                     <tbody>
                         ${salesRows}
+                        <tr style="background: #f0f9ff; border-top: 2px solid #0369a1;">
+                            <td colspan="2"><strong>ESTADÍSTICAS</strong></td>
+                            <td><strong>Ventas: ${sales.length}</strong></td>
+                            <td class="amount-cell"><strong>${totalVentas.toFixed(2)}</strong></td>
+                            <td class="amount-cell"><strong>${totalAbonos.toFixed(2)}</strong></td>
+                        </tr>
                         <tr style="background: #f8fafc; font-weight: 600;">
-                            <td colspan="3">TOTALES</td>
-                            <td class="amount-cell">$${totalVentas.toFixed(2)}</td>
-                            <td class="amount-cell">$${totalAbonos.toFixed(2)}</td>
+                            <td colspan="3"><strong>TOTALES</strong></td>
+                            <td class="amount-cell"><strong>${totalVentas.toFixed(2)}</strong></td>
+                            <td class="amount-cell"><strong>${totalAbonos.toFixed(2)}</strong></td>
                         </tr>
                     </tbody>
                 </table>
+                
+                <div class="sales-summary" style="margin-top: 1rem; padding: 1rem; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
+                    <h4 style="margin: 0 0 1rem 0; color: #334155;">📊 Resumen de Ventas y Abonos:</h4>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                        <div class="summary-stat">
+                            <span style="color: #059669;">📝 Total Ventas:</span> 
+                            <strong>${sales.length}</strong>
+                        </div>
+                        <div class="summary-stat">
+                            <span style="color: #dc2626;">💰 Con Abono:</span> 
+                            <strong>${ventasConAbono} (${((ventasConAbono/sales.length)*100).toFixed(1)}%)</strong>
+                        </div>
+                        <div class="summary-stat">
+                            <span style="color: #10b981;">✅ Pagadas:</span> 
+                            <strong>${ventasPagadas} (${((ventasPagadas/sales.length)*100).toFixed(1)}%)</strong>
+                        </div>
+                        <div class="summary-stat">
+                            <span style="color: #6366f1;">📈 % Abono Prom:</span> 
+                            <strong>${abonoPromedio.toFixed(1)}%</strong>
+                        </div>
+                    </div>
+                </div>
+                
+                <style>
+                .sale-info {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 0.25rem;
+                }
+                
+                .sale-status {
+                    font-size: 0.75rem;
+                    padding: 0.125rem 0.375rem;
+                    border-radius: 12px;
+                    font-weight: 500;
+                    width: fit-content;
+                }
+                
+                .summary-stat {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 0.25rem;
+                    padding: 0.5rem;
+                    background: white;
+                    border-radius: 6px;
+                    border: 1px solid #e2e8f0;
+                }
+                
+                @media (max-width: 768px) {
+                    .sales-summary {
+                        margin-top: 1rem;
+                    }
+                    
+                    .sales-summary > div {
+                        grid-template-columns: 1fr;
+                        gap: 0.5rem;
+                    }
+                }
+                </style>
             `;
         }
-
+        
         // Renderizar tabla de cobranzas
         function renderPaymentsTable(payments) {
             if (!payments || payments.length === 0) {
@@ -339,20 +436,50 @@
             }
             
             let totalCobranzas = 0;
+            let totalAbonos = 0;
+            let totalPagos = 0;
             
             const paymentsRows = payments.map(payment => {
                 const amount = parseFloat(payment.amount) || 0;
                 totalCobranzas += amount;
                 
+                // Clasificar tipo de pago
+                const isInitialPayment = payment.payment_type === 'initial_payment';
+                const isSubsequentPayment = payment.payment_type === 'subsequent_payment';
+                
+                if (isInitialPayment) {
+                    totalAbonos += amount;
+                } else {
+                    totalPagos += amount;
+                }
+                
+                // Determinar icono y clase según el tipo
+                let typeIcon = '💰';
+                let typeClass = 'payment-type-subsequent';
+                let typeLabel = 'Pago Posterior';
+                
+                if (isInitialPayment) {
+                    typeIcon = '📝';
+                    typeClass = 'payment-type-initial';
+                    typeLabel = 'Abono Inicial';
+                }
+                
                 return `
-                    <tr>
-                        <td>${payment.order_number || 'N/A'}</td>
+                    <tr class="${typeClass}">
+                        <td>
+                            <div class="payment-info">
+                                <strong>${payment.order_number || 'N/A'}</strong>
+                                <div class="payment-type-badge ${typeClass}">
+                                    ${typeIcon} ${typeLabel}
+                                </div>
+                            </div>
+                        </td>
                         <td class="date-cell">${formatDate(payment.created_at)}</td>
                         <td>${payment.client_name || 'Cliente directo'}</td>
                         <td class="amount-cell">$${amount.toFixed(2)}</td>
                         <td>
                             <span class="payment-method method-${payment.payment_method}">
-                                ${payment.payment_method}
+                                ${getPaymentMethodIcon(payment.payment_method)} ${payment.payment_method}
                             </span>
                         </td>
                     </tr>
@@ -363,7 +490,7 @@
                 <table class="report-table">
                     <thead>
                         <tr>
-                            <th>No. Pedido</th>
+                            <th>No. Pedido / Tipo</th>
                             <th>Fecha</th>
                             <th>Cliente</th>
                             <th>Monto</th>
@@ -372,16 +499,80 @@
                     </thead>
                     <tbody>
                         ${paymentsRows}
-                        <tr style="background: #f8fafc; font-weight: 600;">
-                            <td colspan="3">TOTAL COBRANZAS</td>
-                            <td class="amount-cell">$${totalCobranzas.toFixed(2)}</td>
+                        <tr style="background: #f0f9ff; border-top: 2px solid #0369a1;">
+                            <td colspan="2"><strong>SUBTOTALES</strong></td>
+                            <td class="amount-cell"><strong>Abonos: $${totalAbonos.toFixed(2)}</strong></td>
+                            <td class="amount-cell"><strong>Pagos: $${totalPagos.toFixed(2)}</strong></td>
+                            <td></td>
+                        </tr>
+                        <tr style="background: #f8fafc; font-weight: 600; border-top: 2px solid #334155;">
+                            <td colspan="3"><strong>TOTAL COBRANZAS</strong></td>
+                            <td class="amount-cell"><strong>$${totalCobranzas.toFixed(2)}</strong></td>
                             <td></td>
                         </tr>
                     </tbody>
                 </table>
+                
+                <div class="payment-breakdown" style="margin-top: 1rem; padding: 1rem; background: #f8fafc; border-radius: 8px;">
+                    <h4 style="margin: 0 0 0.5rem 0; color: #334155;">💡 Desglose de Cobranzas:</h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div>
+                            <span style="color: #059669;">📝 Abonos Iniciales:</span> 
+                            <strong>$${totalAbonos.toFixed(2)}</strong>
+                            <small style="display: block; color: #64748b;">Pagados al crear el pedido</small>
+                        </div>
+                        <div>
+                            <span style="color: #dc2626;">💰 Pagos Posteriores:</span> 
+                            <strong>$${totalPagos.toFixed(2)}</strong>
+                            <small style="display: block; color: #64748b;">Abonos registrados después</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <style>
+                .payment-type-initial {
+                    background-color: rgba(16, 185, 129, 0.05);
+                    border-left: 3px solid #10b981;
+                }
+                
+                .payment-type-subsequent {
+                    background-color: rgba(59, 130, 246, 0.05);
+                    border-left: 3px solid #3b82f6;
+                }
+                
+                .payment-info {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 0.25rem;
+                }
+                
+                .payment-type-badge {
+                    font-size: 0.75rem;
+                    padding: 0.125rem 0.375rem;
+                    border-radius: 12px;
+                    font-weight: 500;
+                    width: fit-content;
+                }
+                
+                .payment-type-badge.payment-type-initial {
+                    background: #d1fae5;
+                    color: #065f46;
+                    border: 1px solid #10b981;
+                }
+                
+                .payment-type-badge.payment-type-subsequent {
+                    background: #dbeafe;
+                    color: #1e40af;
+                    border: 1px solid #3b82f6;
+                }
+                
+                .payment-breakdown {
+                    border: 1px solid #e2e8f0;
+                }
+                </style>
             `;
         }
-
+            
         // Renderizar resumen por método de pago
         function renderPaymentSummary(summary) {
             if (!summary) {
@@ -393,32 +584,172 @@
                 `;
             }
             
+            // Calcular total y porcentajes
+            const total = summary.total || 0;
+            const efectivo = summary.efectivo || 0;
+            const cheque = summary.cheque || 0;
+            const transferencia = summary.transferencia || 0;
+            const tarjeta = summary.tarjeta || 0;
+            
+            // Calcular porcentajes
+            const calcPercentage = (amount) => total > 0 ? ((amount / total) * 100).toFixed(1) : 0;
+            
             return `
-                <div class="summary-grid">
-                    <div class="summary-card">
-                        <h4>💵 Efectivo</h4>
-                        <p class="summary-amount">$${(summary.efectivo || 0).toFixed(2)}</p>
+                <div class="summary-grid enhanced-summary">
+                    <div class="summary-card efectivo-card">
+                        <div class="card-header">
+                            <h4>💵 Efectivo</h4>
+                            <span class="percentage">${calcPercentage(efectivo)}%</span>
+                        </div>
+                        <p class="summary-amount">$${efectivo.toFixed(2)}</p>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${calcPercentage(efectivo)}%; background: #10b981;"></div>
+                        </div>
                     </div>
-                    <div class="summary-card">
-                        <h4>📝 Cheque</h4>
-                        <p class="summary-amount">$${(summary.cheque || 0).toFixed(2)}</p>
+                    
+                    <div class="summary-card cheque-card">
+                        <div class="card-header">
+                            <h4>📝 Cheque</h4>
+                            <span class="percentage">${calcPercentage(cheque)}%</span>
+                        </div>
+                        <p class="summary-amount">$${cheque.toFixed(2)}</p>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${calcPercentage(cheque)}%; background: #f59e0b;"></div>
+                        </div>
                     </div>
-                    <div class="summary-card">
-                        <h4>🏦 Transferencia</h4>
-                        <p class="summary-amount">$${(summary.transferencia || 0).toFixed(2)}</p>
+                    
+                    <div class="summary-card transferencia-card">
+                        <div class="card-header">
+                            <h4>🏦 Transferencia</h4>
+                            <span class="percentage">${calcPercentage(transferencia)}%</span>
+                        </div>
+                        <p class="summary-amount">$${transferencia.toFixed(2)}</p>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${calcPercentage(transferencia)}%; background: #3b82f6;"></div>
+                        </div>
                     </div>
-                    <div class="summary-card">
-                        <h4>💳 Tarjeta</h4>
-                        <p class="summary-amount">$${(summary.tarjeta || 0).toFixed(2)}</p>
+                    
+                    <div class="summary-card tarjeta-card">
+                        <div class="card-header">
+                            <h4>💳 Tarjeta</h4>
+                            <span class="percentage">${calcPercentage(tarjeta)}%</span>
+                        </div>
+                        <p class="summary-amount">$${tarjeta.toFixed(2)}</p>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${calcPercentage(tarjeta)}%; background: #8b5cf6;"></div>
+                        </div>
                     </div>
+                    
                     <div class="summary-card total-card">
-                        <h4>💰 Total Cobrado</h4>
-                        <p class="summary-amount">$${(summary.total || 0).toFixed(2)}</p>
+                        <div class="card-header">
+                            <h4>💰 Total Cobrado</h4>
+                            <span class="percentage">100%</span>
+                        </div>
+                        <p class="summary-amount total-amount">$${total.toFixed(2)}</p>
+                        <div class="total-breakdown">
+                            <small>Incluye abonos iniciales + pagos posteriores</small>
+                        </div>
                     </div>
                 </div>
+                
+                <style>
+                .enhanced-summary {
+                    gap: 1rem;
+                }
+                
+                .summary-card {
+                    background: white;
+                    border: 1px solid #e2e8f0;
+                    border-radius: 12px;
+                    padding: 1.5rem;
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+                    transition: transform 0.2s, box-shadow 0.2s;
+                }
+                
+                .summary-card:hover {
+                    transform: translateY(-2px);
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                }
+                
+                .card-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 1rem;
+                }
+                
+                .card-header h4 {
+                    margin: 0;
+                    font-size: 1rem;
+                    color: #334155;
+                }
+                
+                .percentage {
+                    background: #f1f5f9;
+                    color: #475569;
+                    padding: 0.25rem 0.5rem;
+                    border-radius: 6px;
+                    font-size: 0.75rem;
+                    font-weight: 600;
+                }
+                
+                .summary-amount {
+                    font-size: 1.5rem;
+                    font-weight: 700;
+                    margin: 0;
+                    color: #1e293b;
+                }
+                
+                .total-amount {
+                    font-size: 1.75rem;
+                    color: #059669;
+                }
+                
+                .progress-bar {
+                    background: #f1f5f9;
+                    height: 6px;
+                    border-radius: 3px;
+                    margin-top: 1rem;
+                    overflow: hidden;
+                }
+                
+                .progress-fill {
+                    height: 100%;
+                    border-radius: 3px;
+                    transition: width 0.3s ease;
+                }
+                
+                .total-card {
+                    border: 2px solid #059669;
+                    background: linear-gradient(135deg, #ecfdf5, #f0fdf4);
+                }
+                
+                .total-breakdown {
+                    margin-top: 0.5rem;
+                }
+                
+                .total-breakdown small {
+                    color: #64748b;
+                    font-style: italic;
+                }
+                
+                @media (max-width: 768px) {
+                    .enhanced-summary {
+                        grid-template-columns: 1fr;
+                    }
+                    
+                    .summary-amount {
+                        font-size: 1.25rem;
+                    }
+                    
+                    .total-amount {
+                        font-size: 1.5rem;
+                    }
+                }
+                </style>
             `;
         }
-
+        
         // Cerrar modal
         function closeReportModal() {
             document.getElementById('reportModal').classList.remove('show');

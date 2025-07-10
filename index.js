@@ -5160,7 +5160,7 @@ app.get("/api/reports/sales-collection", auth, adminOnly, async (req, res) => {
   try {
     const { employee_id, date } = req.query;
     
-    console.log('📊 Generando reporte de ventas y cobranzas:', { employee_id, date });
+    console.log('📊 Generando reporte de ventas y cobranzas CON ABONOS:', { employee_id, date });
     
     // Validaciones
     if (!employee_id || !date) {
@@ -5191,11 +5191,12 @@ app.get("/api/reports/sales-collection", auth, adminOnly, async (req, res) => {
     const employee = allEmployees.find(emp => emp.id === parseInt(employee_id));
     
     if (!employee) {
-      return res.status(404).json({ message: 'vendedor no encontrado' });
+      return res.status(404).json({ message: 'Vendedor no encontrado' });
     }
     
     let salesData = [];
     let paymentsData = [];
+    let ordersData = []; // NUEVO: Para obtener abonos de pedidos
     
     if (supabase) {
       try {
@@ -5208,13 +5209,11 @@ app.get("/api/reports/sales-collection", auth, adminOnly, async (req, res) => {
           .lte('created_at', endDate.toISOString())
           .order('created_at', { ascending: true });
         
-        if (salesError) {
-          console.warn('⚠️ Error obteniendo ventas de Supabase:', salesError);
-        } else {
+        if (!salesError) {
           salesData = sales || [];
         }
         
-        // Obtener pagos registrados por el vendedor en la fecha específica
+        // Obtener pagos posteriores registrados por el vendedor
         const { data: payments, error: paymentsError } = await supabase
           .from('order_payments')
           .select(`
@@ -5229,20 +5228,31 @@ app.get("/api/reports/sales-collection", auth, adminOnly, async (req, res) => {
           .lte('created_at', endDate.toISOString())
           .order('created_at', { ascending: true });
         
-        if (paymentsError) {
-          console.warn('⚠️ Error obteniendo pagos de Supabase:', paymentsError);
-        } else {
+        if (!paymentsError) {
           paymentsData = payments || [];
+        }
+        
+        // NUEVO: Obtener pedidos del vendedor con abonos iniciales
+        const { data: orders, error: ordersError } = await supabase
+          .from('orders')
+          .select('*')
+          .eq('employee_id', employee_id)
+          .gte('created_at', startDate.toISOString())
+          .lte('created_at', endDate.toISOString())
+          .gt('paid_amount', 0) // Solo pedidos con abono inicial
+          .order('created_at', { ascending: true });
+        
+        if (!ordersError) {
+          ordersData = orders || [];
         }
         
       } catch (error) {
         console.error('❌ Error consultando Supabase:', error);
-        // Continuar con fallback
       }
     }
     
-    // Fallback: buscar en memoria si Supabase falla o no está disponible
-    if (salesData.length === 0 && paymentsData.length === 0) {
+    // Fallback: buscar en memoria si Supabase falla
+    if (salesData.length === 0 && paymentsData.length === 0 && ordersData.length === 0) {
       console.log('🔄 Usando datos en memoria como fallback...');
       
       // Filtrar ventas en memoria
@@ -5274,16 +5284,73 @@ app.get("/api/reports/sales-collection", auth, adminOnly, async (req, res) => {
           client_name: order?.client_info?.name || 'Cliente directo'
         };
       });
+      
+      // NUEVO: Filtrar pedidos con abonos iniciales
+      ordersData = (fallbackDatabase.orders || [])
+        .filter(order => {
+          const orderDate = new Date(order.created_at);
+          const paidAmount = parseFloat(order.paid_amount) || 0;
+          return order.employee_id === parseInt(employee_id) &&
+                 orderDate >= startDate && orderDate <= endDate &&
+                 paidAmount > 0;
+        })
+        .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
     }
     
-    // Procesar datos de pagos para agregar información faltante
-    const processedPayments = paymentsData.map(payment => ({
-      ...payment,
-      order_number: payment.orders?.order_number || payment.order_number || 'N/A',
-      client_name: payment.orders?.client_info?.name || payment.client_name || 'Cliente directo'
+    // NUEVO: Combinar abonos de pedidos con pagos posteriores
+    const allPayments = [];
+    
+    // 1. Agregar abonos iniciales de pedidos
+    ordersData.forEach(order => {
+      const paidAmount = parseFloat(order.paid_amount) || 0;
+      if (paidAmount > 0) {
+        // Extraer método de pago del payment_info o usar payment_type
+        let paymentMethod = 'efectivo'; // Default
+        
+        if (order.payment_info && order.payment_info.method) {
+          paymentMethod = order.payment_info.method;
+        } else if (order.payment_type) {
+          paymentMethod = order.payment_type;
+        }
+        
+        allPayments.push({
+          id: `order_initial_${order.id}`,
+          order_id: order.id,
+          order_number: order.order_number,
+          client_name: order.client_info?.name || 'Cliente directo',
+          amount: paidAmount,
+          payment_method: paymentMethod,
+          payment_type: 'initial_payment', // Identificador para abono inicial
+          notes: 'Abono inicial del pedido',
+          created_at: order.created_at,
+          recorded_by: order.employee_id,
+          recorded_by_code: order.employee_code
+        });
+      }
+    });
+    
+    // 2. Agregar pagos posteriores
+    paymentsData.forEach(payment => {
+      allPayments.push({
+        ...payment,
+        order_number: payment.orders?.order_number || payment.order_number || 'N/A',
+        client_name: payment.orders?.client_info?.name || payment.client_name || 'Cliente directo',
+        payment_type: 'subsequent_payment' // Identificador para pago posterior
+      });
+    });
+    
+    // Ordenar todos los pagos por fecha
+    allPayments.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    
+    // Procesar datos de ventas para incluir abonos
+    const processedSales = salesData.map(sale => ({
+      ...sale,
+      sale_number: sale.sale_number || sale.id,
+      client_info: sale.client_info || { name: 'Cliente directo' },
+      paid_amount: parseFloat(sale.paid_amount) || 0 // Asegurar que existe
     }));
     
-    // Calcular resumen por método de pago
+    // ACTUALIZADO: Calcular resumen por método de pago incluyendo abonos de pedidos
     const paymentSummary = {
       efectivo: 0,
       cheque: 0,
@@ -5292,25 +5359,29 @@ app.get("/api/reports/sales-collection", auth, adminOnly, async (req, res) => {
       total: 0
     };
     
-    processedPayments.forEach(payment => {
+    allPayments.forEach(payment => {
       const amount = parseFloat(payment.amount) || 0;
       const method = (payment.payment_method || 'efectivo').toLowerCase();
       
       if (paymentSummary.hasOwnProperty(method)) {
         paymentSummary[method] += amount;
       } else {
-        // Si el método no existe, agregarlo a "efectivo" como fallback
-        paymentSummary.efectivo += amount;
+        // Si el método no existe, agregarlo como nuevo o fallback a efectivo
+        if (!paymentSummary[method]) {
+          paymentSummary[method] = 0;
+        }
+        paymentSummary[method] += amount;
       }
       
       paymentSummary.total += amount;
     });
     
-    // Calcular estadísticas adicionales
-    const totalVentas = salesData.reduce((sum, sale) => sum + (parseFloat(sale.total) || 0), 0);
-    const totalAbonos = salesData.reduce((sum, sale) => sum + (parseFloat(sale.paid_amount) || 0), 0);
-    const ventasCount = salesData.length;
-    const pagosCount = processedPayments.length;
+    // Calcular estadísticas actualizadas
+    const totalVentas = processedSales.reduce((sum, sale) => sum + (parseFloat(sale.total) || 0), 0);
+    const totalAbonos = processedSales.reduce((sum, sale) => sum + (parseFloat(sale.paid_amount) || 0), 0);
+    const totalCobranzas = paymentSummary.total; // Incluye abonos iniciales + pagos posteriores
+    const ventasCount = processedSales.length;
+    const pagosCount = allPayments.length;
     
     const reportData = {
       employee_id: parseInt(employee_id),
@@ -5325,33 +5396,37 @@ app.get("/api/reports/sales-collection", auth, adminOnly, async (req, res) => {
         start: startDate.toISOString(),
         end: endDate.toISOString()
       },
-      sales: salesData,
-      payments: processedPayments,
+      sales: processedSales,
+      payments: allPayments, // Incluye abonos iniciales + pagos posteriores
       payment_summary: paymentSummary,
       statistics: {
         total_ventas: totalVentas,
         total_abonos: totalAbonos,
-        total_cobrado: paymentSummary.total,
+        total_cobrado: totalCobranzas, // ACTUALIZADO: Incluye todo
         ventas_count: ventasCount,
         pagos_count: pagosCount,
+        initial_payments_count: allPayments.filter(p => p.payment_type === 'initial_payment').length,
+        subsequent_payments_count: allPayments.filter(p => p.payment_type === 'subsequent_payment').length,
         promedio_venta: ventasCount > 0 ? totalVentas / ventasCount : 0
       },
       generated_at: new Date().toISOString(),
       data_source: supabase ? 'supabase' : 'memory'
     };
     
-    console.log('✅ Reporte generado exitosamente:', {
+    console.log('✅ Reporte generado exitosamente CON ABONOS:', {
       employee: employee.name,
       date: date,
       ventas: ventasCount,
-      pagos: pagosCount,
-      total_cobrado: paymentSummary.total
+      total_pagos: pagosCount,
+      abonos_iniciales: allPayments.filter(p => p.payment_type === 'initial_payment').length,
+      pagos_posteriores: allPayments.filter(p => p.payment_type === 'subsequent_payment').length,
+      total_cobrado: totalCobranzas
     });
     
     res.json(reportData);
     
   } catch (error) {
-    console.error('❌ Error generando reporte de ventas y cobranzas:', error);
+    console.error('❌ Error generando reporte de ventas y cobranzas CON ABONOS:', error);
     res.status(500).json({ 
       message: 'Error generando reporte', 
       error: error.message 
