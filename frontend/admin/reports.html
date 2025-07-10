@@ -361,20 +361,13 @@
                     <tr class="${abonoClass}">
                         <td>
                             <div class="sale-info">
-                                <strong>${sale.sale_number || sale.order_number || 'N/A'}</strong>
+                                <strong>${sale.order_number || sale.sale_number || 'N/A'}</strong>
                             </div>
                         </td>
                         <td class="date-cell">${formatDate(sale.created_at)}</td>
                         <td>${sale.client_info?.name || sale.client_name || 'Cliente directo'}</td>
                         <td class="amount-cell">$${total.toFixed(2)}</td>
-                        <td class="amount-cell ${abonoClass}">
-                            <div class="abono-info">
-                                <strong>$${abono.toFixed(2)}</strong>
-                            </div>
-                            <div class="abono-progress">
-                                <div class="abono-bar" style="width: ${Math.min((abono/total)*100, 100)}%"></div>
-                            </div>
-                        </td>
+
                     </tr>
                 `;
             }).join('');
@@ -438,7 +431,6 @@
                             <th>Fecha</th>
                             <th>Cliente</th>
                             <th>Total Venta</th>
-                            <th>Abono Inicial</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -447,12 +439,10 @@
                             <td colspan="2"><strong>ESTADÍSTICAS</strong></td>
                             <td><strong>Ventas: ${sales.length}</strong></td>
                             <td class="amount-cell"><strong>$${totalVentas.toFixed(2)}</strong></td>
-                            <td class="amount-cell"><strong>$${totalAbonos.toFixed(2)}</strong></td>
                         </tr>
                         <tr style="background: #f8fafc; font-weight: 600;">
                             <td colspan="3"><strong>TOTALES</strong></td>
                             <td class="amount-cell"><strong>$${totalVentas.toFixed(2)}</strong></td>
-                            <td class="amount-cell"><strong>$${totalAbonos.toFixed(2)}</strong></td>
                         </tr>
                     </tbody>
                 </table>
@@ -523,16 +513,16 @@
                 let typeLabel = 'Pago Posterior';
                 
                 if (isInitialPayment) {
-                    typeIcon = '📝';
+                    typeIcon = '';
                     typeClass = 'payment-type-initial';
-                    typeLabel = 'Abono Inicial';
+                    typeLabel = 'Abono';
                 }
                 
                 return `
                     <tr class="${typeClass}">
                         <td>
                             <div class="payment-info">
-                                <strong>${payment.order_number || 'N/A'}</strong>
+                                <strong>${payment.sale_number || payment.order_number || 'N/A'}</strong>
                                 <div class="payment-type-badge ${typeClass}">
                                     ${typeIcon} ${typeLabel}
                                 </div>
@@ -564,9 +554,15 @@
                     <tbody>
                         ${paymentsRows}
                         <tr style="background: #f0f9ff; border-top: 2px solid #0369a1;">
-                            <td colspan="2"><strong>SUBTOTALES</strong></td>
-                            <td class="amount-cell"><strong>Abonos: $${totalAbonos.toFixed(2)}</strong></td>
-                            <td class="amount-cell"><strong>Pagos: $${totalPagos.toFixed(2)}</strong></td>
+                            <td colspan="2"><strong>ABONOS</strong></td>
+                            <td></td>
+                            <td class="amount-cell"><strong>$${totalAbonos.toFixed(2)}</strong></td>
+                            <td></td>
+                        </tr>
+                        <tr style="background: #f0f9ff; border-top: 2px solid #0369a1;">
+                            <td colspan="2"><strong>PAGOS</strong></td>
+                            <td></td>
+                            <td class="amount-cell"><strong>$${totalPagos.toFixed(2)}</strong></td>
                             <td></td>
                         </tr>
                         <tr style="background: #f8fafc; font-weight: 600; border-top: 2px solid #334155;">
@@ -578,15 +574,15 @@
                 </table>
                 
                 <div class="payment-breakdown" style="margin-top: 1rem; padding: 1rem; background: #f8fafc; border-radius: 8px;">
-                    <h4 style="margin: 0 0 0.5rem 0; color: #334155;">💡 Desglose de Cobranzas:</h4>
+                    <h4 style="margin: 0 0 0.5rem 0; color: #334155;">Cobranzas por tipo:</h4>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
                         <div>
-                            <span style="color: #059669;">📝 Abonos Iniciales:</span> 
+                            <span style="color: #059669;">Abonos Iniciales:</span> 
                             <strong>$${totalAbonos.toFixed(2)}</strong>
                             <small style="display: block; color: #64748b;">Pagados al crear el pedido</small>
                         </div>
                         <div>
-                            <span style="color: #dc2626;">💰 Pagos Posteriores:</span> 
+                            <span style="color: #dc2626;"> Pagos Posteriores:</span> 
                             <strong>$${totalPagos.toFixed(2)}</strong>
                             <small style="display: block; color: #64748b;">Abonos registrados después</small>
                         </div>
@@ -659,40 +655,37 @@
                 <div class="summary-grid enhanced-summary">
                     <div class="summary-card efectivo-card">
                         <div class="card-header">
-                            <h4>💵 Efectivo</h4>
+                            <h4> Efectivo</h4>
                         </div>
                         <p class="summary-amount">$${efectivo.toFixed(2)}</p>
                     </div>
                     
                     <div class="summary-card cheque-card">
                         <div class="card-header">
-                            <h4>📝 Cheque</h4>
+                            <h4>Cheque</h4>
                         </div>
                         <p class="summary-amount">$${cheque.toFixed(2)}</p>
                     </div>
                     
                     <div class="summary-card transferencia-card">
                         <div class="card-header">
-                            <h4>🏦 Transferencia</h4>
+                            <h4>Transferencia</h4>
                         </div>
                         <p class="summary-amount">$${transferencia.toFixed(2)}</p>
                     </div>
                     
                     <div class="summary-card tarjeta-card">
                         <div class="card-header">
-                            <h4>💳 Tarjeta</h4>
+                            <h4>Tarjeta</h4>
                         </div>
                         <p class="summary-amount">$${tarjeta.toFixed(2)}</p>
                     </div>
                     
                     <div class="summary-card total-card">
                         <div class="card-header">
-                            <h4>💰 Total Cobrado</h4>
+                            <h4>Total Cobrado</h4>
                         </div>
-                        <p class="summary-amount total-amount">$${total.toFixed(2)}</p>
-                        <div class="total-breakdown">
-                            <small>Incluye abonos iniciales + pagos posteriores</small>
-                        </div>
+                        <p class="summary-amount total-amount" style="color: black">$${total.toFixed(2)}</p>
                     </div>
                 </div>
                 
@@ -806,12 +799,12 @@
         // Función para obtener icono de método de pago
         function getPaymentMethodIcon(method) {
             const icons = {
-                'efectivo': '💵',
-                'tarjeta': '💳',
-                'transferencia': '🏦',
-                'cheque': '📝'
+                'efectivo': '',
+                'tarjeta': '',
+                'transferencia': '',
+                'cheque': ''
             };
-            return icons[method] || '💰';
+            return icons[method] || '';
         }
 
         // Cerrar modal al hacer clic fuera

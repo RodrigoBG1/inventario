@@ -1027,7 +1027,7 @@ async function generateOrderNumber() {
       orderCount = fallbackDatabase.orders.length;
     }
     
-    return `ORD-${String(orderCount + 1).padStart(4, '0')}`;
+    return `${String(orderCount + 1).padStart(4, '0')}`;
     // Resultado: ORD-0001, ORD-0002, etc.
   } catch (error) {
     console.error('Error generating order number:', error);
@@ -1052,7 +1052,7 @@ async function generateSaleNumber() {
       saleCount = fallbackDatabase.sales.length;
     }
     
-    return `SALE-${String(saleCount + 1).padStart(4, '0')}`;
+    return `${String(saleCount + 1).padStart(4, '0')}`;
     // Resultado: SALE-0001, SALE-0002, etc.
   } catch (error) {
     console.error('Error generating sale number:', error);
