@@ -457,28 +457,6 @@
                     </tbody>
                 </table>
                 
-                <div class="sales-summary" style="margin-top: 1rem; padding: 1rem; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
-                    <h4 style="margin: 0 0 1rem 0; color: #334155;">📊 Resumen de Ventas y Abonos:</h4>
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
-                        <div class="summary-stat">
-                            <span style="color: #059669;">📝 Total Ventas:</span> 
-                            <strong>${sales.length}</strong>
-                        </div>
-                        <div class="summary-stat">
-                            <span style="color: #dc2626;">💰 Con Abono:</span> 
-                            <strong>${ventasConAbono}</strong>
-                        </div>
-                        <div class="summary-stat">
-                            <span style="color: #10b981;">✅ Pagadas:</span> 
-                            <strong>${ventasPagadas}</strong>
-                        </div>
-                        <div class="summary-stat">
-                            <span style="color: #6366f1;">💵 Total Abonado:</span> 
-                            <strong>$${totalAbonos.toFixed(2)}</strong>
-                        </div>
-                    </div>
-                </div>
-                
                 <style>
                 .sale-info {
                     display: flex;
@@ -496,32 +474,6 @@
                     border: 1px solid #e2e8f0;
                 }
                 
-                .abono-complete {
-                    background-color: rgba(16, 185, 129, 0.1);
-                }
-                
-                .abono-partial {
-                    background-color: rgba(251, 191, 36, 0.1);
-                }
-                
-                .abono-none {
-                    background-color: rgba(239, 68, 68, 0.1);
-                }
-                
-                .abono-progress {
-                    width: 100%;
-                    height: 4px;
-                    background: #f1f5f9;
-                    border-radius: 2px;
-                    margin-top: 4px;
-                    overflow: hidden;
-                }
-                
-                .abono-bar {
-                    height: 100%;
-                    background: #10b981;
-                    transition: width 0.3s ease;
-                }
                 
                 @media (max-width: 768px) {
                     .sales-summary {
