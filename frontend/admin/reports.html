@@ -272,8 +272,7 @@
             `;
         }
 
-        // Renderizar tabla de ventas - CORREGIDO PARA MOSTRAR ABONOS
-        // Renderizar tabla de ventas - CORREGIDO con debug para mostrar abonos
+        // Renderizar tabla de ventas
         function renderSalesTable(sales) {
             if (!sales || sales.length === 0) {
                 return `
@@ -478,7 +477,8 @@
                 </style>
             `;
         }
-        // Renderizar tabla de cobranzas - SIN PORCENTAJES
+        
+        // Renderizar tabla de cobranzas - CON COLUMNA POR PAGAR
         function renderPaymentsTable(payments) {
             if (!payments || payments.length === 0) {
                 return `
@@ -508,7 +508,7 @@
                 }
                 
                 // Determinar icono y clase según el tipo
-                let typeIcon = '💰';
+                let typeIcon = '';
                 let typeClass = 'payment-type-subsequent';
                 let typeLabel = 'Pago Posterior';
                 
@@ -517,6 +517,11 @@
                     typeClass = 'payment-type-initial';
                     typeLabel = 'Abono';
                 }
+                
+                // NUEVO: Calcular monto por pagar
+                const orderTotal = parseFloat(payment.order_total) || 0;
+                const orderPaidAmount = parseFloat(payment.order_paid_amount) || 0;
+                const balanceRemaining = Math.max(0, orderTotal - orderPaidAmount);
                 
                 return `
                     <tr class="${typeClass}">
@@ -531,6 +536,11 @@
                         <td class="date-cell">${formatDate(payment.created_at)}</td>
                         <td>${payment.client_name || 'Cliente directo'}</td>
                         <td class="amount-cell">$${amount.toFixed(2)}</td>
+                        <td class="amount-cell">
+                            <span style="color: ${balanceRemaining > 0 ? '#dc2626' : '#059669'};">
+                                $${balanceRemaining.toFixed(2)}
+                            </span>
+                        </td>
                         <td>
                             <span class="payment-method method-${payment.payment_method}">
                                 ${getPaymentMethodIcon(payment.payment_method)} ${payment.payment_method}
@@ -548,6 +558,7 @@
                             <th>Fecha</th>
                             <th>Cliente</th>
                             <th>Monto</th>
+                            <th>Por Pagar</th>
                             <th>Método</th>
                         </tr>
                     </thead>
@@ -558,16 +569,19 @@
                             <td></td>
                             <td class="amount-cell"><strong>$${totalAbonos.toFixed(2)}</strong></td>
                             <td></td>
+                            <td></td>
                         </tr>
                         <tr style="background: #f0f9ff; border-top: 2px solid #0369a1;">
                             <td colspan="2"><strong>PAGOS</strong></td>
                             <td></td>
                             <td class="amount-cell"><strong>$${totalPagos.toFixed(2)}</strong></td>
                             <td></td>
+                            <td></td>
                         </tr>
                         <tr style="background: #f8fafc; font-weight: 600; border-top: 2px solid #334155;">
                             <td colspan="3"><strong>TOTAL COBRANZAS</strong></td>
                             <td class="amount-cell"><strong>$${totalCobranzas.toFixed(2)}</strong></td>
+                            <td></td>
                             <td></td>
                         </tr>
                     </tbody>
@@ -582,7 +596,7 @@
                             <small style="display: block; color: #64748b;">Pagados al crear el pedido</small>
                         </div>
                         <div>
-                            <span style="color: #dc2626;"> Pagos Posteriores:</span> 
+                            <span style="color: #dc2626;">Pagos Posteriores:</span> 
                             <strong>$${totalPagos.toFixed(2)}</strong>
                             <small style="display: block; color: #64748b;">Abonos registrados después</small>
                         </div>
@@ -775,14 +789,361 @@
                 return;
             }
             
-            // Si el modal no está abierto, generarlo primero
-            if (!document.getElementById('reportModal').classList.contains('show')) {
-                generateReport().then(() => {
-                    setTimeout(() => window.print(), 500);
-                });
-            } else {
-                window.print();
+            // ===== FUNCIÓN HELPER PARA FORMATEAR MONEDA =====
+            function formatCurrencyForPrint(amount) {
+                if (typeof amount !== 'number') amount = parseFloat(amount) || 0;
+                return new Intl.NumberFormat('es-MX', {
+                    style: 'currency',
+                    currency: 'MXN'
+                }).format(amount);
             }
+            
+            // ===== FUNCIÓN HELPER PARA FORMATEAR FECHAS =====
+            function formatDateForPrint(dateString) {
+                if (!dateString) return 'No especificada';
+                try {
+                    const date = new Date(dateString);
+                    return date.toLocaleDateString('es-MX', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                } catch (error) {
+                    return dateString;
+                }
+            }
+            
+            // ===== OBTENER INFORMACIÓN DEL VENDEDOR =====
+            const employee = currentEmployees.find(emp => emp.id === parseInt(currentReportData.employee_id));
+            const reportDate = new Date(currentReportData.date).toLocaleDateString('es-MX', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+            
+            // ===== GENERAR FILAS DE VENTAS =====
+            const salesRows = (currentReportData.sales || []).map(sale => {
+                const total = parseFloat(sale.total) || 0;
+                
+                return `
+                    <tr>
+                        <td>${sale.order_number || sale.sale_number || 'N/A'}</td>
+                        <td>${formatDateForPrint(sale.created_at)}</td>
+                        <td>${sale.client_info?.name || sale.client_name || 'Cliente directo'}</td>
+                        <td style="text-align: right;">${formatCurrencyForPrint(total)}</td>
+                    </tr>
+                `;
+            }).join('');
+            
+            // ===== CALCULAR TOTALES DE VENTAS =====
+            const totalVentas = (currentReportData.sales || []).reduce((sum, sale) => sum + (parseFloat(sale.total) || 0), 0);
+            
+            // ===== GENERAR FILAS DE COBRANZAS =====
+            const paymentsRows = (currentReportData.payments || []).map(payment => {
+                const amount = parseFloat(payment.amount) || 0;
+                const isInitialPayment = payment.payment_type === 'initial_payment';
+                const typeLabel = isInitialPayment ? 'Abono Inicial' : 'Pago Posterior';
+                
+                // Calcular monto por pagar
+                const orderTotal = parseFloat(payment.order_total) || 0;
+                const orderPaidAmount = parseFloat(payment.order_paid_amount) || 0;
+                const balanceRemaining = Math.max(0, orderTotal - orderPaidAmount);
+                
+                return `
+                    <tr>
+                        <td>
+                            ${payment.sale_number || payment.order_number || 'N/A'}
+                            <br><small style="color: #666;">${typeLabel}</small>
+                        </td>
+                        <td>${formatDateForPrint(payment.created_at)}</td>
+                        <td>${payment.client_name || 'Cliente directo'}</td>
+                        <td style="text-align: right;">${formatCurrencyForPrint(amount)}</td>
+                        <td style="text-align: right; color: ${balanceRemaining > 0 ? '#dc2626' : '#059669'};">
+                            ${formatCurrencyForPrint(balanceRemaining)}
+                        </td>
+                        <td>${payment.payment_method || 'N/A'}</td>
+                    </tr>
+                `;
+            }).join('');
+            
+            // ===== CALCULAR TOTALES DE COBRANZAS =====
+            const totalCobranzas = (currentReportData.payments || []).reduce((sum, payment) => sum + (parseFloat(payment.amount) || 0), 0);
+            const totalAbonos = (currentReportData.payments || []).filter(p => p.payment_type === 'initial_payment').reduce((sum, payment) => sum + (parseFloat(payment.amount) || 0), 0);
+            const totalPagos = totalCobranzas - totalAbonos;
+            
+            // ===== OBTENER RESUMEN DE MÉTODOS DE PAGO =====
+            const summary = currentReportData.payment_summary || {};
+            const efectivo = summary.efectivo || 0;
+            const cheque = summary.cheque || 0;
+            const transferencia = summary.transferencia || 0;
+            const tarjeta = summary.tarjeta || 0;
+            const totalMetodos = summary.total || 0;
+            
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Reporte de Ventas y Cobranzas - ${employee?.name || 'Vendedor'} - ${reportDate}</title>
+                    <style>
+                        body { 
+                            font-family: Arial, sans-serif; 
+                            max-width: 900px; 
+                            margin: 0 auto; 
+                            padding: 20px; 
+                            color: #1f2937;
+                        }
+                        .header { 
+                            text-align: center; 
+                            margin-bottom: 30px; 
+                            border-bottom: 2px solid #0d2975; 
+                            padding-bottom: 20px; 
+                        }
+                        .header h1 {
+                            color: #0d2975;
+                            margin-bottom: 10px;
+                            font-size: 1.8rem;
+                        }
+                        .vendor-info {
+                            background: #f8fafc;
+                            padding: 15px;
+                            border-radius: 8px;
+                            margin: 20px 0;
+                            border-left: 4px solid #0d2975;
+                        }
+                        .vendor-info table {
+                            margin: 0;
+                        }
+                        .section { 
+                            margin: 30px 0; 
+                        }
+                        .section h3 { 
+                            background: #f8fafc; 
+                            color: #0d2975;
+                            padding: 12px; 
+                            margin: 15px 0 10px 0;
+                            border-left: 4px solid #0d2975;
+                            font-size: 1.2rem;
+                        }
+                        table { 
+                            width: 100%; 
+                            border-collapse: collapse; 
+                            margin: 15px 0; 
+                        }
+                        th, td { 
+                            border: 1px solid #e5e7eb; 
+                            padding: 10px 8px; 
+                            text-align: left; 
+                            font-size: 0.95rem;
+                        }
+                        th { 
+                            background: #f8fafc;
+                            color: #0d2975;
+                            font-weight: 600;
+                        }
+                        .total-row {
+                            background: #f0f9ff !important;
+                            font-weight: 600;
+                            border-top: 2px solid #0369a1;
+                        }
+                        .grand-total-row {
+                            background: #f8fafc !important;
+                            font-weight: 700;
+                            border-top: 2px solid #334155;
+                            color: #0d2975;
+                        }
+                        .summary-grid {
+                            display: grid;
+                            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                            gap: 15px;
+                            margin: 20px 0;
+                        }
+                        .summary-card {
+                            background: white;
+                            border: 1px solid #e2e8f0;
+                            border-radius: 8px;
+                            padding: 15px;
+                            text-align: center;
+                        }
+                        .summary-card h4 {
+                            margin: 0 0 10px 0;
+                            color: #334155;
+                            font-size: 1rem;
+                        }
+                        .summary-card .amount {
+                            font-size: 1.4rem;
+                            font-weight: 700;
+                            color: #0d2975;
+                            margin: 0;
+                        }
+                        .total-card {
+                            border: 2px solid #059669;
+                            background: #f0fdf4;
+                        }
+                        .total-card .amount {
+                            color: #059669;
+                            font-size: 1.6rem;
+                        }
+                        .no-data {
+                            text-align: center;
+                            padding: 40px;
+                            color: #64748b;
+                            font-style: italic;
+                        }
+                        .print-info {
+                            margin-top: 40px;
+                            padding-top: 20px;
+                            border-top: 1px solid #e5e7eb;
+                            font-size: 0.875rem;
+                            color: #64748b;
+                            text-align: right;
+                        }
+                        @media print {
+                            body { margin: 0; padding: 15px; }
+                            .section { page-break-inside: avoid; }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="header">
+                        <h1>Reporte de Ventas y Cobranzas</h1>
+                        <p style="margin: 5px 0; color: #64748b;">Reporte diario detallado</p>
+                    </div>
+                    
+                    <div class="vendor-info">
+                        <h3 style="margin: 0 0 10px 0; background: none; padding: 0; border: none; color: #0d2975;">👤 Información del Vendedor</h3>
+                        <table style="border: none;">
+                            <tr style="border: none;">
+                                <td style="border: none; font-weight: 600; width: 120px;">Vendedor:</td>
+                                <td style="border: none;">${employee?.name || 'N/A'}</td>
+                                <td style="border: none; font-weight: 600; width: 120px;">Código:</td>
+                                <td style="border: none;">${employee?.employee_code || 'N/A'}</td>
+                            </tr>
+                            <tr style="border: none;">
+                                <td style="border: none; font-weight: 600;">Fecha:</td>
+                                <td style="border: none;" colspan="3">${reportDate}</td>
+                            </tr>
+                        </table>
+                    </div>
+                    
+                    <div class="section">
+                        <h3> Ventas del Día</h3>
+                        ${currentReportData.sales && currentReportData.sales.length > 0 ? `
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Folio</th>
+                                        <th>Fecha</th>
+                                        <th>Cliente</th>
+                                        <th style="text-align: right;">Total Venta</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${salesRows}
+                                    <tr class="total-row">
+                                        <td colspan="2"><strong>ESTADÍSTICAS</strong></td>
+                                        <td><strong>Ventas: ${currentReportData.sales.length}</strong></td>
+                                        <td style="text-align: right;"><strong>${formatCurrencyForPrint(totalVentas)}</strong></td>
+                                    </tr>
+                                    <tr class="grand-total-row">
+                                        <td colspan="3"><strong>TOTAL VENTAS</strong></td>
+                                        <td style="text-align: right;"><strong>${formatCurrencyForPrint(totalVentas)}</strong></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        ` : `
+                            <div class="no-data">
+                                <h4> No hay ventas registradas</h4>
+                                <p>No se encontraron ventas para este vendedor en la fecha seleccionada</p>
+                            </div>
+                        `}
+                    </div>
+                    
+                    <div class="section">
+                        <h3>💳 Cobranzas del Día</h3>
+                        ${currentReportData.payments && currentReportData.payments.length > 0 ? `
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>No. Pedido / Tipo</th>
+                                        <th>Fecha</th>
+                                        <th>Cliente</th>
+                                        <th style="text-align: right;">Monto</th>
+                                        <th style="text-align: right;">Por Pagar</th>
+                                        <th>Método</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${paymentsRows}
+                                    <tr class="total-row">
+                                        <td colspan="3"><strong>ABONOS INICIALES</strong></td>
+                                        <td style="text-align: right;"><strong>${formatCurrencyForPrint(totalAbonos)}</strong></td>
+                                        <td colspan="2"></td>
+                                    </tr>
+                                    <tr class="total-row">
+                                        <td colspan="3"><strong>PAGOS POSTERIORES</strong></td>
+                                        <td style="text-align: right;"><strong>${formatCurrencyForPrint(totalPagos)}</strong></td>
+                                        <td colspan="2"></td>
+                                    </tr>
+                                    <tr class="grand-total-row">
+                                        <td colspan="3"><strong>TOTAL COBRANZAS</strong></td>
+                                        <td style="text-align: right;"><strong>${formatCurrencyForPrint(totalCobranzas)}</strong></td>
+                                        <td colspan="2"></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        ` : `
+                            <div class="no-data">
+                                <h4> No hay cobranzas registradas</h4>
+                                <p>No se encontraron pagos registrados por este vendedor en la fecha seleccionada</p>
+                            </div>
+                        `}
+                    </div>
+                    
+                    <div class="section">
+                        <h3>Resumen por Método de Pago</h3>
+                            <table>
+                                 <tbody>
+                                    <tr class="total-row">
+                                        <td colspan="3"><strong>Efectivo</strong></td>
+                                        <td style="text-align: right;"><strong>${formatCurrencyForPrint(efectivo)}</strong></td>
+                                        <td colspan="2"></td>
+                                    </tr>
+                                    <tr class="total-row">
+                                        <td colspan="3"><strong>Cheque</strong></td>
+                                        <td style="text-align: right;"><strong>${formatCurrencyForPrint(cheque)}</strong></td>
+                                        <td colspan="2"></td>
+                                    </tr>
+                                    <tr class="total-row">
+                                        <td colspan="3"><strong>Transferencia</strong></td>
+                                        <td style="text-align: right;"><strong>${formatCurrencyForPrint(transferencia)}</strong></td>
+                                        <td colspan="2"></td>
+                                    </tr>
+                                    <tr class="total-row">
+                                        <td colspan="3"><strong>Tarjeta</strong></td>
+                                        <td style="text-align: right;"><strong>${formatCurrencyForPrint(tarjeta)}</strong></td>
+                                        <td colspan="2"></td>
+                                    </tr>
+                                    <tr class="grand-total-row">
+                                        <td colspan="3"><strong>Total</strong></td>
+                                        <td style="text-align: right;"><strong>${formatCurrencyForPrint(totalMetodos)}</strong></td>
+                                        <td colspan="2"></td>
+                                    </tr>
+                                </tbody>
+                            <table>
+                    </div>
+                    
+                    <div class="print-info"  style="align-center">
+                        <p><strong>Fecha de Impresión:</strong> ${formatDateForPrint(new Date().toISOString())}</p>
+                    </div>
+                </body>
+                </html>
+            `);
+            
+            printWindow.document.close();
+            printWindow.print();
         }
 
         // Formatear fecha
