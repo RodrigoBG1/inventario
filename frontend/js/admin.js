@@ -125,17 +125,6 @@ async function confirmOrderModal(orderId) {
             window.showNotification('El pedido ya está completamente pagado', 'info');
         }
         
-        // Mostrar información del pedido pagado
-        alert(`✅ PEDIDO YA PAGADO COMPLETAMENTE
-
-📋 Pedido: ${order.order_number}
-👤 Cliente: ${order.client_info?.name || 'Sin cliente'}
-💵 Total: ${formatCurrency(total)}
-💰 Pagado: ${formatCurrency(paidAmount)}
-✅ Estado: COMPLETAMENTE PAGADO
-
-No se requiere ninguna acción adicional.`);
-        
         return;
     }
     
