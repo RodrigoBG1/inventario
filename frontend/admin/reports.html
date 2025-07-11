@@ -281,7 +281,7 @@
                 </div>
             `;
         }
-        
+
         // Función corregida para construir ventas desde pagos cuando sales está vacío
         function renderSalesFromPayments(payments) {
             console.log('🔄 Construyendo ventas desde pagos iniciales...');
@@ -785,7 +785,7 @@
         }
 
         // Imprimir reporte
-        function printReport() {
+       function printReport() {
             if (!currentReportData) {
                 showNotification('Primero genera un reporte', 'warning');
                 return;
@@ -817,6 +817,47 @@
                 }
             }
             
+            // ===== FUNCIÓN PARA CONSTRUIR VENTAS DESDE PAGOS =====
+            function buildSalesFromPayments(payments) {
+                console.log('🔄 PRINT - Construyendo ventas desde pagos...');
+                
+                if (!payments || payments.length === 0) {
+                    return [];
+                }
+                
+                // Filtrar solo abonos iniciales que representan ventas
+                const initialPayments = payments.filter(payment => 
+                    payment.payment_type === 'initial_payment' && 
+                    payment.order_total && 
+                    payment.order_total > 0
+                );
+                
+                console.log('💰 PRINT - Abonos iniciales encontrados:', initialPayments.length);
+                
+                // Convertir abonos iniciales a formato de ventas
+                const salesFromPayments = initialPayments.map(payment => {
+                    return {
+                        id: payment.order_id,
+                        order_number: payment.order_number,
+                        sale_number: payment.order_number,
+                        total: payment.order_total,
+                        paid_amount: payment.amount,
+                        client_info: {
+                            name: payment.client_name
+                        },
+                        client_name: payment.client_name,
+                        created_at: payment.created_at,
+                        employee_id: payment.recorded_by,
+                        employee_code: payment.recorded_by_code,
+                        payment_method: payment.payment_method,
+                        _source: 'from_payments'
+                    };
+                });
+                
+                console.log('✅ PRINT - Ventas construidas desde pagos:', salesFromPayments.length);
+                return salesFromPayments;
+            }
+            
             // ===== OBTENER INFORMACIÓN DEL VENDEDOR =====
             const employee = currentEmployees.find(emp => emp.id === parseInt(currentReportData.employee_id));
             const reportDate = new Date(currentReportData.date).toLocaleDateString('es-MX', {
@@ -825,24 +866,61 @@
                 day: 'numeric'
             });
             
-            // ===== GENERAR FILAS DE VENTAS =====
-            const salesRows = (currentReportData.sales || []).map(sale => {
+            // ===== PROCESAR VENTAS (IGUAL QUE EN renderSalesTable) =====
+            let processedSales = currentReportData.sales || [];
+            
+            // Si no hay ventas pero hay pagos, construir ventas desde pagos
+            if ((!currentReportData.sales || currentReportData.sales.length === 0) && 
+                currentReportData.payments && currentReportData.payments.length > 0) {
+                console.log('🔄 PRINT - No hay ventas directas, construyendo desde pagos...');
+                processedSales = buildSalesFromPayments(currentReportData.payments);
+            }
+            
+            console.log('📊 PRINT - Ventas procesadas para imprimir:', processedSales.length);
+            
+            // ===== GENERAR FILAS DE VENTAS ACTUALIZADAS =====
+            const salesRows = processedSales.map(sale => {
                 const total = parseFloat(sale.total) || 0;
+                const folio = sale.order_number || sale.sale_number || `VENTA-${sale.id}` || 'N/A';
+                
+                let clienteName = 'Cliente directo';
+                try {
+                    if (sale.client_info) {
+                        if (typeof sale.client_info === 'string') {
+                            const parsed = JSON.parse(sale.client_info);
+                            clienteName = parsed.name || 'Cliente directo';
+                        } else if (typeof sale.client_info === 'object' && sale.client_info.name) {
+                            clienteName = sale.client_info.name;
+                        }
+                    } else if (sale.client_name) {
+                        clienteName = sale.client_name;
+                    }
+                } catch (error) {
+                    console.warn('⚠️ PRINT - Error parseando client_info:', error);
+                    clienteName = sale.client_name || 'Cliente directo';
+                }
+                
+                // Indicador de origen para impresión
+                const sourceIndicator = sale._source === 'from_payments' ? 
+                    '<br><small style="color: #059669;">📋 Desde subalmacén</small>' : '';
                 
                 return `
                     <tr>
-                        <td>${sale.order_number || sale.sale_number || 'N/A'}</td>
+                        <td>
+                            ${folio}
+                            ${sourceIndicator}
+                        </td>
                         <td>${formatDateForPrint(sale.created_at)}</td>
-                        <td>${sale.client_info?.name || sale.client_name || 'Cliente directo'}</td>
+                        <td>${clienteName}</td>
                         <td style="text-align: right;">${formatCurrencyForPrint(total)}</td>
                     </tr>
                 `;
             }).join('');
             
             // ===== CALCULAR TOTALES DE VENTAS =====
-            const totalVentas = (currentReportData.sales || []).reduce((sum, sale) => sum + (parseFloat(sale.total) || 0), 0);
+            const totalVentas = processedSales.reduce((sum, sale) => sum + (parseFloat(sale.total) || 0), 0);
             
-            // ===== GENERAR FILAS DE COBRANZAS =====
+            // ===== GENERAR FILAS DE COBRANZAS (SIN CAMBIOS) =====
             const paymentsRows = (currentReportData.payments || []).map(payment => {
                 const amount = parseFloat(payment.amount) || 0;
                 const isInitialPayment = payment.payment_type === 'initial_payment';
@@ -956,38 +1034,6 @@
                             border-top: 2px solid #334155;
                             color: #0d2975;
                         }
-                        .summary-grid {
-                            display: grid;
-                            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-                            gap: 15px;
-                            margin: 20px 0;
-                        }
-                        .summary-card {
-                            background: white;
-                            border: 1px solid #e2e8f0;
-                            border-radius: 8px;
-                            padding: 15px;
-                            text-align: center;
-                        }
-                        .summary-card h4 {
-                            margin: 0 0 10px 0;
-                            color: #334155;
-                            font-size: 1rem;
-                        }
-                        .summary-card .amount {
-                            font-size: 1.4rem;
-                            font-weight: 700;
-                            color: #0d2975;
-                            margin: 0;
-                        }
-                        .total-card {
-                            border: 2px solid #059669;
-                            background: #f0fdf4;
-                        }
-                        .total-card .amount {
-                            color: #059669;
-                            font-size: 1.6rem;
-                        }
                         .no-data {
                             text-align: center;
                             padding: 40px;
@@ -1031,8 +1077,8 @@
                     </div>
                     
                     <div class="section">
-                        <h3> Ventas del Día</h3>
-                        ${currentReportData.sales && currentReportData.sales.length > 0 ? `
+                        <h3>💰 Ventas del Día</h3>
+                        ${processedSales && processedSales.length > 0 ? `
                             <table>
                                 <thead>
                                     <tr>
@@ -1046,7 +1092,7 @@
                                     ${salesRows}
                                     <tr class="total-row">
                                         <td colspan="2"><strong>ESTADÍSTICAS</strong></td>
-                                        <td><strong>Ventas: ${currentReportData.sales.length}</strong></td>
+                                        <td><strong>Ventas: ${processedSales.length}</strong></td>
                                         <td style="text-align: right;"><strong>${formatCurrencyForPrint(totalVentas)}</strong></td>
                                     </tr>
                                     <tr class="grand-total-row">
@@ -1057,7 +1103,7 @@
                             </table>
                         ` : `
                             <div class="no-data">
-                                <h4> No hay ventas registradas</h4>
+                                <h4>📝 No hay ventas registradas</h4>
                                 <p>No se encontraron ventas para este vendedor en la fecha seleccionada</p>
                             </div>
                         `}
@@ -1069,7 +1115,7 @@
                             <table>
                                 <thead>
                                     <tr>
-                                        <th>No. Pedido / Tipo</th>
+                                        <th>Folio</th>
                                         <th>Fecha</th>
                                         <th>Cliente</th>
                                         <th style="text-align: right;">Monto</th>
@@ -1098,46 +1144,46 @@
                             </table>
                         ` : `
                             <div class="no-data">
-                                <h4> No hay cobranzas registradas</h4>
+                                <h4>💳 No hay cobranzas registradas</h4>
                                 <p>No se encontraron pagos registrados por este vendedor en la fecha seleccionada</p>
                             </div>
                         `}
                     </div>
                     
                     <div class="section">
-                        <h3>Resumen por Método de Pago</h3>
-                            <table>
-                                 <tbody>
-                                    <tr class="total-row">
-                                        <td colspan="3"><strong>Efectivo</strong></td>
-                                        <td style="text-align: right;"><strong>${formatCurrencyForPrint(efectivo)}</strong></td>
-                                        <td colspan="2"></td>
-                                    </tr>
-                                    <tr class="total-row">
-                                        <td colspan="3"><strong>Cheque</strong></td>
-                                        <td style="text-align: right;"><strong>${formatCurrencyForPrint(cheque)}</strong></td>
-                                        <td colspan="2"></td>
-                                    </tr>
-                                    <tr class="total-row">
-                                        <td colspan="3"><strong>Transferencia</strong></td>
-                                        <td style="text-align: right;"><strong>${formatCurrencyForPrint(transferencia)}</strong></td>
-                                        <td colspan="2"></td>
-                                    </tr>
-                                    <tr class="total-row">
-                                        <td colspan="3"><strong>Tarjeta</strong></td>
-                                        <td style="text-align: right;"><strong>${formatCurrencyForPrint(tarjeta)}</strong></td>
-                                        <td colspan="2"></td>
-                                    </tr>
-                                    <tr class="grand-total-row">
-                                        <td colspan="3"><strong>Total</strong></td>
-                                        <td style="text-align: right;"><strong>${formatCurrencyForPrint(totalMetodos)}</strong></td>
-                                        <td colspan="2"></td>
-                                    </tr>
-                                </tbody>
-                            <table>
+                        <h3>📊 Resumen por Método de Pago</h3>
+                        <table>
+                            <tbody>
+                                <tr class="total-row">
+                                    <td colspan="3"><strong>💵 Efectivo</strong></td>
+                                    <td style="text-align: right;"><strong>${formatCurrencyForPrint(efectivo)}</strong></td>
+                                    <td colspan="2"></td>
+                                </tr>
+                                <tr class="total-row">
+                                    <td colspan="3"><strong>🏦 Cheque</strong></td>
+                                    <td style="text-align: right;"><strong>${formatCurrencyForPrint(cheque)}</strong></td>
+                                    <td colspan="2"></td>
+                                </tr>
+                                <tr class="total-row">
+                                    <td colspan="3"><strong>📱 Transferencia</strong></td>
+                                    <td style="text-align: right;"><strong>${formatCurrencyForPrint(transferencia)}</strong></td>
+                                    <td colspan="2"></td>
+                                </tr>
+                                <tr class="total-row">
+                                    <td colspan="3"><strong>💳 Tarjeta</strong></td>
+                                    <td style="text-align: right;"><strong>${formatCurrencyForPrint(tarjeta)}</strong></td>
+                                    <td colspan="2"></td>
+                                </tr>
+                                <tr class="grand-total-row">
+                                    <td colspan="3"><strong>TOTAL COBRADO</strong></td>
+                                    <td style="text-align: right;"><strong>${formatCurrencyForPrint(totalMetodos)}</strong></td>
+                                    <td colspan="2"></td>
+                                </tr>
+                            </tbody>
+                        <table>
                     </div>
                     
-                    <div class="print-info"  style="align-center">
+                    <div class="print-info">
                         <p><strong>Fecha de Impresión:</strong> ${formatDateForPrint(new Date().toISOString())}</p>
                     </div>
                 </body>

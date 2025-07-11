@@ -83,26 +83,41 @@ async function confirmOrderModal(orderId) {
         return;
     }
     
-    // ✅ CORRECCIÓN: Declarar paymentMethod ANTES de usarlo
-    let paymentMethod;
+    // ✅ VERIFICAR PRIMERO SI YA ESTÁ PAGADO
+    const total = parseFloat(order.total) || 0;
+    const paidAmount = parseFloat(order.paid_amount) || 0;
+    const balance = total - paidAmount;
     
-    try {
-        // Mostrar modal de confirmación personalizado
-        paymentMethod = efectivo;
-        
-        if (!paymentMethod) {
-            console.log('❌ Confirmación cancelada por el usuario');
-            return;
+    if (balance <= 0) {
+        console.log('💰 El pedido ya está completamente pagado');
+        if (window.showNotification) {
+            window.showNotification('El pedido ya está completamente pagado', 'info');
         }
         
-        // ✅ CORRECCIÓN: Crear paymentInfo DESPUÉS de obtener paymentMethod
-        const paymentInfo = {
-            method: paymentMethod.toLowerCase().trim(),
-            amount: order.total,
-            confirmed_at: new Date().toISOString(),
-            confirmed_by: 'admin'
-        };
+        // Mostrar información del pedido pagado
+        alert(`✅ PEDIDO YA PAGADO COMPLETAMENTE
+
+📋 Pedido: ${order.order_number}
+👤 Cliente: ${order.client_info?.name || 'Sin cliente'}
+💵 Total: ${formatCurrency(total)}
+💰 Pagado: ${formatCurrency(paidAmount)}
+✅ Estado: COMPLETAMENTE PAGADO
+
+No se requiere ninguna acción adicional.`);
         
+        return;
+    }
+    
+    // ✅ CREAR paymentInfo CORRECTAMENTE ANTES DE USARLO
+    const paymentInfo = {
+        method: 'efectivo',
+        amount: order.total,
+        confirmed_at: new Date().toISOString(),
+        confirmed_by: 'admin',
+        mark_as_paid: true
+    };
+    
+    try {
         console.log('📤 Enviando confirmación de pedido con datos:', paymentInfo);
         
         // Verificar que la función confirmOrder existe
@@ -123,15 +138,31 @@ async function confirmOrderModal(orderId) {
         }
         
         // Mostrar mensaje de éxito detallado
-        alert(`✅ PEDIDO CONFIRMADO EXITOSAMENTE
+        const orderNumber = order.order_number || 'Generándose...';
+        const saleNumber = result.sale?.sale_number || 'Generándose...';
+        const tripNumber = order.trip_id ? `Subalmacén: ${order.trip_id}` : 'Almacén Principal';
+        
+        const confirmationMessage = `🎉 ¡PEDIDO CONFIRMADO EXITOSAMENTE!
 
- Número: ${order.order_number}
- Cliente: ${order.client_info?.name || 'Sin cliente'}
- Total: $${order.total}
- Método de pago: ${paymentMethod}
- Confirmado: ${new Date().toLocaleString()}
+📋 Pedido: ${orderNumber}
+💰 Venta: ${saleNumber}
+👤 Cliente: ${order.client_info?.name || 'Sin cliente'}
+📦 Productos: ${order.products?.length || 0}
+💵 Total: ${formatCurrency(order.total)}
 
-El pedido ha sido procesado correctamente.`);
+💳 Método: Efectivo
+💵 PAGO COMPLETO AL CONTADO
+✅ Pedido TOTALMENTE PAGADO
+
+🏪 Fuente: ${tripNumber}
+
+✅ El pedido ha sido confirmado automáticamente
+📦 El inventario ha sido actualizado
+💰 El pago ha sido registrado
+
+¡Pedido procesado correctamente! 🎊`;
+        
+        alert(confirmationMessage);
         
         // Recargar la página de pedidos
         await loadOrdersPage();
@@ -141,7 +172,20 @@ El pedido ha sido procesado correctamente.`);
         
         let errorMessage = 'Error al confirmar pedido';
         
-        // Mensajes de error más específicos
+        // ✅ MANEJAR EL ERROR DE "YA ESTÁ PAGADO"
+        if (error.message.includes('ya está completamente pagado')) {
+            errorMessage = 'El pedido ya está completamente pagado. No se requiere confirmación adicional.';
+            
+            if (window.showNotification) {
+                window.showNotification(errorMessage, 'info');
+            }
+            
+            // Recargar para mostrar el estado actualizado
+            await loadOrdersPage();
+            return;
+        }
+        
+        // Otros errores
         if (error.message.includes('404')) {
             errorMessage = `Endpoint no encontrado. 
 
@@ -172,7 +216,7 @@ URL intentada: ${window.API_BASE_URL}/api/orders/${orderId}/confirm`;
         console.log('- API Base URL:', window.API_BASE_URL);
         console.log('- User token exists:', !!localStorage.getItem('token'));
         console.log('- User:', getUser());
-        console.log('- Payment info was:', paymentInfo || 'undefined');
+        console.log('- Payment info:', paymentInfo); // ✅ AHORA SÍ ESTÁ DEFINIDO
         
         // Mostrar error al usuario con opción de debug
         const showDebugInfo = confirm(`❌ Error al confirmar el pedido:
@@ -191,6 +235,7 @@ INFORMACIÓN DE DEBUG:
 - API URL: ${window.API_BASE_URL}
 - Error: ${error.message}
 - Token: ${localStorage.getItem('token') ? 'Presente' : 'Ausente'}
+- Payment Info: ${JSON.stringify(paymentInfo)}
 
 Copia esta información para reportar el problema.`;
             
@@ -198,6 +243,7 @@ Copia esta información para reportar el problema.`;
         }
     }
 }
+
 
 // Función corregida para cancelar pedido
 async function cancelOrderModal(orderId) {
@@ -1041,6 +1087,21 @@ function displayOrdersWithPayments() {
             </tr>
         `;
     }).join('');
+}
+
+function formatCurrency(amount) {
+    if (typeof window.formatCurrency === 'function' && window.formatCurrency !== formatCurrency) {
+        return window.formatCurrency(amount);
+    }
+    
+    if (typeof amount !== 'number') {
+        amount = parseFloat(amount) || 0;
+    }
+    
+    return new Intl.NumberFormat('es-MX', {
+        style: 'currency',
+        currency: 'MXN'
+    }).format(amount);
 }
 
 
