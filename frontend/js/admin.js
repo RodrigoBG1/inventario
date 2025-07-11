@@ -67,6 +67,37 @@ function requireAuth() {
     return true;
 }
 
+function showAutoConfirmNotification(orderData, autoConfirmDetails) {
+  if (!autoConfirmDetails || !autoConfirmDetails.confirmed) return;
+  
+  console.log('🎉 Mostrando notificación de auto-confirmación');
+  
+  const message = `¡Pedido ${orderData.order_number} confirmado automáticamente!
+  
+✅ El pedido se completó al 100% y fue confirmado automáticamente
+📦 Inventario actualizado
+🖨️ Ahora puedes imprimir el pedido
+  
+El pedido está listo para entrega.`;
+  
+  if (window.showNotification) {
+    window.showNotification(
+      'Pedido confirmado automáticamente al completar pago',
+      'success'
+    );
+  }
+  
+  // Mostrar modal con detalles
+  setTimeout(() => {
+    alert(message);
+  }, 500);
+  
+  // Actualizar la tabla de pedidos
+  if (typeof loadOrdersPage === 'function') {
+    setTimeout(loadOrdersPage, 1000);
+  }
+}
+
 // ===== FUNCIONES DE CONFIRMACIÓN DE PEDIDOS (CORREGIDAS) =====
 
 // Función corregida para confirmar pedido
@@ -1271,77 +1302,90 @@ function updatePaymentPreview() {
 }
 
 async function submitPayment(orderId) {
-    const amount = parseFloat(document.getElementById('payment-amount').value);
-    const paymentMethod = document.getElementById('payment-method-select').value;
-    const notes = document.getElementById('payment-notes').value.trim();
+  const amount = parseFloat(document.getElementById('payment-amount').value);
+  const paymentMethod = document.getElementById('payment-method-select').value;
+  const notes = document.getElementById('payment-notes').value.trim();
+  
+  if (!amount || amount <= 0) {
+    if (window.showNotification) {
+      window.showNotification('Ingresa un monto válido', 'warning');
+    }
+    return;
+  }
+  
+  const submitBtn = document.getElementById('submit-payment-btn');
+  const originalText = submitBtn.textContent;
+  
+  try {
+    submitBtn.disabled = true;
+    submitBtn.textContent = '💰 Registrando...';
     
-    if (!amount || amount <= 0) {
-        if (window.showNotification) {
-            window.showNotification('Ingresa un monto válido', 'warning');
-        }
-        return;
+    const response = await fetch(`${window.API_BASE_URL}/api/orders/${orderId}/payments`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      },
+      body: JSON.stringify({
+        amount: amount,
+        payment_method: paymentMethod,
+        notes: notes
+      })
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Error registrando abono');
     }
     
-    const submitBtn = document.getElementById('submit-payment-btn');
-    const originalText = submitBtn.textContent;
+    const result = await response.json();
     
-    try {
-        submitBtn.disabled = true;
-        submitBtn.textContent = '💰 Registrando...';
-        
-        const response = await fetch(`${window.API_BASE_URL}/api/orders/${orderId}/payments`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-            },
-            body: JSON.stringify({
-                amount: amount,
-                payment_method: paymentMethod,
-                notes: notes
-            })
-        });
-        
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.message || 'Error registrando abono');
-        }
-        
-        const result = await response.json();
-        
-        if (window.showNotification) {
-            window.showNotification('Abono registrado exitosamente', 'success');
-        }
-        
-        // Actualizar la orden en memoria
-        const orderIndex = orders.findIndex(o => o.id === orderId);
-        if (orderIndex >= 0 && result.order) {
-            orders[orderIndex] = result.order;
-        }
-        
-        // Actualizar la tabla de pedidos
-        displayOrdersWithPayments();
-        
-        // Actualizar información en el modal
-        document.getElementById('payment-paid').textContent = formatCurrency(result.order.paid_amount);
-        document.getElementById('payment-balance').textContent = formatCurrency(result.order.balance);
-        
-        // Limpiar formulario
-        document.getElementById('payment-form').reset();
-        document.getElementById('payment-preview').style.display = 'none';
-        
-        // Recargar historial
-        loadPaymentHistory(orderId);
-        
-    } catch (error) {
-        console.error('Error registrando abono:', error);
-        if (window.showNotification) {
-            window.showNotification('Error: ' + error.message, 'error');
-        }
-    } finally {
-        submitBtn.disabled = false;
-        submitBtn.textContent = originalText;
+    // ===== NUEVA LÓGICA: MANEJAR AUTO-CONFIRMACIÓN =====
+    if (result.auto_confirmed) {
+      console.log('🎉 Pedido auto-confirmado:', result.auto_confirm_details);
+      
+      if (window.showNotification) {
+        window.showNotification(
+          '¡Pedido confirmado automáticamente al completar pago!', 
+          'success'
+        );
+      }
+      
+      // Mostrar detalles de auto-confirmación
+      showAutoConfirmNotification(result.order, result.auto_confirm_details);
+      
+      // Cerrar modal de pagos
+      closePaymentModal();
+      
+    } else {
+      if (window.showNotification) {
+        window.showNotification('Abono registrado exitosamente', 'success');
+      }
+      
+      // Actualizar información en el modal (lógica existente)
+      document.getElementById('payment-paid').textContent = formatCurrency(result.order.paid_amount);
+      document.getElementById('payment-balance').textContent = formatCurrency(result.order.balance);
+      
+      // Limpiar formulario
+      document.getElementById('payment-form').reset();
+      document.getElementById('payment-preview').style.display = 'none';
+      
+      // Recargar historial
+      loadPaymentHistory(orderId);
     }
+    
+    // Actualizar la tabla de pedidos
+    displayOrdersWithPayments();
+    
+  } catch (error) {
+    console.error('Error registrando abono:', error);
+    if (window.showNotification) {
+      window.showNotification('Error: ' + error.message, 'error');
+    }
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = originalText;
+  }
 }
 
 async function loadPaymentHistory(orderId) {
