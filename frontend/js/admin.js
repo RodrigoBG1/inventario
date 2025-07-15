@@ -67,201 +67,31 @@ function requireAuth() {
     return true;
 }
 
-function showAutoConfirmNotification(orderData, autoConfirmDetails) {
-  if (!autoConfirmDetails || !autoConfirmDetails.confirmed) return;
-  
-  console.log('🎉 Mostrando notificación de auto-confirmación');
-  
-  const message = `¡Pedido ${orderData.order_number} confirmado automáticamente!
-  
-✅ El pedido se completó al 100% y fue confirmado automáticamente
-📦 Inventario actualizado
-🖨️ Ahora puedes imprimir el pedido
-  
-El pedido está listo para entrega.`;
-  
-  if (window.showNotification) {
-    window.showNotification(
-      'Pedido confirmado automáticamente al completar pago',
-      'success'
-    );
-  }
-  
-  // Mostrar modal con detalles
-  setTimeout(() => {
-    alert(message);
-  }, 500);
-  
-  // Actualizar la tabla de pedidos
-  if (typeof loadOrdersPage === 'function') {
-    setTimeout(loadOrdersPage, 1000);
-  }
-}
-
 // ===== FUNCIONES DE CONFIRMACIÓN DE PEDIDOS (CORREGIDAS) =====
 
 // Función corregida para confirmar pedido
 async function confirmOrderModal(orderId) {
-    console.log('🔄 Iniciando confirmación de pedido:', orderId);
+    console.log('⏸️ confirmOrderModal llamado para pedido:', orderId, '- No se realizará ninguna acción');
     
+    // Verificar que el pedido existe para evitar errores
     const order = orders.find(o => o.id === orderId);
     
     if (!order) {
-        console.error('❌ Pedido no encontrado:', orderId);
-        if (window.showNotification) {
-            window.showNotification('Pedido no encontrado', 'error');
-        }
+        console.warn('⚠️ Pedido no encontrado:', orderId);
         return;
     }
     
-    // ✅ VERIFICAR PRIMERO SI YA ESTÁ PAGADO
-    const total = parseFloat(order.total) || 0;
-    const paidAmount = parseFloat(order.paid_amount) || 0;
-    const balance = total - paidAmount;
+    // Log silencioso - el pedido permanece en estado de espera
+    console.log('📋 Pedido encontrado:', order.order_number, '- Manteniendo en estado de espera');
     
-    if (balance <= 0) {
-        console.log('💰 El pedido ya está completamente pagado');
-        if (window.showNotification) {
-            window.showNotification('El pedido ya está completamente pagado', 'info');
-        }
-        
-        return;
-    }
+    // NO hacer nada más:
+    // - NO confirmar el pedido
+    // - NO cambiar el estado
+    // - NO mostrar alertas
+    // - NO notificaciones
+    // - El pedido permanece como está
     
-    // ✅ CREAR paymentInfo CORRECTAMENTE ANTES DE USARLO
-    const paymentInfo = {
-        method: 'efectivo',
-        amount: order.total,
-        confirmed_at: new Date().toISOString(),
-        confirmed_by: 'admin',
-        mark_as_paid: true
-    };
-    
-    try {
-        console.log('📤 Enviando confirmación de pedido con datos:', paymentInfo);
-        
-        // Verificar que la función confirmOrder existe
-        if (typeof window.confirmOrder !== 'function') {
-            console.error('❌ Función confirmOrder no está disponible');
-            if (window.showNotification) {
-                window.showNotification('Error: Función de confirmación no disponible', 'error');
-            }
-            return;
-        }
-        
-        const result = await window.confirmOrder(orderId, paymentInfo);
-        
-        console.log('✅ Pedido confirmado exitosamente:', result);
-        
-        if (window.showNotification) {
-            window.showNotification('Pedido confirmado exitosamente', 'success');
-        }
-        
-        // Mostrar mensaje de éxito detallado
-        const orderNumber = order.order_number || 'Generándose...';
-        const saleNumber = result.sale?.sale_number || 'Generándose...';
-        const tripNumber = order.trip_id ? `Subalmacén: ${order.trip_id}` : 'Almacén Principal';
-        
-        const confirmationMessage = `🎉 ¡PEDIDO CONFIRMADO EXITOSAMENTE!
-
-📋 Pedido: ${orderNumber}
-💰 Venta: ${saleNumber}
-👤 Cliente: ${order.client_info?.name || 'Sin cliente'}
-📦 Productos: ${order.products?.length || 0}
-💵 Total: ${formatCurrency(order.total)}
-
-💳 Método: Efectivo
-💵 PAGO COMPLETO AL CONTADO
-✅ Pedido TOTALMENTE PAGADO
-
-🏪 Fuente: ${tripNumber}
-
-✅ El pedido ha sido confirmado automáticamente
-📦 El inventario ha sido actualizado
-💰 El pago ha sido registrado
-
-¡Pedido procesado correctamente! 🎊`;
-        
-        alert(confirmationMessage);
-        
-        // Recargar la página de pedidos
-        await loadOrdersPage();
-        
-    } catch (error) {
-        console.error('❌ Error confirmando pedido:', error);
-        
-        let errorMessage = 'Error al confirmar pedido';
-        
-        // ✅ MANEJAR EL ERROR DE "YA ESTÁ PAGADO"
-        if (error.message.includes('ya está completamente pagado')) {
-            errorMessage = 'El pedido ya está completamente pagado. No se requiere confirmación adicional.';
-            
-            if (window.showNotification) {
-                window.showNotification(errorMessage, 'info');
-            }
-            
-            // Recargar para mostrar el estado actualizado
-            await loadOrdersPage();
-            return;
-        }
-        
-        // Otros errores
-        if (error.message.includes('404')) {
-            errorMessage = `Endpoint no encontrado. 
-
-🔧 POSIBLES SOLUCIONES:
-1. Verificar que el servidor esté funcionando
-2. Comprobar que la ruta existe en el servidor
-3. Reiniciar el servidor
-4. Verificar la configuración de rutas
-
-URL intentada: ${window.API_BASE_URL}/api/orders/${orderId}/confirm`;
-        } else if (error.message.includes('401')) {
-            errorMessage = 'No autorizado. Tu sesión puede haber expirado. Intenta hacer login nuevamente.';
-        } else if (error.message.includes('403')) {
-            errorMessage = 'Sin permisos de administrador para esta acción.';
-        } else if (error.message.includes('500')) {
-            errorMessage = 'Error interno del servidor. Contacta al administrador del sistema.';
-        } else if (error.message) {
-            errorMessage = error.message;
-        }
-        
-        if (window.showNotification) {
-            window.showNotification(errorMessage, 'error');
-        }
-        
-        // Mostrar información adicional para debugging
-        console.log('🔍 Información de debugging:');
-        console.log('- Order ID:', orderId);
-        console.log('- API Base URL:', window.API_BASE_URL);
-        console.log('- User token exists:', !!localStorage.getItem('token'));
-        console.log('- User:', getUser());
-        console.log('- Payment info:', paymentInfo); // ✅ AHORA SÍ ESTÁ DEFINIDO
-        
-        // Mostrar error al usuario con opción de debug
-        const showDebugInfo = confirm(`❌ Error al confirmar el pedido:
-
-${errorMessage}
-
-¿Quieres ver información de debugging para reportar el problema?`);
-        
-        if (showDebugInfo) {
-            const debugInfo = `
-INFORMACIÓN DE DEBUG:
-====================
-- Fecha: ${new Date().toISOString()}
-- Usuario: ${getUser()?.name} (${getUser()?.role})
-- Order ID: ${orderId}
-- API URL: ${window.API_BASE_URL}
-- Error: ${error.message}
-- Token: ${localStorage.getItem('token') ? 'Presente' : 'Ausente'}
-- Payment Info: ${JSON.stringify(paymentInfo)}
-
-Copia esta información para reportar el problema.`;
-            
-            alert(debugInfo);
-        }
-    }
+    return; // Salir sin hacer nada
 }
 
 
@@ -281,7 +111,7 @@ async function cancelOrderModal(orderId) {
     
     const reason = prompt(`¿Cancelar el pedido ${order.order_number}?\n\nIngresa el motivo de cancelación:`, 'Cancelado por administrador');
     
-    if (!reason) {
+    if (!reason || reason.trim() === '') {
         console.log('❌ Cancelación cancelada por el usuario');
         return;
     }
@@ -297,7 +127,7 @@ async function cancelOrderModal(orderId) {
             return;
         }
         
-        const result = await window.cancelOrder(orderId, reason);
+        const result = await window.cancelOrder(orderId, reason.trim());
         
         console.log('✅ Pedido cancelado exitosamente:', result);
         
@@ -309,7 +139,7 @@ async function cancelOrderModal(orderId) {
         alert(`🚫 PEDIDO CANCELADO
 
 📋 Número: ${order.order_number}
-📝 Motivo: ${reason}
+📝 Motivo: ${reason.trim()}
 📅 Cancelado: ${new Date().toLocaleString()}
 
 El pedido ha sido cancelado correctamente.`);
@@ -329,15 +159,6 @@ El pedido ha sido cancelado correctamente.`);
 ${error.message}
 
 Verifica tu conexión e intenta nuevamente.`);
-    }
-}
-
-function injectAutoConfirmStyles() {
-    if (!document.getElementById('auto-confirm-styles')) {
-        const styleElement = document.createElement('style');
-        styleElement.id = 'auto-confirm-styles';
-        styleElement.textContent = autoConfirmStyles;
-        document.head.appendChild(styleElement);
     }
 }
 
@@ -789,10 +610,10 @@ function displayProducts() {
             <td>${window.formatCurrency ? window.formatCurrency(product.price) : `${product.price}`}</td>
             <td>
                 <div class="action-buttons">
-                    <button class="btn btn-edit" onclick="editProduct(${product.id})">
+                    <button class="btn btn-sm btn-edit" onclick="editProduct(${product.id})">
                          Editar
                     </button>
-                    <button class="btn btn-delete" onclick="deleteProductConfirm(${product.id})">
+                    <button class="btn btn-sm btn-delete" onclick="deleteProductConfirm(${product.id})">
                         Elimin
                     </button>
                 </div>
@@ -841,10 +662,10 @@ function displayFilteredProducts(filteredProducts) {
             <td>${window.formatCurrency ? window.formatCurrency(product.price) : `${product.price}`}</td>
             <td>
                 <div class="action-buttons">
-                    <button class="btn btn-edit" onclick="editProduct(${product.id})">
+                    <button class="btn btn-sm btn-edit" onclick="editProduct(${product.id})">
                          Editar
                     </button>
-                    <button class="btn btn-delete" onclick="deleteProductConfirm(${product.id})">
+                    <button class="btn btn-sm btn-delete" onclick="deleteProductConfirm(${product.id})">
                          Elimin
                     </button>
                 </div>
@@ -961,11 +782,11 @@ function displayEmployees() {
             <td>${window.formatDate ? window.formatDate(employee.created_at) : employee.created_at}</td>
             <td>
                 <div class="action-buttons">
-                    <button class="btn btn-edit" onclick="editEmployee(${employee.id})" title="Editar vendedor">
+                    <button class="btn btn-sm btn-edit" onclick="editEmployee(${employee.id})" title="Editar vendedor">
                          Editar
                     </button>
                     ${employee.role !== 'admin' ? `
-                        <button class="btn btn-danger" onclick="deleteEmployeeConfirm(${employee.id})" title="Eliminar vendedor">
+                        <button class="btn btn-sm btn-danger" onclick="deleteEmployeeConfirm(${employee.id})" title="Eliminar vendedor">
                              Elimin
                         </button>
                     ` : ''}
@@ -1048,10 +869,10 @@ function displayOrdersWithPayments() {
             statusBadge = `<span class="status-badge status-paid"> Pagado</span>`;
             
             actionButtons = `
-                <button class="btn btn-primary" style="background-color: #052e5b;" onclick="viewOrderDetails(${order.id})">
+                <button class="btn btn-sm btn-primary" onclick="viewOrderDetails(${order.id})">
                     Ver
                 </button>
-                <button class="btn btn-secondary" onclick="printOrder(${order.id})">
+                <button class="btn btn-sm btn-secondary" onclick="printOrder(${order.id})">
                     Imprimir
                 </button>
             `;
@@ -1059,13 +880,13 @@ function displayOrdersWithPayments() {
             statusBadge = `<span class="status-badge status-not-paid">⏳ No Pagado</span>`;
             
             actionButtons = `
-                <button class="btn btn-primary" style="background-color: #052e5b;" onclick="viewOrderDetails(${order.id})">
+                <button class="btn btn-sm btn-primary" onclick="viewOrderDetails(${order.id})">
                     Ver
                 </button>
-                <button class="btn btn-success" onclick="openPaymentModal(${order.id})">
+                <button class="btn btn-sm btn-success" onclick="openPaymentModal(${order.id})">
                     Abonar
                 </button>
-                <button class="btn btn-delete" onclick="cancelOrderModal(${order.id})">
+                <button class="btn btn-sm btn-delete" onclick="cancelOrderModal(${order.id})">
                     Cancelar
                 </button>
             `;
@@ -1107,21 +928,6 @@ function displayOrdersWithPayments() {
             </tr>
         `;
     }).join('');
-}
-
-function formatCurrency(amount) {
-    if (typeof window.formatCurrency === 'function' && window.formatCurrency !== formatCurrency) {
-        return window.formatCurrency(amount);
-    }
-    
-    if (typeof amount !== 'number') {
-        amount = parseFloat(amount) || 0;
-    }
-    
-    return new Intl.NumberFormat('es-MX', {
-        style: 'currency',
-        currency: 'MXN'
-    }).format(amount);
 }
 
 
@@ -1291,90 +1097,77 @@ function updatePaymentPreview() {
 }
 
 async function submitPayment(orderId) {
-  const amount = parseFloat(document.getElementById('payment-amount').value);
-  const paymentMethod = document.getElementById('payment-method-select').value;
-  const notes = document.getElementById('payment-notes').value.trim();
-  
-  if (!amount || amount <= 0) {
-    if (window.showNotification) {
-      window.showNotification('Ingresa un monto válido', 'warning');
-    }
-    return;
-  }
-  
-  const submitBtn = document.getElementById('submit-payment-btn');
-  const originalText = submitBtn.textContent;
-  
-  try {
-    submitBtn.disabled = true;
-    submitBtn.textContent = '💰 Registrando...';
+    const amount = parseFloat(document.getElementById('payment-amount').value);
+    const paymentMethod = document.getElementById('payment-method-select').value;
+    const notes = document.getElementById('payment-notes').value.trim();
     
-    const response = await fetch(`${window.API_BASE_URL}/api/orders/${orderId}/payments`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      },
-      body: JSON.stringify({
-        amount: amount,
-        payment_method: paymentMethod,
-        notes: notes
-      })
-    });
-    
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'Error registrando abono');
+    if (!amount || amount <= 0) {
+        if (window.showNotification) {
+            window.showNotification('Ingresa un monto válido', 'warning');
+        }
+        return;
     }
     
-    const result = await response.json();
+    const submitBtn = document.getElementById('submit-payment-btn');
+    const originalText = submitBtn.textContent;
     
-    // ===== NUEVA LÓGICA: MANEJAR AUTO-CONFIRMACIÓN =====
-    if (result.auto_confirmed) {
-      console.log('🎉 Pedido auto-confirmado:', result.auto_confirm_details);
-      
-      if (window.showNotification) {
-        window.showNotification(
-          '¡Pedido confirmado automáticamente al completar pago!', 
-          'success'
-        );
-      }
-      
-      // Mostrar detalles de auto-confirmación
-      showAutoConfirmNotification(result.order, result.auto_confirm_details);
-      
-      // Cerrar modal de pagos
-      closePaymentModal();
-      
-    } else {
-      if (window.showNotification) {
-        window.showNotification('Abono registrado exitosamente', 'success');
-      }
-      
-      // Actualizar información en el modal (lógica existente)
-      document.getElementById('payment-paid').textContent = formatCurrency(result.order.paid_amount);
-      document.getElementById('payment-balance').textContent = formatCurrency(result.order.balance);
-      
-      // Limpiar formulario
-      document.getElementById('payment-form').reset();
-      document.getElementById('payment-preview').style.display = 'none';
-      
-      // Recargar historial
-      loadPaymentHistory(orderId);
+    try {
+        submitBtn.disabled = true;
+        submitBtn.textContent = '💰 Registrando...';
+        
+        const response = await fetch(`${window.API_BASE_URL}/api/orders/${orderId}/payments`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            body: JSON.stringify({
+                amount: amount,
+                payment_method: paymentMethod,
+                notes: notes
+            })
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Error registrando abono');
+        }
+        
+        const result = await response.json();
+        
+        if (window.showNotification) {
+            window.showNotification('Abono registrado exitosamente', 'success');
+        }
+        
+        // Actualizar la orden en memoria
+        const orderIndex = orders.findIndex(o => o.id === orderId);
+        if (orderIndex >= 0 && result.order) {
+            orders[orderIndex] = result.order;
+        }
+        
+        // Actualizar la tabla de pedidos
+        displayOrdersWithPayments();
+        
+        // Actualizar información en el modal
+        document.getElementById('payment-paid').textContent = formatCurrency(result.order.paid_amount);
+        document.getElementById('payment-balance').textContent = formatCurrency(result.order.balance);
+        
+        // Limpiar formulario
+        document.getElementById('payment-form').reset();
+        document.getElementById('payment-preview').style.display = 'none';
+        
+        // Recargar historial
+        loadPaymentHistory(orderId);
+        
+    } catch (error) {
+        console.error('Error registrando abono:', error);
+        if (window.showNotification) {
+            window.showNotification('Error: ' + error.message, 'error');
+        }
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText;
     }
-    
-    // Actualizar la tabla de pedidos
-    displayOrdersWithPayments();
-    
-  } catch (error) {
-    console.error('Error registrando abono:', error);
-    if (window.showNotification) {
-      window.showNotification('Error: ' + error.message, 'error');
-    }
-  } finally {
-    submitBtn.disabled = false;
-    submitBtn.textContent = originalText;
-  }
 }
 
 async function loadPaymentHistory(orderId) {
@@ -2255,7 +2048,7 @@ function ensureEnhancedOrderModalExists() {
                 <div class="enhanced-modal-title">
                     <span>📋</span>
                     <span>Pedido <span id="enhancedOrderNumber">#ORD-2025001</span></span>
-                    <div class="enhanced-order-status enhanced-status-hold" id="enhancedOrderStatus">En Espera</div>
+                    <div class="enhanced-order-status enhanced-status-hold" id="enhancedOrderStatus"></div>
                 </div>
                 <button class="enhanced-close-btn" onclick="closeEnhancedOrderModal()">&times;</button>
             </div>
@@ -2445,98 +2238,57 @@ const autoConfirmStyles = `
     border: 1px solid #3b82f6;
 }
 
-btn,
-.action-buttons .btn,
-button {
-  /* Tamaño compacto */
-  padding: 6px 12px !important;
-  border: 1px solid transparent !important;
-  border-radius: 4px !important;
-  font-size: 13px !important;
-  font-weight: 400 !important;
-  cursor: pointer !important;
-  transition: all 0.15s ease-in-out !important;
-  text-decoration: none !important;
-  display: inline-block !important;
-  line-height: 1.3 !important;
-  box-sizing: border-box !important;
-  vertical-align: middle !important;
-  
-  /* ELIMINAR GRADIENTES - COLOR SÓLIDO */
-  background-color: #f8f9fa !important;
-  background-image: none !important;
-  background: #f8f9fa !important;
-  color: #212529 !important;
-  border-color: #dee2e6 !important;
-  box-shadow: none !important;
+/* Enhanced action buttons */
+.action-buttons {
+    display: flex;
+    gap: 0.25rem;
+    flex-wrap: wrap;
 }
 
-/* Estados hover SIN efectos de transformación */
-.btn:hover,
-.action-buttons .btn:hover {
-
-  border-color: #adb5bd !important;
-  box-shadow: none !important;
-  transform: none !important; /* Sin movimiento */
-}
-
-/* Colores específicos SIN gradientes */
-.btn-primary {
-  background-color: #052e5b !important;
-  color: white !important;
-  border-color: #052e5b !important;
-}
-
-.btn-primary:hover {
-  background-color: #041f42 !important;
-  background-image: none !important;
-  background: #041f42 !important;
-}
-
-.btn-secondary {
-  background-color: #6c757d !important;
-  background-image: none !important;
-  background: #6c757d !important;
-  color: white !important;
-  border-color: #6c757d !important;
-}
-
-.btn-secondary:hover {
-  background-color: #5a6268 !important;
-  background-image: none !important;
-  background: #5a6268 !important;
-}
-
-.btn-edit {
-  background-color: #052e5b !important;
-  background-image: none !important;
-  background: #052e5b !important;
-  color: white !important;
-}
-
-.btn-delete {
-  background-color: #5b0509 !important;
-  background-image: none !important;
-  background: #5b0509 !important;
-  color: white !important;
+.btn-sm {
+    padding: 0.375rem 0.75rem;
+    font-size: 0.75rem;
+    border-radius: 4px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
 }
 
 .btn-confirm {
-  background-color: #28a745 !important;
-  background-image: none !important;
-  background: #28a745 !important;
-  color: white !important;
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+    box-shadow: 0 2px 4px rgba(16, 185, 129, 0.3);
 }
 
-/* Eliminar efectos especiales */
-.btn::before,
-.btn::after {
-  display: none !important;
+.btn-confirm:hover {
+    background: linear-gradient(135deg, #059669, #047857);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(16, 185, 129, 0.4);
 }
 
-/* Sin animaciones complejas */
-.btn {
-  animation: none !important;
+.btn-delete {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: white;
+    box-shadow: 0 2px 4px rgba(239, 68, 68, 0.3);
+}
+
+.btn-delete:hover {
+    background: linear-gradient(135deg, #dc2626, #b91c1c);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(239, 68, 68, 0.4);
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #052e5b, #052e5b);
+    color: white;
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, #052e5b, #052e5b);
+    transform: translateY(-1px);
 }
 
 /* Dashboard stats update for auto-confirmed orders */

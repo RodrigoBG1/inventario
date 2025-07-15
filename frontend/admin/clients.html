@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clientes - Sistema de Aceites</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="../css/admin.css">
+</head>
+<body>
+    <div class="admin-container">
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <h2>Admin Panel</h2>
+                <span id="user-name"></span>
+            </div>
+                <ul class="nav-menu">
+                    <li><a href="dashboard.html">Dashboard</a></li>
+                    <li><a href="products.html">Productos</a></li>
+                    <li><a href="employees.html">Vendedores</a></li>
+                    <li><a href="orders.html">Pedidos</a></li>
+                    <li><a href="subalmacenes.html">Subalmacenes</a></li>
+                    <li><a href="clients.html" class="active">Clientes</a></li>
+                    <li><a href="reports.html">Reportes</a></li>
+                    <li><a href="#" onclick="logout()">Cerrar Sesión</a></li>
+                </ul>
+        </nav>
+            <main class="main-content"></main>
+                <header class="content-header">
+                    <h1> Clientes</h1>
+                </header>
+                <br>
+                <div>
+                    <iframe width="560" height="315" src="https://www.youtube.com/embed/ChKqrwa7Ylw?si=jSkr-MWrs1faqhh7" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin"></iframe>
+                </div>
+            </main>
+
+    <!-- Scripts en orden correcto: config PRIMERO -->
+    <script src="../js/config.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/api.js"></script>
+    <script src="../js/admin.js"></script>
+    <script src="../js/order-details-modal.js"></script>
+</body>
+</html>

@@ -1608,7 +1608,7 @@ async function sellFromSubstore(tripId, productId, quantity, saleData) {
 }
 
 async function addProductToExistingTrip(tripId, productData) {
-  console.log('➕ Agregando producto a subalmacén permanente:', { tripId, productData });
+  console.log('Agregando producto a subalmacén permanente:', { tripId, productData });
   
   const { product_id, quantity, price } = productData;
   
@@ -1829,7 +1829,7 @@ async function addProductToExistingTrip(tripId, productData) {
 
 // Nueva función para remover producto del subalmacén
 async function removeProductFromTrip(tripId, productId) {
-  console.log('➖ Removiendo producto del subalmacén permanente:', { tripId, productId });
+  console.log(' Removiendo producto del subalmacén permanente:', { tripId, productId });
   
   if (supabase) {
     try {
@@ -2372,186 +2372,6 @@ async function confirmOrderFromSubstore(orderId, tripId, paymentInfo) {
   } catch (error) {
     console.error('❌ Error confirmando pedido desde subalmacén:', error);
     throw error;
-  }
-}
-
-async function autoConfirmOrderOnPaymentCompletion(orderId) {
-  console.log('🔄 Verificando si el pedido debe auto-confirmarse:', orderId);
-  
-  try {
-    // Obtener el pedido
-    let order;
-    if (supabase) {
-      const { data, error } = await supabase
-        .from('orders')
-        .select('*')
-        .eq('id', orderId)
-        .single();
-      
-      if (error || !data) {
-        console.warn('⚠️ Pedido no encontrado para auto-confirmación:', orderId);
-        return { confirmed: false, reason: 'order_not_found' };
-      }
-      order = data;
-    } else {
-      order = fallbackDatabase.orders.find(o => o.id === orderId);
-      if (!order) {
-        console.warn('⚠️ Pedido no encontrado en memoria:', orderId);
-        return { confirmed: false, reason: 'order_not_found' };
-      }
-    }
-    
-    // Verificar si ya está confirmado
-    if (order.status === 'confirmed') {
-      console.log('✅ El pedido ya está confirmado:', orderId);
-      return { confirmed: false, reason: 'already_confirmed' };
-    }
-    
-    // Verificar si está completamente pagado
-    const total = parseFloat(order.total) || 0;
-    const paidAmount = parseFloat(order.paid_amount) || 0;
-    const balance = total - paidAmount;
-    
-    if (balance > 0.01) { // Pequeña tolerancia para decimales
-      console.log('💰 El pedido aún tiene saldo pendiente:', { total, paidAmount, balance });
-      return { confirmed: false, reason: 'balance_remaining', balance };
-    }
-    
-    console.log('🎉 Pedido completamente pagado, iniciando auto-confirmación...');
-    
-    // Procesar según la fuente del inventario
-    let inventoryUpdate = null;
-    
-    if (order.inventory_source === 'substore' && order.trip_id) {
-      console.log('🚛 Auto-confirmando pedido desde subalmacén, trip:', order.trip_id);
-      
-      if (order.products && Array.isArray(order.products)) {
-        for (const orderProduct of order.products) {
-          const { product_id, quantity } = orderProduct;
-          console.log(`📦 Vendiendo desde subalmacén: ${product_id} x ${quantity}`);
-          await sellFromSubstore(order.trip_id, product_id, quantity, {
-            order_id: orderId,
-            client_info: order.client_info,
-            auto_confirmed: true
-          });
-        }
-        
-        inventoryUpdate = {
-          type: 'substore_auto_confirmed',
-          trip_id: order.trip_id,
-          products_updated: order.products.length
-        };
-      }
-    } else {
-      console.log('🏪 Auto-confirmando pedido desde almacén principal');
-      
-      if (order.products && Array.isArray(order.products)) {
-        // Validar stock antes de confirmar
-        const stockValidation = await validateStockAvailability(order.products);
-        
-        if (!stockValidation.valid) {
-          console.error('❌ Stock insuficiente para auto-confirmación:', stockValidation.issues);
-          return { 
-            confirmed: false, 
-            reason: 'insufficient_stock', 
-            stock_issues: stockValidation.issues 
-          };
-        }
-        
-        inventoryUpdate = await updateInventoryStock(
-          order.products, 
-          'subtract', 
-          `Auto-confirmación - Pedido ${order.order_number} completamente pagado`
-        );
-      }
-    }
-    
-    // Actualizar estado del pedido a confirmado
-    const updateData = {
-      status: 'confirmed',
-      confirmed_at: new Date().toISOString(),
-      auto_confirmed: true,
-      auto_confirm_reason: 'payment_completed',
-      payment_info: {
-        ...order.payment_info,
-        auto_confirmed: true,
-        confirmed_at: new Date().toISOString()
-      }
-    };
-    
-    if (supabase) {
-      const { data: updatedOrder, error: updateError } = await supabase
-        .from('orders')
-        .update(updateData)
-        .eq('id', orderId)
-        .select()
-        .single();
-      
-      if (updateError) throw updateError;
-      order = updatedOrder;
-    } else {
-      const orderIndex = fallbackDatabase.orders.findIndex(o => o.id === orderId);
-      fallbackDatabase.orders[orderIndex] = {
-        ...order,
-        ...updateData
-      };
-      order = fallbackDatabase.orders[orderIndex];
-    }
-    
-    // Crear registro de venta
-    const saleData = {
-      order_id: orderId,
-      trip_id: order.trip_id || null,
-      sale_number: await generateSaleNumber(),
-      employee_id: order.employee_id,
-      employee_code: order.employee_code,
-      client_info: order.client_info,
-      products: order.products,
-      total: order.total,
-      payment_info: {
-        ...order.payment_info,
-        auto_confirmed: true
-      },
-      inventory_source: order.inventory_source || 'main_store',
-      location: order.location,
-      notes: order.notes + ' (Auto-confirmado al completar pago)',
-      created_at: new Date().toISOString()
-    };
-    
-    let newSale = null;
-    if (supabase) {
-      const { data, error: saleError } = await supabase
-        .from('sales')
-        .insert([saleData])
-        .select()
-        .single();
-      
-      if (!saleError) newSale = data;
-    } else {
-      newSale = {
-        id: fallbackDatabase.sales.length + 1,
-        ...saleData
-      };
-      fallbackDatabase.sales.push(newSale);
-    }
-    
-    console.log(`✅ Pedido ${orderId} AUTO-CONFIRMADO exitosamente al completar el pago`);
-    
-    return {
-      confirmed: true,
-      order: order,
-      sale: newSale,
-      inventory_update: inventoryUpdate,
-      inventory_source: order.inventory_source || 'main_store'
-    };
-    
-  } catch (error) {
-    console.error('❌ Error en auto-confirmación:', error);
-    return {
-      confirmed: false,
-      reason: 'auto_confirm_error',
-      error: error.message
-    };
   }
 }
 
@@ -3146,16 +2966,16 @@ app.post("/api/orders/:id/payments", auth, async (req, res) => {
     const orderId = parseInt(req.params.id);
     const { amount, payment_method, notes } = req.body;
     
-    console.log('💰 Adding payment with AUTO-CONFIRMATION:', { orderId, amount, payment_method });
+    console.log('💰 Adding payment to order:', { orderId, amount, payment_method });
     
-    // Validaciones (sin cambios)
+    // Validaciones
     if (!amount || amount <= 0) {
       return res.status(400).json({ 
         message: 'El monto del abono debe ser mayor a 0' 
       });
     }
     
-    // Obtener el pedido (sin cambios)
+    // Obtener el pedido
     let order;
     if (supabase) {
       const { data, error } = await supabase
@@ -3175,20 +2995,20 @@ app.post("/api/orders/:id/payments", auth, async (req, res) => {
       }
     }
     
-    // Verificar permisos (sin cambios)
+    // Verificar permisos
     if (req.user.role !== 'admin' && order.employee_id !== req.user.id) {
       return res.status(403).json({ 
         message: 'No tienes permisos para agregar abonos a este pedido' 
       });
     }
     
-    // Validar el abono (sin cambios)
+    // Validar el abono
     const validation = validatePayment(order.total, order.paid_amount || 0, amount);
     
-    // Calcular nuevo balance (sin cambios)
+    // Calcular nuevo balance
     const newPaymentBalance = calculatePaymentBalance(order.total, validation.new_total_paid);
     
-    // Crear registro del abono (sin cambios)
+    // Crear registro del abono
     const paymentRecord = {
       order_id: orderId,
       amount: parseFloat(amount),
@@ -3199,8 +3019,9 @@ app.post("/api/orders/:id/payments", auth, async (req, res) => {
       created_at: new Date().toISOString()
     };
     
-    // Actualizar pedido (sin cambios)
+    // Actualizar pedido
     if (supabase) {
+      // Actualizar pedido en Supabase
       const { data: updatedOrder, error: updateError } = await supabase
         .from('orders')
         .update({
@@ -3228,32 +3049,15 @@ app.post("/api/orders/:id/payments", auth, async (req, res) => {
         console.warn('⚠️ Error registrando abono:', paymentError);
       }
       
-      // ===== NUEVA LÓGICA: AUTO-CONFIRMACIÓN =====
-      let autoConfirmResult = null;
-      if (newPaymentBalance.is_fully_paid && order.status === 'hold') {
-        console.log('🎉 Pedido completamente pagado, iniciando auto-confirmación...');
-        autoConfirmResult = await autoConfirmOrderOnPaymentCompletion(orderId);
-        
-        if (autoConfirmResult.confirmed) {
-          console.log('✅ Pedido auto-confirmado exitosamente');
-        } else {
-          console.warn('⚠️ No se pudo auto-confirmar:', autoConfirmResult.reason);
-        }
-      }
-      
       res.json({
-        message: autoConfirmResult?.confirmed 
-          ? 'Abono registrado y pedido confirmado automáticamente' 
-          : 'Abono registrado exitosamente',
-        order: autoConfirmResult?.confirmed ? autoConfirmResult.order : updatedOrder,
+        message: 'Abono registrado exitosamente',
+        order: updatedOrder,
         payment: newPayment,
-        payment_summary: newPaymentBalance,
-        auto_confirmed: autoConfirmResult?.confirmed || false,
-        auto_confirm_details: autoConfirmResult || null
+        payment_summary: newPaymentBalance
       });
       
     } else {
-      // Fallback: similar lógica para memoria
+      // Fallback: actualizar en memoria
       const orderIndex = fallbackDatabase.orders.findIndex(o => o.id === orderId);
       
       fallbackDatabase.orders[orderIndex] = {
@@ -3278,26 +3082,16 @@ app.post("/api/orders/:id/payments", auth, async (req, res) => {
       
       fallbackDatabase.order_payments.push(newPayment);
       
-      // Auto-confirmación en memoria
-      let autoConfirmResult = null;
-      if (newPaymentBalance.is_fully_paid && order.status === 'hold') {
-        autoConfirmResult = await autoConfirmOrderOnPaymentCompletion(orderId);
-      }
-      
       res.json({
-        message: autoConfirmResult?.confirmed 
-          ? 'Abono registrado y pedido confirmado automáticamente' 
-          : 'Abono registrado exitosamente',
-        order: autoConfirmResult?.confirmed ? autoConfirmResult.order : fallbackDatabase.orders[orderIndex],
+        message: 'Abono registrado exitosamente',
+        order: fallbackDatabase.orders[orderIndex],
         payment: newPayment,
-        payment_summary: newPaymentBalance,
-        auto_confirmed: autoConfirmResult?.confirmed || false,
-        auto_confirm_details: autoConfirmResult || null
+        payment_summary: newPaymentBalance
       });
     }
     
   } catch (error) {
-    console.error('❌ Error adding payment with auto-confirmation:', error);
+    console.error('❌ Error adding payment to order:', error);
     res.status(500).json({ 
       message: 'Error registrando abono: ' + error.message,
       error: error.message 
@@ -4493,9 +4287,44 @@ app.put("/api/orders/:id/mark-paid", auth, async (req, res) => {
     const orderId = parseInt(req.params.id);
     const { payment_method = 'efectivo', notes = '' } = req.body;
     
-    console.log('💰 Marcando pedido como pagado CON AUTO-CONFIRMACIÓN:', orderId);
+    console.log('💰 Marcando pedido como pagado completamente:', orderId);
     
-    // ... (código existente de validaciones sin cambios) ...
+    // Obtener el pedido
+    let order;
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('id', orderId)
+        .single();
+      
+      if (error || !data) {
+        return res.status(404).json({ message: 'Pedido no encontrado' });
+      }
+      order = data;
+    } else {
+      order = fallbackDatabase.orders.find(o => o.id === orderId);
+      if (!order) {
+        return res.status(404).json({ message: 'Pedido no encontrado' });
+      }
+    }
+    
+    // Verificar permisos
+    if (req.user.role !== 'admin' && order.employee_id !== req.user.id) {
+      return res.status(403).json({ 
+        message: 'No tienes permisos para modificar este pedido' 
+      });
+    }
+    
+    const total = parseFloat(order.total) || 0;
+    const currentPaid = parseFloat(order.paid_amount) || 0;
+    
+    if (currentPaid >= total) {
+      return res.status(400).json({ 
+        message: 'El pedido ya está completamente pagado',
+        current_status: 'paid'
+      });
+    }
     
     // Actualizar como pagado completamente
     const updateData = {
@@ -4532,29 +4361,30 @@ app.put("/api/orders/:id/mark-paid", auth, async (req, res) => {
         .from('order_payments')
         .insert([paymentRecord]);
       
-      // ===== NUEVA LÓGICA: AUTO-CONFIRMACIÓN =====
-      let autoConfirmResult = null;
-      if (order.status === 'hold') {
-        console.log('🎉 Iniciando auto-confirmación al marcar como pagado...');
-        autoConfirmResult = await autoConfirmOrderOnPaymentCompletion(orderId);
-      }
-      
       res.json({
-        message: autoConfirmResult?.confirmed 
-          ? 'Pedido marcado como pagado y confirmado automáticamente'
-          : 'Pedido marcado como pagado completamente',
-        order: autoConfirmResult?.confirmed ? autoConfirmResult.order : updatedOrder,
-        payment_added: total - currentPaid,
-        auto_confirmed: autoConfirmResult?.confirmed || false,
-        auto_confirm_details: autoConfirmResult || null
+        message: 'Pedido marcado como pagado completamente',
+        order: updatedOrder,
+        payment_added: total - currentPaid
       });
       
     } else {
-      // Similar lógica para memoria...
+      // Fallback: actualizar en memoria
+      const orderIndex = fallbackDatabase.orders.findIndex(o => o.id === orderId);
+      
+      fallbackDatabase.orders[orderIndex] = {
+        ...order,
+        ...updateData
+      };
+      
+      res.json({
+        message: 'Pedido marcado como pagado completamente',
+        order: fallbackDatabase.orders[orderIndex],
+        payment_added: total - currentPaid
+      });
     }
     
   } catch (error) {
-    console.error('❌ Error marking order as paid with auto-confirmation:', error);
+    console.error('❌ Error marking order as paid:', error);
     res.status(500).json({ 
       message: 'Error marcando como pagado: ' + error.message,
       error: error.message 
@@ -7090,9 +6920,6 @@ app.get("/admin/subalmacenes.html", (req, res) => {
   res.sendFile(path.join(__dirname, 'frontend', 'admin', 'subalmacenes.html'));
 });
 
-
-
-
 app.get("/admin/orders.html", (req, res) => {
   res.sendFile(path.join(__dirname, 'frontend', 'admin', 'orders.html'));
 });
@@ -7139,10 +6966,6 @@ app.get("*", (req, res) => {
     </div>
   `);
 });
-
-// ===== RUTAS DE API PARA SUBALMACENES =====
-// Agregar estas rutas al archivo index.js después de las rutas existentes
-
 
 // Manejo de errores
 app.use((err, req, res, next) => {

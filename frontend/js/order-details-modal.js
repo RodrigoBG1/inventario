@@ -29,7 +29,7 @@ function ensureOrderDetailsModal() {
                         <p id="orderDate">24 de junio, 2025</p>
                     </div>
                 </div>
-                <div class="order-status-badge status-hold" id="orderStatus">En Espera</div>
+                <div class="order-status-badge status-hold" id="orderStatus"></div>
                 <button class="order-close-btn" onclick="closeOrderModal()">✕</button>
             </div>
 
