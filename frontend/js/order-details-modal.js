@@ -23,13 +23,11 @@ function ensureOrderDetailsModal() {
             <!-- Header -->
             <div class="order-modal-header">
                 <div class="order-header-content">
-                    <div class="order-header-icon">📋</div>
                     <div class="order-header-text">
                         <h2 id="orderNumber">Pedido #ORD-2025001</h2>
                         <p id="orderDate">24 de junio, 2025</p>
                     </div>
                 </div>
-                <div class="order-status-badge status-hold" id="orderStatus"></div>
                 <button class="order-close-btn" onclick="closeOrderModal()">✕</button>
             </div>
 
@@ -38,7 +36,7 @@ function ensureOrderDetailsModal() {
                 <!-- Información del Cliente -->
                 <div class="order-section">
                     <h3 class="section-title">
-                        <span class="section-icon">👤</span>
+                    
                         Información del Cliente
                     </h3>
                     <table class="client-info-table">
@@ -72,7 +70,7 @@ function ensureOrderDetailsModal() {
                 <!-- Productos -->
                 <div class="order-section">
                     <h3 class="section-title">
-                        <span class="section-icon">📦</span>
+                    
                         Productos del Pedido
                     </h3>
                     <table class="products-table">
@@ -126,7 +124,7 @@ function ensureOrderDetailsModal() {
                 <!-- NUEVA SECCIÓN: Historial de Abonos -->
                 <div class="order-section" id="paymentHistorySection">
                     <h3 class="section-title">
-                        <span class="section-icon">📋</span>
+                
                         Historial de Abonos
                         <button class="btn-refresh" onclick="loadPaymentHistoryForOrder()" title="Actualizar historial">
                             🔄
@@ -140,12 +138,12 @@ function ensureOrderDetailsModal() {
                 <!-- Fotografía -->
                 <div class="order-section">
                     <h3 class="section-title">
-                        <span class="section-icon">📷</span>
+                
                         Fotografía del Pedido
                     </h3>
                     <div class="photo-section">
                         <div id="photoContainer">
-                            <div class="no-photo">📷 No hay fotografía disponible para este pedido</div>
+                            <div class="no-photo">No hay fotografía disponible para este pedido</div>
                         </div>
                     </div>
                 </div>
@@ -153,18 +151,18 @@ function ensureOrderDetailsModal() {
                 <!-- Ubicación -->
                 <div class="order-section">
                     <h3 class="section-title">
-                        <span class="section-icon">📍</span>
+                    
                         Ubicación del Pedido
                     </h3>
                     <div id="mapContainer" class="map-container">
-                        📍 No hay información de ubicación disponible
+                        No hay información de ubicación disponible
                     </div>
                 </div>
 
                 <!-- Notas -->
                 <div class="order-section">
                     <h3 class="section-title">
-                        <span class="section-icon">📝</span>
+                    
                         Notas del Vendedor
                     </h3>
                     <div class="notes-content" id="orderNotes">
@@ -176,7 +174,7 @@ function ensureOrderDetailsModal() {
             <!-- Footer -->
             <div class="order-modal-footer">
                 <div class="footer-info">
-                    <span>🕒</span>
+            
                     <span>Última actualización: <span id="lastUpdated">Ahora</span></span>
                 </div>
                 <div class="footer-actions">
@@ -1058,32 +1056,68 @@ function showOrderDetails(orderData) {
     }
 
     // Llenar información básica
-    document.getElementById('orderNumber').textContent = `Pedido ${orderData.order_number || '#' + orderData.id}`;
-    document.getElementById('orderDate').textContent = formatDate(orderData.created_at);
+    const orderNumberEl = document.getElementById('orderNumber');
+    const orderDateEl = document.getElementById('orderDate');
     
-    // Estado del pedido
+    if (orderNumberEl) {
+        orderNumberEl.textContent = `Pedido ${orderData.order_number || '#' + orderData.id}`;
+    }
+    
+    if (orderDateEl) {
+        orderDateEl.textContent = formatDate(orderData.created_at);
+    }
+    
+    // Estado del pedido - CON VALIDACIÓN DEFENSIVA
     const statusElement = document.getElementById('orderStatus');
-    statusElement.className = `order-status-badge status-${orderData.status}`;
-    statusElement.textContent = getStatusText(orderData.status);
+    if (statusElement) {
+        statusElement.className = `order-status-badge status-${orderData.status}`;
+        statusElement.textContent = getStatusText(orderData.status);
+    } else {
+        console.warn('⚠️ Elemento orderStatus no encontrado, saltando actualización de estado');
+    }
 
-    // Información del cliente
-    document.getElementById('clientName').textContent = orderData.client_info?.name || 'No especificado';
-    document.getElementById('clientPhone').textContent = orderData.client_info?.phone || 'No especificado';
-    document.getElementById('clientEmail').textContent = orderData.client_info?.email || 'No especificado';
-    document.getElementById('clientAddress').textContent = orderData.client_info?.address || 'No especificada';
-    document.getElementById('employeeName').textContent = orderData.employee_name || orderData.employee_code || 'No especificado';
-    document.getElementById('orderCreatedAt').textContent = formatDate(orderData.created_at);
+    // Información del cliente - CON VALIDACIONES
+    const clientElements = {
+        clientName: document.getElementById('clientName'),
+        clientPhone: document.getElementById('clientPhone'),
+        clientEmail: document.getElementById('clientEmail'),
+        clientAddress: document.getElementById('clientAddress'),
+        employeeName: document.getElementById('employeeName'),
+        orderCreatedAt: document.getElementById('orderCreatedAt')
+    };
+
+    if (clientElements.clientName) {
+        clientElements.clientName.textContent = orderData.client_info?.name || 'No especificado';
+    }
+    if (clientElements.clientPhone) {
+        clientElements.clientPhone.textContent = orderData.client_info?.phone || 'No especificado';
+    }
+    if (clientElements.clientEmail) {
+        clientElements.clientEmail.textContent = orderData.client_info?.email || 'No especificado';
+    }
+    if (clientElements.clientAddress) {
+        clientElements.clientAddress.textContent = orderData.client_info?.address || 'No especificada';
+    }
+    if (clientElements.employeeName) {
+        clientElements.employeeName.textContent = orderData.employee_name || orderData.employee_code || 'No especificado';
+    }
+    if (clientElements.orderCreatedAt) {
+        clientElements.orderCreatedAt.textContent = formatDate(orderData.created_at);
+    }
 
     // Productos
     fillProductsTable(orderData.products || []);
     
     // Total
-    document.getElementById('orderTotal').textContent = formatCurrency(orderData.total || 0);
+    const orderTotalEl = document.getElementById('orderTotal');
+    if (orderTotalEl) {
+        orderTotalEl.textContent = formatCurrency(orderData.total || 0);
+    }
 
-    // ===== NUEVA FUNCIONALIDAD: Estado de Pagos =====
+    // Estado de Pagos
     fillPaymentStatus(orderData);
 
-    // ===== NUEVA FUNCIONALIDAD: Historial de Abonos =====
+    // Historial de Abonos
     loadPaymentHistoryForOrder();
 
     // Fotografía
@@ -1099,7 +1133,10 @@ function showOrderDetails(orderData) {
     fillOrderActions(orderData);
 
     // Última actualización
-    document.getElementById('lastUpdated').textContent = formatDate(new Date().toISOString());
+    const lastUpdatedEl = document.getElementById('lastUpdated');
+    if (lastUpdatedEl) {
+        lastUpdatedEl.textContent = formatDate(new Date().toISOString());
+    }
 
     // Mostrar modal
     modal.classList.add('show');
@@ -1297,8 +1334,8 @@ function fillProductsTable(products) {
                         <span class="product-code">${product.code || product.product_code || 'N/A'}</span>
                         ${product.custom_price_info ? `
                             <div style="margin-top: 0.5rem;">
-                                <span style="background: #fbbf24; color: #92400e; padding: 0.25rem 0.5rem; border-radius: 3px; font-size: 0.75rem;">
-                                    💰 Precio Personalizado
+                                <span style="background: #232372ff; color: #fff8f8ff; padding: 0.25rem 0.5rem; border-radius: 3px; font-size: 0.75rem;">
+                                    Precio Personalizado
                                 </span>
                             </div>
                         ` : ''}
@@ -1404,6 +1441,7 @@ function fillNotesSection(notes) {
 }
 
 // Llenar acciones según el estado del pedido
+// Llenar acciones según el estado del pedido - VERSIÓN MODIFICADA
 function fillOrderActions(orderData) {
     const container = document.getElementById('orderActions');
     const status = orderData.status;
@@ -1414,7 +1452,12 @@ function fillOrderActions(orderData) {
     let actions = '';
     
     if (status === 'hold') {
-           confirmOrderFromModal(orderData.id);
+        // ===== MODIFICACIÓN: Agregar botón de imprimir también en estado "En Espera" =====
+        actions = `
+            <button class="modal-btn btn-secondary" onclick="printOrder(${orderData.id})">
+                🖨️ Imprimir
+            </button>
+        `;
     } else if (status === 'confirmed') {
         // Mostrar botón de abono solo si hay saldo pendiente
         if (balance > 0) {
@@ -1431,14 +1474,272 @@ function fillOrderActions(orderData) {
                 <button class="modal-btn btn-secondary" onclick="printOrder(${orderData.id})">
                     🖨️ Imprimir
                 </button>
-                <span style="color: var(--modal-success); font-weight: 600; padding: 0.75rem;">
-                    ✅ Pedido Pagado Completamente
-                </span>
             `;
         }
+    } else if (status === 'cancelled') {
+        // Para pedidos cancelados, solo permitir imprimir
+        actions = `
+            <button class="modal-btn btn-secondary" onclick="printOrder(${orderData.id})">
+                🖨️ Imprimir
+            </button>
+            <span style="color: var(--modal-danger); font-weight: 600; padding: 0.75rem;">
+                ❌ Pedido Cancelado
+            </span>
+        `;
     }
     
     container.innerHTML = actions;
+}
+
+// ===== FUNCIÓN DE IMPRESIÓN MEJORADA PARA TODOS LOS ESTADOS =====
+function printOrder(orderId) {
+    if (!currentOrderData) {
+        console.error('❌ No hay datos de pedido disponibles para imprimir');
+        if (window.showNotification) {
+            window.showNotification('Error: No hay datos del pedido para imprimir', 'error');
+        }
+        return;
+    }
+    
+    console.log('🖨️ Imprimiendo pedido:', currentOrderData.order_number, 'Estado:', currentOrderData.status);
+    
+    // ===== FUNCIÓN HELPER PARA OBTENER PRECIO CORRECTO =====
+    function getCorrectPrice(product) {
+        // Misma lógica que en el modal
+        if (product.unit_price !== undefined && product.unit_price !== null) {
+            return parseFloat(product.unit_price) || 0;
+        } else if (product.price !== undefined && product.price !== null) {
+            return parseFloat(product.price) || 0;
+        } else if (product.line_total && product.quantity) {
+            return (parseFloat(product.line_total) || 0) / (parseInt(product.quantity) || 1);
+        } else if (product.custom_price_info && product.custom_price_info.custom_price) {
+            return parseFloat(product.custom_price_info.custom_price) || 0;
+        }
+        return 0;
+    }
+    
+    // ===== FUNCIÓN HELPER PARA FORMATEAR MONEDA =====
+    function formatCurrencyForPrint(amount) {
+        if (typeof amount !== 'number') amount = parseFloat(amount) || 0;
+        return new Intl.NumberFormat('es-MX', {
+            style: 'currency',
+            currency: 'MXN'
+        }).format(amount);
+    }
+    
+    // ===== FUNCIÓN HELPER PARA FORMATEAR FECHAS =====
+    function formatDateForPrint(dateString) {
+        if (!dateString) return 'No especificada';
+        try {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('es-MX', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        } catch (error) {
+            return dateString;
+        }
+    }
+    
+    // ===== FUNCIÓN HELPER PARA OBTENER TEXTO Y COLOR DEL ESTADO =====
+    function getStatusForPrint(status) {
+        const statusMap = {
+            'hold': { text: 'En Espera', color: '#d97706', background: '#fef3c7' },
+            'confirmed': { text: 'Confirmado', color: '#059669', background: '#d1fae5' },
+            'cancelled': { text: 'Cancelado', color: '#dc2626', background: '#fee2e2' }
+        };
+        return statusMap[status] || { text: status, color: '#6b7280', background: '#f3f4f6' };
+    }
+    
+    const statusInfo = getStatusForPrint(currentOrderData.status);
+    
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Pedido ${currentOrderData.order_number}</title>
+            <style>
+                body { 
+                    font-family: Arial, sans-serif; 
+                    max-width: 800px; 
+                    margin: 0 auto; 
+                    padding: 20px; 
+                    color: #1f2937;
+                }
+                .header { 
+                    text-align: center; 
+                    margin-bottom: 30px; 
+                    border-bottom: 2px solid #0d2975; 
+                    padding-bottom: 20px; 
+                }
+                .header h1 {
+                    color: #0d2975;
+                    margin-bottom: 10px;
+                }
+                .status-badge {
+                    display: inline-block;
+                    padding: 8px 16px;
+                    border-radius: 6px;
+                    font-weight: 600;
+                    font-size: 0.875rem;
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                    margin: 10px 0;
+                    background: ${statusInfo.background};
+                    color: ${statusInfo.color};
+                    border: 1px solid ${statusInfo.color};
+                }
+                .section { 
+                    margin: 20px 0; 
+                }
+                .section h3 { 
+                    background: #f8fafc; 
+                    color: #0d2975;
+                    padding: 10px; 
+                    margin: 10px 0;
+                    border-left: 4px solid #0d2975;
+                }
+                table { 
+                    width: 100%; 
+                    border-collapse: collapse; 
+                    margin: 10px 0; 
+                }
+                th, td { 
+                    border: 1px solid #e5e7eb; 
+                    padding: 8px; 
+                    text-align: left; 
+                }
+                th { 
+                    background: #f8fafc;
+                    color: #0d2975;
+                    font-weight: 600;
+                }
+                .total { 
+                    font-size: 1.2em; 
+                    font-weight: bold; 
+                    text-align: right; 
+                    margin: 20px 0;
+                    color: #0d2975;
+                }
+                .payment-info {
+                    background: #f0f9ff;
+                    padding: 15px;
+                    border-radius: 5px;
+                    margin: 15px 0;
+                    border-left: 4px solid #3b82f6;
+                }
+                .text-right { text-align: right; }
+                .font-mono { font-family: 'Courier New', monospace; }
+                
+                /* Estilos específicos para estado en espera */
+                .hold-notice {
+                    background: #fef3c7;
+                    border: 1px solid #d97706;
+                    color: #92400e;
+                    padding: 12px;
+                    border-radius: 6px;
+                    margin: 15px 0;
+                    text-align: center;
+                    font-weight: 600;
+                }
+                
+                @media print {
+                    body { margin: 0; padding: 15px; }
+                    .section { page-break-inside: avoid; }
+                }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h2>Pedido ${currentOrderData.order_number || '#' + currentOrderData.id}</h2>
+                <div class="status-badge">${statusInfo.text}</div>
+                <p>Fecha: ${formatDateForPrint(currentOrderData.created_at)}</p>
+                ${currentOrderData.status === 'hold' ? `
+                    <div class="hold-notice">
+                        ⏳ Este pedido está pendiente de confirmación
+                    </div>
+                ` : ''}
+            </div>
+            
+            <div class="section">
+                <h3>Información del Cliente</h3>
+                <table>
+                    <tr><th>Nombre:</th><td>${currentOrderData.client_info?.name || 'N/A'}</td></tr>
+                    <tr><th>Teléfono:</th><td>${currentOrderData.client_info?.phone || 'N/A'}</td></tr>
+                    <tr><th>Dirección:</th><td>${currentOrderData.client_info?.address || 'N/A'}</td></tr>
+                    <tr><th>Email:</th><td>${currentOrderData.client_info?.email || 'N/A'}</td></tr>
+                </table>
+            </div>
+            
+            <div class="section">
+                <h3>Productos</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Código</th>
+                            <th>Producto</th>
+                            <th class="text-right">Precio</th>
+                            <th class="text-right">Cantidad</th>
+                            <th class="text-right">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${(currentOrderData.products || []).map(product => {
+                            const unitPrice = getCorrectPrice(product);
+                            const quantity = parseInt(product.quantity) || 0;
+                            const lineTotal = unitPrice * quantity;
+                            
+                            return `
+                                <tr>
+                                    <td class="font-mono">${product.code || product.product_code || 'N/A'}</td>
+                                    <td>
+                                        <strong>${product.name || product.product_name || 'N/A'}</strong>
+                                        ${product.brand || product.viscosity || product.capacity ? 
+                                            `<br><small style="color: #6b7280;">${[product.brand, product.viscosity, product.capacity].filter(Boolean).join(' • ')}</small>`
+                                        : ''}
+                                        ${product.custom_price_info ? '<br><small style="color: #d97706;">💰 Precio Personalizado</small>' : ''}
+                                    </td>
+                                    <td class="text-right">${formatCurrencyForPrint(unitPrice)}</td>
+                                    <td class="text-right">${quantity}</td>
+                                    <td class="text-right"><strong>${formatCurrencyForPrint(lineTotal)}</strong></td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+                <div class="total">Total: ${formatCurrencyForPrint(currentOrderData.total || 0)}</div>
+            </div>
+            
+            <div class="payment-info">
+                <h3>Información de Pagos</h3>
+                <table>
+                    <tr><th>Total del Pedido:</th><td class="text-right">${formatCurrencyForPrint(currentOrderData.total || 0)}</td></tr>
+                    <tr><th>Total Abonado:</th><td class="text-right">${formatCurrencyForPrint(currentOrderData.paid_amount || 0)}</td></tr>
+                    <tr><th>Saldo Pendiente:</th><td class="text-right"><strong>${formatCurrencyForPrint(Math.max(0, (currentOrderData.total || 0) - (currentOrderData.paid_amount || 0)))}</strong></td></tr>
+                </table>
+            </div>
+            
+            ${currentOrderData.notes ? `
+            <div class="section">
+                <h3>Notas</h3>
+                <p style="background: #f8fafc; padding: 10px; border-radius: 4px; border-left: 3px solid #3b82f6;">${currentOrderData.notes}</p>
+            </div>
+            ` : ''}
+        </body>
+        </html>
+    `);
+    
+    printWindow.document.close();
+    
+    // Esperar un momento para que se cargue el contenido y luego imprimir
+    setTimeout(() => {
+        printWindow.print();
+        console.log('✅ Ventana de impresión abierta para pedido:', currentOrderData.order_number);
+    }, 500);
 }
 
 // Función para abrir el modal de pagos desde el detalle del pedido
@@ -1899,15 +2200,15 @@ function fillProductsTableWithDebug(products) {
                     <span class="product-code">${product.code || product.product_code || 'N/A'}</span>
                     ${product.price_source === 'custom_price' ? `
                         <div style="margin-top: 0.5rem;">
-                            <span style="background: #fbbf24; color: #92400e; padding: 0.25rem 0.5rem; border-radius: 3px; font-size: 0.75rem;">
-                                💰 Precio Personalizado
+                            <span style="background: #16457fff; color: #1f104aff; padding: 0.25rem 0.5rem; border-radius: 3px; font-size: 0.75rem;">
+                                Precio Personalizado
                             </span>
                         </div>
                     ` : ''}
                     ${product.price_source === 'none' ? `
                         <div style="margin-top: 0.5rem;">
                             <span style="background: #ef4444; color: white; padding: 0.25rem 0.5rem; border-radius: 3px; font-size: 0.75rem;">
-                                ⚠️ Sin Precio
+                                Sin Precio
                             </span>
                         </div>
                     ` : ''}

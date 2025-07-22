@@ -820,7 +820,7 @@
             
             // ===== FUNCIÓN PARA CONSTRUIR VENTAS DESDE PAGOS =====
             function buildSalesFromPayments(payments) {
-                console.log('🔄 PRINT - Construyendo ventas desde pagos...');
+                console.log('PRINT - Construyendo ventas desde pagos...');
                 
                 if (!payments || payments.length === 0) {
                     return [];
@@ -833,7 +833,7 @@
                     payment.order_total > 0
                 );
                 
-                console.log('💰 PRINT - Abonos iniciales encontrados:', initialPayments.length);
+                console.log('PRINT - Abonos iniciales encontrados:', initialPayments.length);
                 
                 // Convertir abonos iniciales a formato de ventas
                 const salesFromPayments = initialPayments.map(payment => {
@@ -855,7 +855,7 @@
                     };
                 });
                 
-                console.log('✅ PRINT - Ventas construidas desde pagos:', salesFromPayments.length);
+                console.log('PRINT - Ventas construidas desde pagos:', salesFromPayments.length);
                 return salesFromPayments;
             }
             
@@ -1078,7 +1078,7 @@
                     </div>
                     
                     <div class="section">
-                        <h3>💰 Ventas del Día</h3>
+                        <h3>Ventas del Día</h3>
                         ${processedSales && processedSales.length > 0 ? `
                             <table>
                                 <thead>
@@ -1104,14 +1104,14 @@
                             </table>
                         ` : `
                             <div class="no-data">
-                                <h4>📝 No hay ventas registradas</h4>
+                                <h4>No hay ventas registradas</h4>
                                 <p>No se encontraron ventas para este vendedor en la fecha seleccionada</p>
                             </div>
                         `}
                     </div>
                     
                     <div class="section">
-                        <h3>💳 Cobranzas del Día</h3>
+                        <h3>Cobranzas del Día</h3>
                         ${currentReportData.payments && currentReportData.payments.length > 0 ? `
                             <table>
                                 <thead>
@@ -1145,33 +1145,33 @@
                             </table>
                         ` : `
                             <div class="no-data">
-                                <h4>💳 No hay cobranzas registradas</h4>
+                                <h4>No hay cobranzas registradas</h4>
                                 <p>No se encontraron pagos registrados por este vendedor en la fecha seleccionada</p>
                             </div>
                         `}
                     </div>
                     
                     <div class="section">
-                        <h3>📊 Resumen por Método de Pago</h3>
+                        <h3>Resumen por Método de Pago</h3>
                         <table>
                             <tbody>
                                 <tr class="total-row">
-                                    <td colspan="3"><strong>💵 Efectivo</strong></td>
+                                    <td colspan="3"><strong>Efectivo</strong></td>
                                     <td style="text-align: right;"><strong>${formatCurrencyForPrint(efectivo)}</strong></td>
                                     <td colspan="2"></td>
                                 </tr>
                                 <tr class="total-row">
-                                    <td colspan="3"><strong>🏦 Cheque</strong></td>
+                                    <td colspan="3"><strong>Cheque</strong></td>
                                     <td style="text-align: right;"><strong>${formatCurrencyForPrint(cheque)}</strong></td>
                                     <td colspan="2"></td>
                                 </tr>
                                 <tr class="total-row">
-                                    <td colspan="3"><strong>📱 Transferencia</strong></td>
+                                    <td colspan="3"><strong>Transferencia</strong></td>
                                     <td style="text-align: right;"><strong>${formatCurrencyForPrint(transferencia)}</strong></td>
                                     <td colspan="2"></td>
                                 </tr>
                                 <tr class="total-row">
-                                    <td colspan="3"><strong>💳 Tarjeta</strong></td>
+                                    <td colspan="3"><strong>Tarjeta</strong></td>
                                     <td style="text-align: right;"><strong>${formatCurrencyForPrint(tarjeta)}</strong></td>
                                     <td colspan="2"></td>
                                 </tr>

@@ -517,7 +517,6 @@ function updateDashboardStats() {
     });
 }
 
-
 function updateRecentOrders() {
     const tbody = document.querySelector('#recent-orders-table tbody');
     if (!tbody) return;
@@ -651,27 +650,66 @@ function displayFilteredProducts(filteredProducts) {
     const tbody = document.querySelector('#products-table tbody');
     if (!tbody) return;
     
-    tbody.innerHTML = filteredProducts.map(product => `
-        <tr>
-            <td>${product.code}</td>
-            <td>${product.name}</td>
-            <td>${product.brand}</td>
-            <td>${product.viscosity}</td>
-            <td>${product.capacity}</td>
-            <td>${product.stock}</td>
-            <td>${window.formatCurrency ? window.formatCurrency(product.price) : `${product.price}`}</td>
-            <td>
-                <div class="action-buttons">
-                    <button class="btn btn-sm btn-edit" onclick="editProduct(${product.id})">
-                         Editar
-                    </button>
-                    <button class="btn btn-sm btn-delete" onclick="deleteProductConfirm(${product.id})">
-                         Elimin
-                    </button>
+    tbody.innerHTML = filteredProducts.map(product => {
+        // Determinar precio principal (cash_box o price como fallback)
+        const displayPrice = product.prices?.cash_box || product.price || 0;
+        
+        // Construir detalles de precios (IGUAL QUE EN displayProducts)
+        let priceDetails = '';
+        if (product.prices) {
+            priceDetails = `
+                <div class="price-display-table">
+                    <div><strong>Contado:</strong> ${window.formatCurrency ? window.formatCurrency(product.prices.cash_unit || 0) : `$${(product.prices.cash_unit || 0).toFixed(2)}`}/ud • ${window.formatCurrency ? window.formatCurrency(product.prices.cash_box || 0) : `$${(product.prices.cash_box || 0).toFixed(2)}`}/caja</div>
+                    <div class="price-details"><strong>Crédito 21d:</strong> ${window.formatCurrency ? window.formatCurrency(product.prices.credit_unit || 0) : `$${(product.prices.credit_unit || 0).toFixed(2)}`}/ud • ${window.formatCurrency ? window.formatCurrency(product.prices.credit_box || 0) : `$${(product.prices.credit_box || 0).toFixed(2)}`}/caja</div>
                 </div>
-            </td>
-        </tr>
-    `).join('');
+            `;
+        } else {
+            priceDetails = `<span class="price-details">Sistema anterior: ${window.formatCurrency ? window.formatCurrency(product.price || 0) : `$${(product.price || 0).toFixed(2)}`}</span>`;
+        }
+        
+        return `
+            <tr>
+                <td>${product.code}</td>
+                <td>${product.name}</td>
+                <td>${product.brand}</td>
+                <td>${product.viscosity}</td>
+                <td>${product.capacity}</td>
+                <td>${product.stock}</td>
+                <td>
+                    <div class="price-main price-tooltip" data-tooltip="Precio Contado - Caja">
+                        ${window.formatCurrency ? window.formatCurrency(displayPrice) : `$${displayPrice.toFixed(2)}`}
+                    </div>
+                </td>
+                <td>${priceDetails}</td>
+                <td>
+                    <div class="action-buttons">
+                        <button class="btn btn-sm btn-edit" onclick="editProduct(${product.id})">
+                            Editar
+                        </button>
+                        <button class="btn btn-sm btn-delete" onclick="deleteProductConfirm(${product.id})">
+                            Eliminar
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+    
+    // Mostrar mensaje si no hay productos filtrados
+    if (filteredProducts.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="9" style="text-align: center; padding: 2rem; color: #64748b;">
+                    🔍 No se encontraron productos que coincidan con los filtros aplicados
+                    <div style="margin-top: 1rem;">
+                        <button onclick="clearProductFilters()" class="btn btn-secondary btn-sm">
+                            Limpiar Filtros
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }
 }
 
 // Modal de productos
@@ -830,6 +868,7 @@ async function deleteEmployeeConfirm(employeeId) {
         }
     }
 }
+
 // ===== PEDIDOS (CORREGIDO) =====
 async function loadOrdersPage() {
     try {
