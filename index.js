@@ -5716,11 +5716,12 @@ app.get("/api/reports/inventory", auth, adminOnly, async (req, res) => {
   }
 });
 
+// ===== ENDPOINT PARA REPORTES DE VENTAS Y COBRANZAS =====
 app.get("/api/reports/sales-collection", auth, adminOnly, async (req, res) => {
   try {
     const { employee_id, date } = req.query;
     
-    console.log('📊 Generando reporte CON SALDOS POR PAGAR:', { employee_id, date });
+    console.log('📊 Generando reporte CORREGIDO (incluye ventas sin abono y no confirmadas):', { employee_id, date });
     
     // Validaciones
     if (!employee_id || !date) {
@@ -5756,26 +5757,64 @@ app.get("/api/reports/sales-collection", auth, adminOnly, async (req, res) => {
     
     let salesData = [];
     let paymentsData = [];
-    let ordersData = [];
-    let allOrdersForPayments = []; // NUEVO: Para calcular saldos
+    let ordersForPayments = [];
     
     if (supabase) {
       try {
-        // Obtener ventas del vendedor en la fecha específica
-        const { data: sales, error: salesError } = await supabase
-          .from('sales')
+        // ===== PASO 1: Obtener TODAS las ventas (confirmadas Y no confirmadas) del día =====
+        console.log('🔍 Buscando TODAS las ventas (confirmadas y no confirmadas)...');
+        
+        // CAMBIO PRINCIPAL: Incluir tanto 'confirmed' como 'hold'
+        const { data: allOrders, error: ordersError } = await supabase
+          .from('orders')
           .select('*')
           .eq('employee_id', employee_id)
-          .gte('created_at', startDate.toISOString())
+          .in('status', ['confirmed', 'hold']) // ✅ INCLUIR AMBOS ESTADOS
+          .gte('created_at', startDate.toISOString()) // Usar created_at para pedidos no confirmados
           .lte('created_at', endDate.toISOString())
           .order('created_at', { ascending: true });
         
-        if (!salesError) {
-          salesData = sales || [];
+        if (!ordersError && allOrders) {
+          // ✅ CORRECCIÓN: Convertir TODAS las órdenes (confirmadas y no confirmadas) a ventas
+          salesData = allOrders.map(order => {
+            // Usar confirmed_at si existe, sino created_at
+            const saleDate = order.status === 'confirmed' && order.confirmed_at 
+              ? order.confirmed_at 
+              : order.created_at;
+            
+            return {
+              id: order.id,
+              order_id: order.id,
+              order_number: order.order_number,
+              sale_number: order.order_number,
+              employee_id: order.employee_id,
+              employee_code: order.employee_code,
+              client_info: order.client_info,
+              client_name: order.client_info?.name || 'Cliente directo',
+              products: order.products,
+              total: order.total,
+              paid_amount: order.paid_amount || 0,
+              payment_method: order.payment_method || 'credit',
+              created_at: saleDate,
+              inventory_source: order.inventory_source || 'main_store',
+              order_status: order.status, // ✅ MANTENER EL STATUS ORIGINAL
+              is_confirmed: order.status === 'confirmed',
+              _source: order.status === 'confirmed' ? 'from_confirmed_orders' : 'from_pending_orders'
+            };
+          });
+          
+          console.log('✅ Ventas obtenidas (confirmadas y no confirmadas):', salesData.length);
+          console.log('📊 Desglose de ventas:');
+          console.log('  - Confirmadas:', salesData.filter(s => s.order_status === 'confirmed').length);
+          console.log('  - No confirmadas:', salesData.filter(s => s.order_status === 'hold').length);
+          console.log('  - Con abono inicial:', salesData.filter(s => (parseFloat(s.paid_amount) || 0) > 0).length);
+          console.log('  - Sin abono inicial:', salesData.filter(s => (parseFloat(s.paid_amount) || 0) === 0).length);
         }
         
-        // ACTUALIZADO: Obtener pagos CON información de la orden
-        const { data: payments, error: paymentsError } = await supabase
+        // ===== PASO 2: Obtener pagos posteriores (no iniciales) =====
+        console.log('💳 Buscando pagos posteriores...');
+        
+        const { data: subsequentPayments, error: paymentsError } = await supabase
           .from('order_payments')
           .select(`
             *,
@@ -5783,7 +5822,10 @@ app.get("/api/reports/sales-collection", auth, adminOnly, async (req, res) => {
               order_number,
               client_info,
               total,
-              paid_amount
+              paid_amount,
+              status,
+              confirmed_at,
+              created_at
             )
           `)
           .eq('recorded_by', employee_id)
@@ -5791,66 +5833,111 @@ app.get("/api/reports/sales-collection", auth, adminOnly, async (req, res) => {
           .lte('created_at', endDate.toISOString())
           .order('created_at', { ascending: true });
         
-        if (!paymentsError) {
-          paymentsData = payments || [];
+        if (!paymentsError && subsequentPayments) {
+          // ✅ CORRECCIÓN: Filtrar pagos que NO sean abonos iniciales duplicados
+          paymentsData = subsequentPayments.filter(payment => {
+            const correspondingOrder = salesData.find(sale => sale.order_id === payment.order_id);
+            
+            if (correspondingOrder) {
+              // Para órdenes confirmadas, usar confirmed_at; para no confirmadas, usar created_at
+              const orderDate = correspondingOrder.order_status === 'confirmed' 
+                ? new Date(payment.orders?.confirmed_at || '')
+                : new Date(payment.orders?.created_at || '');
+              
+              const isFromSameDay = orderDate >= startDate && orderDate <= endDate;
+              const paidAmount = parseFloat(correspondingOrder.paid_amount) || 0;
+              
+              // Si la venta tiene abono inicial y el pago coincide con ese monto, es duplicado
+              if (isFromSameDay && paidAmount > 0 && Math.abs(parseFloat(payment.amount) - paidAmount) < 0.01) {
+                console.log(`❌ Excluyendo pago duplicado: ${payment.id} (${payment.amount}) - ya incluido en venta ${correspondingOrder.order_number}`);
+                return false;
+              }
+            }
+            
+            return true; // Incluir este pago
+          });
+          
+          console.log('✅ Pagos posteriores obtenidos (sin duplicados):', paymentsData.length);
         }
         
-        // Obtener pedidos del vendedor con abonos iniciales
-        const { data: orders, error: ordersError } = await supabase
+        // ===== PASO 3: Obtener información de todas las órdenes para calcular saldos =====
+        const { data: allOrdersForPayments, error: allOrdersError } = await supabase
           .from('orders')
-          .select('*')
-          .eq('employee_id', employee_id)
-          .gte('created_at', startDate.toISOString())
-          .lte('created_at', endDate.toISOString())
-          .gt('paid_amount', 0) // Solo pedidos con abono inicial
-          .order('created_at', { ascending: true });
-        
-        if (!ordersError) {
-          ordersData = orders || [];
-        }
-        
-        // NUEVO: Obtener TODAS las órdenes del vendedor para calcular saldos correctos
-        const { data: allOrders, error: allOrdersError } = await supabase
-          .from('orders')
-          .select('id, order_number, total, paid_amount, client_info')
+          .select('id, order_number, total, paid_amount, client_info, status')
           .eq('employee_id', employee_id);
         
         if (!allOrdersError) {
-          allOrdersForPayments = allOrders || [];
+          ordersForPayments = allOrdersForPayments || [];
         }
         
       } catch (error) {
         console.error('❌ Error consultando Supabase:', error);
+        throw error;
       }
-    }
-    
-    // Fallback: buscar en memoria si Supabase falla
-    if (salesData.length === 0 && paymentsData.length === 0 && ordersData.length === 0) {
-      console.log('🔄 Usando datos en memoria como fallback...');
+    } else {
+      // ===== FALLBACK EN MEMORIA =====
+      console.log('📦 Usando datos en memoria como fallback...');
       
-      // Filtrar ventas en memoria
-      salesData = (fallbackDatabase.sales || [])
-        .filter(sale => {
-          const saleDate = new Date(sale.created_at);
-          return sale.employee_id === parseInt(employee_id) &&
-                 saleDate >= startDate && saleDate <= endDate;
-        })
-        .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+      // ✅ CORRECCIÓN: Buscar TODAS las órdenes (confirmadas y no confirmadas)
+      const allOrdersMemory = (fallbackDatabase.orders || [])
+        .filter(order => {
+          const orderDate = new Date(order.created_at);
+          return order.employee_id === parseInt(employee_id) &&
+                 (order.status === 'confirmed' || order.status === 'hold') && // ✅ INCLUIR AMBOS ESTADOS
+                 orderDate >= startDate && orderDate <= endDate;
+        });
       
-      // Filtrar pagos en memoria
-      const memoryPayments = (fallbackDatabase.order_payments || [])
+      salesData = allOrdersMemory.map(order => {
+        const saleDate = order.status === 'confirmed' && order.confirmed_at 
+          ? order.confirmed_at 
+          : order.created_at;
+        
+        return {
+          id: order.id,
+          order_id: order.id,
+          order_number: order.order_number,
+          sale_number: order.order_number,
+          employee_id: order.employee_id,
+          employee_code: order.employee_code,
+          client_info: order.client_info,
+          client_name: order.client_info?.name || 'Cliente directo',
+          products: order.products,
+          total: order.total,
+          paid_amount: order.paid_amount || 0,
+          payment_method: order.payment_method || 'credit',
+          created_at: saleDate,
+          inventory_source: order.inventory_source || 'main_store',
+          order_status: order.status,
+          is_confirmed: order.status === 'confirmed',
+          _source: order.status === 'confirmed' ? 'from_confirmed_orders_memory' : 'from_pending_orders_memory'
+        };
+      });
+      
+      console.log('✅ Ventas en memoria (confirmadas y no confirmadas):', salesData.length);
+      
+      // Obtener pagos posteriores sin duplicados
+      const allPaymentsMemory = (fallbackDatabase.order_payments || [])
         .filter(payment => {
           const paymentDate = new Date(payment.created_at);
           return payment.recorded_by === parseInt(employee_id) &&
                  paymentDate >= startDate && paymentDate <= endDate;
-        })
-        .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+        });
       
-      // ACTUALIZADO: Agregar información de la orden a los pagos
-      paymentsData = memoryPayments.map(payment => {
-        const order = (fallbackDatabase.orders || [])
-          .find(o => o.id === payment.order_id);
+      paymentsData = allPaymentsMemory.filter(payment => {
+        const correspondingOrder = salesData.find(sale => sale.order_id === payment.order_id);
         
+        if (correspondingOrder) {
+          const paidAmount = parseFloat(correspondingOrder.paid_amount) || 0;
+          
+          // Si hay abono inicial y coincide con el pago, es duplicado
+          if (paidAmount > 0 && Math.abs(parseFloat(payment.amount) - paidAmount) < 0.01) {
+            return false;
+          }
+        }
+        
+        return true;
+      }).map(payment => {
+        const order = (fallbackDatabase.orders || []).find(o => o.id === payment.order_id);
         return {
           ...payment,
           order_number: order?.order_number || 'N/A',
@@ -5859,76 +5946,57 @@ app.get("/api/reports/sales-collection", auth, adminOnly, async (req, res) => {
             order_number: order.order_number,
             client_info: order.client_info,
             total: order.total,
-            paid_amount: order.paid_amount
+            paid_amount: order.paid_amount,
+            status: order.status,
+            created_at: order.created_at,
+            confirmed_at: order.confirmed_at
           } : null
         };
       });
       
-      // Filtrar pedidos con abonos iniciales
-      ordersData = (fallbackDatabase.orders || [])
-        .filter(order => {
-          const orderDate = new Date(order.created_at);
-          const paidAmount = parseFloat(order.paid_amount) || 0;
-          return order.employee_id === parseInt(employee_id) &&
-                 orderDate >= startDate && orderDate <= endDate &&
-                 paidAmount > 0;
-        })
-        .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-      
-      // Todas las órdenes del vendedor
-      allOrdersForPayments = (fallbackDatabase.orders || [])
+      ordersForPayments = (fallbackDatabase.orders || [])
         .filter(order => order.employee_id === parseInt(employee_id));
     }
     
-    // ACTUALIZADO: Combinar abonos de pedidos con pagos posteriores CON SALDOS
+    // ===== PROCESAR PAGOS PARA EL REPORTE (INCLUYE ABONOS DE $0) =====
     const allPayments = [];
     
-    // 1. Agregar abonos iniciales de pedidos
-    ordersData.forEach(order => {
-      const paidAmount = parseFloat(order.paid_amount) || 0;
-      const totalAmount = parseFloat(order.total) || 0;
+    // ✅ CORRECCIÓN: Agregar TODOS los abonos iniciales, incluso los de $0
+    salesData.forEach(sale => {
+      const paidAmount = parseFloat(sale.paid_amount) || 0;
+      const totalAmount = parseFloat(sale.total) || 0;
       const balance = Math.max(0, totalAmount - paidAmount);
       
-      if (paidAmount > 0) {
-        let paymentMethod = 'efectivo';
-        
-        if (order.payment_info && order.payment_info.method) {
-          paymentMethod = order.payment_info.method;
-        } else if (order.payment_type) {
-          paymentMethod = order.payment_type;
-        }
-        
-        allPayments.push({
-          id: `order_initial_${order.id}`,
-          order_id: order.id,
-          order_number: order.order_number,
-          client_name: order.client_info?.name || 'Cliente directo',
-          amount: paidAmount,
-          payment_method: paymentMethod,
-          payment_type: 'initial_payment',
-          notes: 'Abono inicial del pedido',
-          created_at: order.created_at,
-          recorded_by: order.employee_id,
-          recorded_by_code: order.employee_code,
-          // NUEVO: Información para calcular saldo
-          order_total: totalAmount,
-          order_paid_amount: paidAmount,
-          balance_remaining: balance
-        });
-      }
+      // ✅ INCLUIR TODOS LOS ABONOS INICIALES (incluso $0)
+      allPayments.push({
+        id: `initial_${sale.order_id}`,
+        order_id: sale.order_id,
+        order_number: sale.order_number,
+        client_name: sale.client_name,
+        amount: paidAmount, // ✅ Puede ser 0
+        payment_method: sale.payment_method === 'cash' ? 'efectivo' : 'efectivo',
+        payment_type: 'initial_payment',
+        notes: paidAmount > 0 ? 'Abono inicial del pedido' : 'Venta sin abono inicial',
+        created_at: sale.created_at,
+        recorded_by: sale.employee_id,
+        recorded_by_code: sale.employee_code,
+        order_total: totalAmount,
+        order_paid_amount: paidAmount,
+        balance_remaining: balance,
+        order_status: sale.order_status, // ✅ MANTENER STATUS ORIGINAL
+        is_confirmed: sale.is_confirmed
+      });
     });
     
-    // 2. Agregar pagos posteriores CON INFORMACIÓN DE SALDO
+    // Agregar pagos posteriores
     paymentsData.forEach(payment => {
-      // Encontrar la orden correspondiente para calcular el saldo actual
       let orderInfo = null;
       let balanceRemaining = 0;
       
       if (payment.orders) {
         orderInfo = payment.orders;
       } else {
-        // Buscar en todas las órdenes
-        orderInfo = allOrdersForPayments.find(o => o.id === payment.order_id);
+        orderInfo = ordersForPayments.find(o => o.id === payment.order_id);
       }
       
       if (orderInfo) {
@@ -5942,26 +6010,18 @@ app.get("/api/reports/sales-collection", auth, adminOnly, async (req, res) => {
         order_number: payment.orders?.order_number || payment.order_number || 'N/A',
         client_name: payment.orders?.client_info?.name || payment.client_name || 'Cliente directo',
         payment_type: 'subsequent_payment',
-        // NUEVO: Información para calcular saldo
         order_total: orderInfo?.total || 0,
         order_paid_amount: orderInfo?.paid_amount || 0,
-        balance_remaining: balanceRemaining
+        balance_remaining: balanceRemaining,
+        order_status: orderInfo?.status || 'unknown',
+        is_confirmed: orderInfo?.status === 'confirmed'
       });
     });
     
     // Ordenar todos los pagos por fecha
     allPayments.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
     
-    // ACTUALIZADO: Procesar datos de ventas para mostrar order_number
-    const processedSales = salesData.map(sale => ({
-      ...sale,
-      // CAMBIO PRINCIPAL: Priorizar order_number sobre sale_number
-      display_number: sale.order_number || sale.sale_number || sale.id,
-      client_info: sale.client_info || { name: 'Cliente directo' },
-      paid_amount: parseFloat(sale.paid_amount) || 0
-    }));
-    
-    // Calcular resumen por método de pago (sin cambios)
+    // ===== CALCULAR RESUMEN POR MÉTODO DE PAGO =====
     const paymentSummary = {
       efectivo: 0,
       cheque: 0,
@@ -5977,23 +6037,26 @@ app.get("/api/reports/sales-collection", auth, adminOnly, async (req, res) => {
       if (paymentSummary.hasOwnProperty(method)) {
         paymentSummary[method] += amount;
       } else {
-        if (!paymentSummary[method]) {
-          paymentSummary[method] = 0;
-        }
-        paymentSummary[method] += amount;
+        paymentSummary.efectivo += amount;
       }
       
       paymentSummary.total += amount;
     });
     
-    // ACTUALIZADO: Calcular estadísticas incluyendo saldos por pagar
-    const totalVentas = processedSales.reduce((sum, sale) => sum + (parseFloat(sale.total) || 0), 0);
-    const totalAbonos = processedSales.reduce((sum, sale) => sum + (parseFloat(sale.paid_amount) || 0), 0);
+    // ===== CALCULAR ESTADÍSTICAS =====
+    const totalVentas = salesData.reduce((sum, sale) => sum + (parseFloat(sale.total) || 0), 0);
+    const totalAbonado = salesData.reduce((sum, sale) => sum + (parseFloat(sale.paid_amount) || 0), 0);
     const totalCobranzas = paymentSummary.total;
-    const totalPorPagar = allPayments.reduce((sum, payment) => sum + (payment.balance_remaining || 0), 0);
-    const ventasCount = processedSales.length;
+    const ventasCount = salesData.length;
     const pagosCount = allPayments.length;
     
+    // ✅ CONTAR VENTAS POR TIPO DE ABONO Y STATUS
+    const ventasConAbono = salesData.filter(s => (parseFloat(s.paid_amount) || 0) > 0).length;
+    const ventasSinAbono = salesData.filter(s => (parseFloat(s.paid_amount) || 0) === 0).length;
+    const ventasConfirmadas = salesData.filter(s => s.order_status === 'confirmed').length;
+    const ventasNoConfirmadas = salesData.filter(s => s.order_status === 'hold').length;
+    
+    // ===== RESPUESTA FINAL CORREGIDA =====
     const reportData = {
       employee_id: parseInt(employee_id),
       employee_info: {
@@ -6007,46 +6070,61 @@ app.get("/api/reports/sales-collection", auth, adminOnly, async (req, res) => {
         start: startDate.toISOString(),
         end: endDate.toISOString()
       },
-      sales: processedSales,
-      payments: allPayments, // Incluye información de saldos
+      sales: salesData, // ✅ INCLUYE TODAS LAS VENTAS (confirmadas y no confirmadas)
+      payments: allPayments, // ✅ INCLUYE ABONOS DE $0
       payment_summary: paymentSummary,
       statistics: {
         total_ventas: totalVentas,
-        total_abonos: totalAbonos,
+        total_abonado: totalAbonado,
         total_cobrado: totalCobranzas,
-        total_por_pagar: totalPorPagar, // NUEVO: Total de saldos pendientes
         ventas_count: ventasCount,
+        ventas_confirmadas: ventasConfirmadas, // ✅ NUEVA ESTADÍSTICA
+        ventas_no_confirmadas: ventasNoConfirmadas, // ✅ NUEVA ESTADÍSTICA
+        ventas_con_abono: ventasConAbono,
+        ventas_sin_abono: ventasSinAbono,
         pagos_count: pagosCount,
         initial_payments_count: allPayments.filter(p => p.payment_type === 'initial_payment').length,
         subsequent_payments_count: allPayments.filter(p => p.payment_type === 'subsequent_payment').length,
         promedio_venta: ventasCount > 0 ? totalVentas / ventasCount : 0,
-        porcentaje_cobrado: totalVentas > 0 ? (totalCobranzas / totalVentas * 100) : 0 // NUEVO
+        porcentaje_cobrado: totalVentas > 0 ? (totalCobranzas / totalVentas * 100) : 0
+      },
+      debug_info: {
+        confirmed_orders_found: ventasConfirmadas,
+        pending_orders_found: ventasNoConfirmadas, // ✅ NUEVA INFO DEBUG
+        payments_found: paymentsData.length,
+        ventas_con_abono: ventasConAbono,
+        ventas_sin_abono: ventasSinAbono,
+        duplicate_payments_excluded: "Yes"
       },
       generated_at: new Date().toISOString(),
       data_source: supabase ? 'supabase' : 'memory'
     };
     
-    console.log('✅ Reporte generado CON SALDOS POR PAGAR:', {
+    console.log('✅ Reporte CORREGIDO generado (incluye ventas confirmadas y no confirmadas):', {
       employee: employee.name,
       date: date,
-      ventas: ventasCount,
-      total_pagos: pagosCount,
-      abonos_iniciales: allPayments.filter(p => p.payment_type === 'initial_payment').length,
+      ventas_totales: ventasCount,
+      ventas_confirmadas: ventasConfirmadas,
+      ventas_no_confirmadas: ventasNoConfirmadas,
+      ventas_con_abono: ventasConAbono,
+      ventas_sin_abono: ventasSinAbono,
+      pagos_iniciales: allPayments.filter(p => p.payment_type === 'initial_payment').length,
       pagos_posteriores: allPayments.filter(p => p.payment_type === 'subsequent_payment').length,
-      total_cobrado: totalCobranzas,
-      total_por_pagar: totalPorPagar
+      total_ventas: totalVentas,
+      total_cobrado: totalCobranzas
     });
     
     res.json(reportData);
     
   } catch (error) {
-    console.error('❌ Error generando reporte CON SALDOS:', error);
+    console.error('❌ Error generando reporte corregido:', error);
     res.status(500).json({ 
       message: 'Error generando reporte', 
       error: error.message 
     });
   }
 });
+
 
 // GET - Resumen de reportes de ventas y cobranzas (para dashboard)
 app.get("/api/reports/sales-collection-summary", auth, adminOnly, async (req, res) => {
