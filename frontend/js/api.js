@@ -864,6 +864,8 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     }
 });
+
+
 async function createEmployeeAPI(employeeData) {
     console.log('📤 Creando vendedor:', employeeData);
     
@@ -881,6 +883,274 @@ async function updateEmployeeAPI(id, employeeData) {
         body: JSON.stringify(employeeData)
     });
 }
+
+// ===== FUNCIONES DE API PARA CLIENTES =====
+// Agregar estas funciones a tu archivo api.js
+
+// Obtener todos los clientes
+async function getClients() {
+    try {
+        console.log('📋 Obteniendo clientes...');
+        
+        const response = await fetch(`${API_BASE_URL}/api/clients`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${getToken()}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`Error ${response.status}: ${response.statusText}`);
+        }
+
+        const clients = await response.json();
+        console.log('✅ Clientes obtenidos:', clients.length);
+        return clients;
+
+    } catch (error) {
+        console.error('❌ Error obteniendo clientes:', error);
+        throw error;
+    }
+}
+
+// Obtener un cliente específico
+async function getClient(clientId) {
+    try {
+        console.log('🔍 Obteniendo cliente:', clientId);
+        
+        const response = await fetch(`${API_BASE_URL}/api/clients/${clientId}`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${getToken()}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`Error ${response.status}: ${response.statusText}`);
+        }
+
+        const client = await response.json();
+        console.log('✅ Cliente obtenido:', client.name);
+        return client;
+
+    } catch (error) {
+        console.error('❌ Error obteniendo cliente:', error);
+        throw error;
+    }
+}
+
+// Crear nuevo cliente
+async function createClient(clientData) {
+    try {
+        console.log('➕ Creando cliente:', clientData.name);
+        
+        const response = await fetch(`${API_BASE_URL}/api/clients`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${getToken()}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(clientData)
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || `Error ${response.status}: ${response.statusText}`);
+        }
+
+        const newClient = await response.json();
+        console.log('✅ Cliente creado:', newClient.name);
+        return newClient;
+
+    } catch (error) {
+        console.error('❌ Error creando cliente:', error);
+        throw error;
+    }
+}
+
+// Actualizar cliente existente
+async function updateClient(clientId, clientData) {
+    try {
+        console.log('✏️ Actualizando cliente:', clientId);
+        
+        const response = await fetch(`${API_BASE_URL}/api/clients/${clientId}`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${getToken()}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(clientData)
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || `Error ${response.status}: ${response.statusText}`);
+        }
+
+        const updatedClient = await response.json();
+        console.log('✅ Cliente actualizado:', updatedClient.name);
+        return updatedClient;
+
+    } catch (error) {
+        console.error('❌ Error actualizando cliente:', error);
+        throw error;
+    }
+}
+
+// Eliminar cliente
+async function deleteClient(clientId) {
+    try {
+        console.log('🗑️ Eliminando cliente:', clientId);
+        
+        const response = await fetch(`${API_BASE_URL}/api/clients/${clientId}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${getToken()}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || `Error ${response.status}: ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        console.log('✅ Cliente eliminado');
+        return result;
+
+    } catch (error) {
+        console.error('❌ Error eliminando cliente:', error);
+        throw error;
+    }
+}
+
+// Buscar clientes por criterios
+async function searchClients(searchParams) {
+    try {
+        console.log('🔍 Buscando clientes:', searchParams);
+        
+        const queryParams = new URLSearchParams(searchParams).toString();
+        const response = await fetch(`${API_BASE_URL}/api/clients/search?${queryParams}`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${getToken()}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`Error ${response.status}: ${response.statusText}`);
+        }
+
+        const results = await response.json();
+        console.log('✅ Búsqueda completada:', results.clients.length, 'resultados');
+        return results;
+
+    } catch (error) {
+        console.error('❌ Error en búsqueda de clientes:', error);
+        throw error;
+    }
+}
+
+// Obtener pedidos de un cliente específico
+async function getClientOrders(clientId) {
+    try {
+        console.log('📋 Obteniendo pedidos del cliente:', clientId);
+        
+        const response = await fetch(`${API_BASE_URL}/api/clients/${clientId}/orders`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${getToken()}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`Error ${response.status}: ${response.statusText}`);
+        }
+
+        const orders = await response.json();
+        console.log('✅ Pedidos del cliente obtenidos:', orders.length);
+        return orders;
+
+    } catch (error) {
+        console.error('❌ Error obteniendo pedidos del cliente:', error);
+        throw error;
+    }
+}
+
+// Obtener estadísticas del cliente
+async function getClientStats(clientId) {
+    try {
+        console.log('📊 Obteniendo estadísticas del cliente:', clientId);
+        
+        const response = await fetch(`${API_BASE_URL}/api/clients/${clientId}/stats`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${getToken()}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`Error ${response.status}: ${response.statusText}`);
+        }
+
+        const stats = await response.json();
+        console.log('✅ Estadísticas del cliente obtenidas');
+        return stats;
+
+    } catch (error) {
+        console.error('❌ Error obteniendo estadísticas del cliente:', error);
+        throw error;
+    }
+}
+
+// Obtener estado de cuenta del cliente
+async function getClientAccountStatus(clientId) {
+    try {
+        console.log('💰 Obteniendo estado de cuenta del cliente:', clientId);
+        
+        const response = await fetch(`${API_BASE_URL}/api/clients/${clientId}/account-status`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${getToken()}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`Error ${response.status}: ${response.statusText}`);
+        }
+
+        const accountStatus = await response.json();
+        console.log('✅ Estado de cuenta obtenido');
+        return accountStatus;
+
+    } catch (error) {
+        console.error('❌ Error obteniendo estado de cuenta:', error);
+        throw error;
+    }
+}
+
+// Exportar funciones para uso global
+if (typeof window !== 'undefined') {
+    // Funciones de clientes
+    window.getClients = getClients; 
+    window.getClient = getClient;
+    window.createClient = createClient;
+    window.updateClient = updateClient; 
+    window.deleteClient = deleteClient; 
+    window.searchClients = searchClients;
+    window.getClientOrders = getClientOrders;
+    window.getClientStats = getClientStats;
+    window.getClientAccountStatus = getClientAccountStatus;
+}
+
+console.log('✅ Funciones de API para clientes cargadas');
 
 // Hacer las funciones globales
 if (!window.createEmployeeAPI) {

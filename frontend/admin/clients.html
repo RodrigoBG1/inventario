@@ -14,32 +14,1002 @@
                 <h2>Admin Panel</h2>
                 <span id="user-name"></span>
             </div>
-                <ul class="nav-menu">
-                    <li><a href="dashboard.html">Dashboard</a></li>
-                    <li><a href="products.html">Productos</a></li>
-                    <li><a href="employees.html">Vendedores</a></li>
-                    <li><a href="orders.html">Pedidos</a></li>
-                    <li><a href="subalmacenes.html">Subalmacenes</a></li>
-                    <li><a href="clients.html" class="active">Clientes</a></li>
-                    <li><a href="reports.html">Reportes</a></li>
-                    <li><a href="#" onclick="logout()">Cerrar Sesión</a></li>
-                </ul>
+            <ul class="nav-menu">
+                <li><a href="dashboard.html">Dashboard</a></li>
+                <li><a href="products.html">Productos</a></li>
+                <li><a href="employees.html">Vendedores</a></li>
+                <li><a href="orders.html">Pedidos</a></li>
+                <li><a href="subalmacenes.html">Subalmacenes</a></li>
+                <li><a href="clients.html" class="active">Clientes</a></li>
+                <li><a href="reports.html">Reportes</a></li>
+                <li><a href="#" onclick="logout()">Cerrar Sesión</a></li>
+            </ul>
         </nav>
-            <main class="main-content"></main>
-                <header class="content-header">
-                    <h1> Clientes</h1>
-                </header>
-                <br>
-                <div>
-                    <iframe width="560" height="315" src="https://www.youtube.com/embed/ChKqrwa7Ylw?si=jSkr-MWrs1faqhh7" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
-                </div>
-            </main>
 
-    <!-- Scripts en orden correcto: config PRIMERO -->
+        <main class="main-content">
+            <header class="content-header">
+                <div class="clients-header">
+                    <div>
+                        <h1>Gestión de Clientes</h1>
+                    </div>
+                </div>
+
+                <div class="search-section">
+                    <input type="text" 
+                           id="searchClients" 
+                           class="search-input" 
+                           placeholder="🔍 Buscar por nombre, teléfono o código..."
+                           onkeyup="searchClients()">
+                    <select id="filterStatus" class="search-input" style="max-width: 200px;" onchange="filterClients()">
+                        <option value="">Todos los estados</option>
+                        <option value="active">Activos</option>
+                        <option value="with_debt">Con deuda</option>
+                        <option value="no_debt">Sin deuda</option>
+                    </select>
+                    <button class="btn-primary" onclick="openClientForm()">
+                        Nuevo Cliente
+                    </button>
+                </div>
+            </header>
+
+            <div class="content-body">
+                <!-- Stats rápidas -->
+                <div class="client-stats" id="clientsStats" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+                    <div class="stat-item">
+                        <div class="stat-label">Total Clientes</div>
+                        <div class="stat-value" id="totalClients">0</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Con Deuda</div>
+                        <div class="stat-value debt" id="clientsWithDebt">0</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Deuda Total</div>
+                        <div class="stat-value debt" id="totalDebt">$0.00</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Nuevos (30 días)</div>
+                        <div class="stat-value" id="newClients">0</div>
+                    </div>
+                </div>
+
+                <!-- Grid de clientes -->
+                <div class="clients-grid" id="clientsGrid">
+                    <div class="loading" style="text-align: center; padding: 2rem; grid-column: 1 / -1;">
+                        Cargando clientes...
+                    </div>
+                </div>
+
+                <!-- Estado vacío -->
+                <div class="empty-state" id="emptyState" style="display: none; text-align: center; padding: 3rem;">
+                    <h3>No hay clientes registrados</h3>
+                    <p>Comienza agregando tu primer cliente al sistema</p>
+                    <button class="btn-primary" onclick="openClientForm()">
+                        Agregar Primer Cliente
+                    </button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal de detalles de cliente -->
+    <div id="clientModal" class="client-modal">
+        <div class="client-modal-container">
+            <div class="client-modal-header">
+                <h2 class="client-modal-title" id="clientModalTitle">Detalles del Cliente</h2>
+                <button class="close-btn" onclick="closeClientModal()">×</button>
+            </div>
+            
+            <div class="client-modal-content">
+                <!-- Información del cliente -->
+                <div class="modal-section">
+                    <h3 class="section-title">
+                        Información Personal
+                    </h3>
+                    <div class="client-details-grid" id="clientDetailsGrid">
+                        <!-- Se llena dinámicamente -->
+                    </div>
+                </div>
+
+                <!-- Resumen de cuenta -->
+                <div class="modal-section">
+                    <h3 class="section-title">
+                        Estado de Cuenta
+                    </h3>
+                    <div class="account-summary">
+                        <div class="debt-label">Saldo Actual</div>
+                        <div class="total-debt" id="clientTotalDebt">$0.00</div>
+                        <div id="clientDebtDescription">Sin deuda pendiente</div>
+                    </div>
+                </div>
+
+                <!-- Historial de pedidos -->
+                <div class="modal-section">
+                    <h3 class="section-title">
+                        Historial de Pedidos
+                        <button class="btn-sm btn-view" onclick="refreshClientOrders()" style="margin-left: auto;">
+                            Actualizar
+                        </button>
+                    </h3>
+                    <div id="clientOrdersContainer">
+                        <div class="loading" style="text-align: center; padding: 2rem;">
+                            Cargando pedidos...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de formulario de cliente -->
+    <div id="clientFormModal" class="client-form-modal">
+        <div class="client-form-container">
+            <div class="client-modal-header">
+                <h2 id="formModalTitle">Nuevo Cliente</h2>
+                <button class="close-btn" onclick="closeClientForm()">×</button>
+            </div>
+            
+            <form id="clientForm" style="padding: 1.5rem;">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label" for="clientCode">Código de Cliente*</label>
+                        <input type="text" id="clientCode" class="form-input" required placeholder="Ej: CLI001">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label" for="clientName">Nombre Completo*</label>
+                        <input type="text" id="clientName" class="form-input" required placeholder="Nombre del cliente">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label" for="clientPhone">Teléfono*</label>
+                        <input type="tel" id="clientPhone" class="form-input" required placeholder="618-123-4567">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label" for="clientEmail">Email</label>
+                        <input type="email" id="clientEmail" class="form-input" placeholder="cliente@email.com">
+                    </div>
+                    
+                    <div class="form-group full-width">
+                        <label class="form-label" for="clientAddress">Dirección</label>
+                        <input type="text" id="clientAddress" class="form-input" placeholder="Dirección completa">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label" for="clientCity">Ciudad</label>
+                        <input type="text" id="clientCity" class="form-input" placeholder="Ciudad">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label" for="clientState">Estado</label>
+                        <input type="text" id="clientState" class="form-input" placeholder="Estado">
+                    </div>
+                    
+                    <div class="form-group full-width">
+                        <label class="form-label" for="clientNotes">Notas</label>
+                        <textarea id="clientNotes" class="form-textarea" placeholder="Notas adicionales sobre el cliente"></textarea>
+                    </div>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="button" class="btn-secondary" onclick="closeClientForm()">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="btn-primary">
+                        Guardar Cliente
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Scripts -->
     <script src="../js/config.js"></script>
     <script src="../js/auth.js"></script>
     <script src="../js/api.js"></script>
-    <script src="../js/admin.js"></script>
     <script src="../js/order-details-modal.js"></script>
+    <script src="../js/admin.js"></script>
+    
+    <script>
+        // Variables globales para clientes
+        let clients = [];  //  ASEGURAR QUE ESTÉ INICIALIZADA
+        let currentClient = null;
+        let currentEditingClient = null;
+
+        // Inicializar página de clientes
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🚀 Inicializando página de clientes...');
+            
+            // Verificar autenticación
+            if (!requireAdmin()) return;
+            
+            // Cargar datos
+            loadClientsPage();
+            
+            // Event listeners
+            setupClientFormEvents();
+        });
+
+        // Cargar página de clientes - VERSIÓN CORREGIDA
+        async function loadClientsPage() {
+            try {
+                console.log('Cargando clientes y pedidos...');
+                
+                // Mostrar loading
+                document.getElementById('clientsGrid').innerHTML = `
+                    <div class="loading" style="text-align: center; padding: 2rem; grid-column: 1 / -1;">
+                        Cargando clientes...
+                    </div>
+                `;
+                
+                // Cargar clientes y pedidos en paralelo
+                const [clientsData, ordersData] = await Promise.all([
+                    getClients(),  // ✅ USAR LA FUNCIÓN CORRECTA
+                    getOrders()
+                ]);
+                
+                // ✅ VALIDAR QUE clientsData EXISTE Y ES UN ARRAY
+                if (!clientsData || !Array.isArray(clientsData)) {
+                    console.error('clientsData no es válido:', clientsData);
+                    clients = []; // Inicializar como array vacío
+                } else {
+                    clients = clientsData;
+                }
+                
+                // ✅ VALIDAR QUE ordersData EXISTE Y ES UN ARRAY
+                const orders = (ordersData && Array.isArray(ordersData)) ? ordersData : [];
+                
+                // Calcular estadísticas para cada cliente
+                clients = clients.map(client => {
+                    const clientOrders = orders.filter(order => 
+                        order.client_info && 
+                        (order.client_info.phone === client.phone || 
+                         order.client_info.name?.toLowerCase() === client.name?.toLowerCase())
+                    );
+                    
+                    const totalDebt = clientOrders.reduce((sum, order) => {
+                        const total = parseFloat(order.total) || 0;
+                        const paid = parseFloat(order.paid_amount) || 0;
+                        return sum + Math.max(0, total - paid);
+                    }, 0);
+                    
+                    const totalOrders = clientOrders.length;
+                    const paidOrders = clientOrders.filter(order => {
+                        const total = parseFloat(order.total) || 0;
+                        const paid = parseFloat(order.paid_amount) || 0;
+                        return (total - paid) <= 0;
+                    }).length;
+                    
+                    return {
+                        ...client,
+                        totalDebt,
+                        totalOrders,
+                        paidOrders,
+                        orders: clientOrders
+                    };
+                });
+                
+                displayClients();
+                updateClientsStats();
+                
+                console.log('Página de clientes cargada:', clients.length, 'clientes');
+                
+            } catch (error) {
+                console.error('Error cargando página de clientes:', error);
+                
+                // Mostrar error en lugar de loading
+                document.getElementById('clientsGrid').innerHTML = `
+                    <div style="text-align: center; padding: 2rem; grid-column: 1 / -1; color: #dc2626;">
+                        Error cargando clientes: ${error.message}
+                        <br><br>
+                        <button class="btn-primary" onclick="loadClientsPage()">
+                            Reintentar
+                        </button>
+                    </div>
+                `;
+                
+                showNotification('Error al cargar clientes: ' + error.message, 'error');
+                
+                // Asegurar que clients esté inicializado
+                clients = [];
+                updateClientsStats();
+            }
+        }
+
+        // Mostrar clientes en el grid - VERSIÓN MEJORADA
+        function displayClients(filteredClients = null) {
+            const clientsGrid = document.getElementById('clientsGrid');
+            const emptyState = document.getElementById('emptyState');
+            const clientsToShow = filteredClients || clients;
+            
+            // ✅ VALIDAR QUE clientsToShow ES UN ARRAY
+            if (!Array.isArray(clientsToShow)) {
+                console.error('clientsToShow no es un array:', clientsToShow);
+                clientsGrid.innerHTML = `
+                    <div style="text-align: center; padding: 2rem; grid-column: 1 / -1; color: #dc2626;">
+                        Error: Datos de clientes no válidos
+                    </div>
+                `;
+                return;
+            }
+            
+            if (clientsToShow.length === 0) {
+                clientsGrid.style.display = 'none';
+                emptyState.style.display = 'block';
+                return;
+            }
+            
+            clientsGrid.style.display = 'grid';
+            emptyState.style.display = 'none';
+            
+            clientsGrid.innerHTML = clientsToShow.map(client => `
+                <div class="client-card">
+                    <div class="client-header">
+                        <h3 class="client-name">${client.name || 'Sin nombre'}</h3>
+                        <span class="client-code">${client.code || 'Sin código'}</span>
+                    </div>
+                    
+                    <div class="client-info">
+                        <div class="client-info-item">
+                            <span></span>
+                            <span>${client.phone || 'Sin teléfono'}</span>
+                        </div>
+                        ${client.email ? `
+                            <div class="client-info-item">
+                                <span></span>
+                                <span>${client.email}</span>
+                            </div>
+                        ` : ''}
+                        ${client.address ? `
+                            <div class="client-info-item">
+                                <span></span>
+                                <span>${client.address}</span>
+                            </div>
+                        ` : ''}
+                    </div>
+                    
+                    <div class="client-stats">
+                        <div class="stat-item">
+                            <div class="stat-label">Pedidos</div>
+                            <div class="stat-value">${client.totalOrders || 0}</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Deuda</div>
+                            <div class="stat-value ${(client.totalDebt || 0) > 0 ? 'debt' : 'paid'}">
+                                ${formatCurrency(client.totalDebt || 0)}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="client-actions">
+                        <button class="btn-sm btn-view" onclick="openClientModal(${client.id})" title="Ver detalles">
+                            Ver
+                        </button>
+                        <button class="btn-sm btn-edit" onclick="editClient(${client.id})" title="Editar">
+                            Editar
+                        </button>
+                        <button class="btn-sm btn-delete" onclick="deleteClientConfirm(${client.id})" title="Eliminar">
+                            Eliminar
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Actualizar estadísticas generales - VERSIÓN SEGURA
+        function updateClientsStats() {
+            // ✅ VALIDAR QUE clients ES UN ARRAY
+            if (!Array.isArray(clients)) {
+                console.warn('⚠️ clients no es un array, inicializando como array vacío');
+                clients = [];
+            }
+            
+            const totalClients = clients.length;
+            const clientsWithDebt = clients.filter(c => (c.totalDebt || 0) > 0).length;
+            const totalDebt = clients.reduce((sum, c) => sum + (c.totalDebt || 0), 0);
+            
+            // Clientes nuevos (últimos 30 días)
+            const thirtyDaysAgo = new Date();
+            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+            const newClients = clients.filter(c => 
+                c.created_at && new Date(c.created_at) >= thirtyDaysAgo
+            ).length;
+            
+            // ✅ ACTUALIZAR CON VALIDACIÓN DE ELEMENTOS
+            const totalClientsEl = document.getElementById('totalClients');
+            const clientsWithDebtEl = document.getElementById('clientsWithDebt');
+            const totalDebtEl = document.getElementById('totalDebt');
+            const newClientsEl = document.getElementById('newClients');
+            
+            if (totalClientsEl) totalClientsEl.textContent = totalClients;
+            if (clientsWithDebtEl) clientsWithDebtEl.textContent = clientsWithDebt;
+            if (totalDebtEl) totalDebtEl.textContent = formatCurrency(totalDebt);
+            if (newClientsEl) newClientsEl.textContent = newClients;
+        }
+
+        // Buscar clientes - VERSIÓN SEGURA
+        function searchClients() {
+            // ✅ VALIDAR QUE clients ES UN ARRAY
+            if (!Array.isArray(clients)) {
+                console.warn('⚠️ No se puede buscar: clients no es un array');
+                return;
+            }
+            
+            const searchTerm = document.getElementById('searchClients').value.toLowerCase().trim();
+            const statusFilter = document.getElementById('filterStatus').value;
+            
+            let filteredClients = clients;
+            
+            // Filtro por texto de búsqueda
+            if (searchTerm) {
+                filteredClients = filteredClients.filter(client =>
+                    (client.name && client.name.toLowerCase().includes(searchTerm)) ||
+                    (client.phone && client.phone.includes(searchTerm)) ||
+                    (client.code && client.code.toLowerCase().includes(searchTerm)) ||
+                    (client.email && client.email.toLowerCase().includes(searchTerm))
+                );
+            }
+            
+            // Filtro por estado
+            if (statusFilter) {
+                filteredClients = filteredClients.filter(client => {
+                    switch (statusFilter) {
+                        case 'active':
+                            return (client.totalOrders || 0) > 0;
+                        case 'with_debt':
+                            return (client.totalDebt || 0) > 0;
+                        case 'no_debt':
+                            return (client.totalDebt || 0) === 0;
+                        default:
+                            return true;
+                    }
+                });
+            }
+            
+            displayClients(filteredClients);
+        }
+
+        // Alias para filtrar clientes
+        function filterClients() {
+            searchClients();
+        }
+
+        // Abrir modal de detalles de cliente - VERSIÓN SEGURA
+        function openClientModal(clientId) {
+            // VALIDAR QUE clients ES UN ARRAY
+            if (!Array.isArray(clients)) {
+                showNotification('Error: datos de clientes no válidos', 'error');
+                return;
+            }
+            
+            const client = clients.find(c => c.id === clientId);
+            if (!client) {
+                showNotification('Cliente no encontrado', 'error');
+                return;
+            }
+            
+            currentClient = client;
+            
+            // Llenar información del cliente
+            document.getElementById('clientModalTitle').textContent = `👤 ${client.name || 'Cliente'}`;
+            
+            // Detalles del cliente
+            const detailsGrid = document.getElementById('clientDetailsGrid');
+            detailsGrid.innerHTML = `
+                <div class="detail-card">
+                    <div class="detail-label">Código</div>
+                    <div class="detail-value">${client.code || 'N/A'}</div>
+                </div>
+                <div class="detail-card">
+                    <div class="detail-label">Teléfono</div>
+                    <div class="detail-value">${client.phone || 'N/A'}</div>
+                </div>
+                ${client.email ? `
+                    <div class="detail-card">
+                        <div class="detail-label">Email</div>
+                        <div class="detail-value">${client.email}</div>
+                    </div>
+                ` : ''}
+                ${client.address ? `
+                    <div class="detail-card">
+                        <div class="detail-label">Dirección</div>
+                        <div class="detail-value">${client.address}</div>
+                    </div>
+                ` : ''}
+                ${client.city ? `
+                    <div class="detail-card">
+                        <div class="detail-label">Ciudad</div>
+                        <div class="detail-value">${client.city}</div>
+                    </div>
+                ` : ''}
+                ${client.state ? `
+                    <div class="detail-card">
+                        <div class="detail-label">Estado</div>
+                        <div class="detail-value">${client.state}</div>
+                    </div>
+                ` : ''}
+                <div class="detail-card">
+                    <div class="detail-label">Cliente desde</div>
+                    <div class="detail-value">${client.created_at ? formatDate(client.created_at) : 'N/A'}</div>
+                </div>
+                <div class="detail-card">
+                    <div class="detail-label">Total de Pedidos</div>
+                    <div class="detail-value">${client.totalOrders || 0}</div>
+                </div>
+            `;
+            
+            // Estado de cuenta
+            const totalDebt = client.totalDebt || 0;
+            const debtElement = document.getElementById('clientTotalDebt');
+            const descriptionElement = document.getElementById('clientDebtDescription');
+            
+            if (debtElement) {
+                debtElement.textContent = formatCurrency(totalDebt);
+                debtElement.className = totalDebt > 0 ? 'total-debt' : 'total-debt positive';
+            }
+            
+            if (descriptionElement) {
+                if (totalDebt > 0) {
+                    descriptionElement.textContent = `Saldo pendiente de pago`;
+                    descriptionElement.style.color = '#dc2626';
+                } else {
+                    descriptionElement.textContent = `Al corriente en pagos`;
+                    descriptionElement.style.color = '#059669';
+                }
+            }
+            
+            // Cargar pedidos del cliente
+            loadClientOrders();
+            
+            // Mostrar modal
+            document.getElementById('clientModal').classList.add('show');
+            document.body.style.overflow = 'hidden';
+        }
+
+        // Cargar pedidos del cliente - VERSIÓN SEGURA
+        function loadClientOrders() {
+            if (!currentClient) return;
+            
+            const container = document.getElementById('clientOrdersContainer');
+            if (!container) return;
+            
+            container.innerHTML = '<div class="loading" style="text-align: center; padding: 2rem;">⏳ Cargando pedidos...</div>';
+            
+            const clientOrders = currentClient.orders || [];
+            
+            if (clientOrders.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state" style="text-align: center; padding: 2rem;">
+                        <h3>Sin pedidos</h3>
+                        <p>Este cliente aún no ha realizado pedidos</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Ordenar por fecha más reciente
+            const sortedOrders = clientOrders.sort((a, b) => 
+                new Date(b.created_at) - new Date(a.created_at)
+            );
+            
+            container.innerHTML = `
+                <table class="orders-table">
+                    <thead>
+                        <tr>
+                            <th>Pedido</th>
+                            <th>Fecha</th>
+                            <th>Total</th>
+                            <th>Abonado</th>
+                            <th>Saldo</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${sortedOrders.map(order => {
+                            const total = parseFloat(order.total) || 0;
+                            const paid = parseFloat(order.paid_amount) || 0;
+                            const balance = Math.max(0, total - paid);
+                            const isPaid = balance <= 0;
+                            
+                            // Determinar si está vencido (más de 30 días)
+                            const orderDate = new Date(order.created_at);
+                            const daysDiff = Math.floor((new Date() - orderDate) / (1000 * 60 * 60 * 24));
+                            const isOverdue = !isPaid && daysDiff > 30;
+                            
+                            let statusClass = 'status-paid';
+                            let statusText = 'Pagado';
+                            
+                            if (!isPaid) {
+                                if (isOverdue) {
+                                    statusClass = 'status-overdue';
+                                    statusText = 'Vencido';
+                                } else {
+                                    statusClass = 'status-pending';
+                                    statusText = 'Pendiente';
+                                }
+                            }
+                            
+                            return `
+                                <tr>
+                                    <td>
+                                        <strong>${order.order_number || '#' + order.id}</strong>
+                                        ${order.employee_code ? `<br><small>Vendedor: ${order.employee_code}</small>` : ''}
+                                    </td>
+                                    <td>
+                                        ${order.created_at ? formatDate(order.created_at) : 'N/A'}
+                                        ${daysDiff > 0 ? `<br><small>${daysDiff} días</small>` : ''}
+                                    </td>
+                                    <td><strong>${formatCurrency(total)}</strong></td>
+                                    <td>${formatCurrency(paid)}</td>
+                                    <td>
+                                        <strong style="color: ${balance > 0 ? '#dc2626' : '#059669'}">
+                                            ${formatCurrency(balance)}
+                                        </strong>
+                                    </td>
+                                    <td>
+                                        <span class="status-badge ${statusClass}">
+                                            ${statusText}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <button class="btn-sm btn-view" onclick="viewOrderFromClient(${order.id})" title="Ver detalles">
+                                            Ver
+                                        </button>
+                                        ${balance > 0 ? `
+                                            <button class="btn-sm btn-edit" onclick="addPaymentFromClient(${order.id})" title="Registrar abono">
+                                                Registrar
+                                            </button>
+                                        ` : ''}
+                                    </td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            `;
+        }
+
+        // Refrescar pedidos del cliente
+        function refreshClientOrders() {
+            if (!currentClient) return;
+            
+            // Recargar datos del cliente
+            loadClientsPage().then(() => {
+                // Encontrar el cliente actualizado
+                const updatedClient = clients.find(c => c.id === currentClient.id);
+                if (updatedClient) {
+                    currentClient = updatedClient;
+                    
+                    // Actualizar estado de cuenta
+                    const totalDebt = updatedClient.totalDebt || 0;
+                    const debtElement = document.getElementById('clientTotalDebt');
+                    const descriptionElement = document.getElementById('clientDebtDescription');
+                    
+                    if (debtElement) {
+                        debtElement.textContent = formatCurrency(totalDebt);
+                        debtElement.className = totalDebt > 0 ? 'total-debt' : 'total-debt positive';
+                    }
+                    
+                    if (descriptionElement) {
+                        if (totalDebt > 0) {
+                            descriptionElement.textContent = `Saldo pendiente de pago`;
+                            descriptionElement.style.color = '#dc2626';
+                        } else {
+                            descriptionElement.textContent = `Al corriente en pagos`;
+                            descriptionElement.style.color = '#059669';
+                        }
+                    }
+                    
+                    // Recargar tabla de pedidos
+                    loadClientOrders();
+                }
+            });
+        }
+
+        // Ver detalles de pedido desde el cliente
+        async function viewOrderFromClient(orderId) {
+                console.log('🔍 Abriendo detalles de pedido desde cliente:', orderId);
+                
+                try {
+                    if (currentClient && currentClient.orders) {
+                        const order = currentClient.orders.find(o => o.id === parseInt(orderId));
+                        if (order) {
+                            console.log('✅ Pedido encontrado en datos del cliente:', order.order_number);
+                            
+                            // Preparar datos para el modal
+                            const preparedOrder = {
+                                ...order,
+                                // Asegurar que client_info existe y está completo
+                                client_info: order.client_info || {
+                                    name: currentClient.name || 'Cliente',
+                                    phone: currentClient.phone || '',
+                                    email: currentClient.email || '',
+                                    address: currentClient.address || ''
+                                },
+                                // Asegurar que products es un array válido
+                                products: Array.isArray(order.products) ? order.products : [],
+                                // Asegurar campos numéricos
+                                total: parseFloat(order.total) || 0,
+                                paid_amount: parseFloat(order.paid_amount) || 0,
+                                balance: Math.max(0, (parseFloat(order.total) || 0) - (parseFloat(order.paid_amount) || 0))
+                            };
+                            
+                            // Usar directamente showOrderDetails con datos preparados
+                            showOrderDetails(preparedOrder);
+                            return;
+                        }
+                    }
+                    console.log('📡 Pedido no encontrado localmente, obteniendo de API...');
+                    
+                    const response = await fetch(`${window.API_BASE_URL}/api/orders/${orderId}`, {
+                        headers: {
+                            'Authorization': `Bearer ${localStorage.getItem('token')}`
+                        }
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`Error ${response.status}: ${response.statusText}`);
+                    }
+                    
+                    const orderData = await response.json();
+                    console.log('✅ Pedido obtenido de API:', orderData.order_number);
+                    
+                    showOrderDetails(orderData);
+                    
+                } catch (error) {
+                    console.error('❌ Error obteniendo detalles del pedido:', error);
+                    showNotification('Error al cargar detalles del pedido: ' + error.message, 'error');
+                }
+            }
+        
+            // Agregar pago desde el cliente
+        function addPaymentFromClient(orderId) {
+            console.log('💰 Abriendo modal de pagos desde cliente:', orderId);
+
+            // Usar la función de pagos existente
+            if (typeof openPaymentModal === 'function') {
+                openPaymentModal(orderId);
+            } else {
+                console.error('❌ Función openPaymentModal no disponible');
+                showNotification('Error: Modal de pagos no disponible', 'error');
+            }
+        }
+
+        // Cerrar modal de cliente
+        function closeClientModal() {
+            const modal = document.getElementById('clientModal');
+            if (modal) {
+                modal.classList.remove('show');
+                document.body.style.overflow = 'auto';
+            }
+            currentClient = null;
+        }
+
+        // Abrir formulario de cliente - VERSIÓN CORREGIDA
+        function openClientForm(clientId = null) {
+            const modal = document.getElementById('clientFormModal');
+            const title = document.getElementById('formModalTitle');
+            const form = document.getElementById('clientForm');
+            
+            if (!modal || !title || !form) {
+                showNotification('Error: elementos del formulario no encontrados', 'error');
+                return;
+            }
+            
+            if (clientId) {
+                // Modo edición
+                const client = clients.find(c => c.id === clientId);
+                if (!client) {
+                    showNotification('Cliente no encontrado', 'error');
+                    return;
+                }
+                
+                title.textContent = 'Editar Cliente';
+                fillClientForm(client);
+                currentEditingClient = clientId;
+            } else {
+                // Modo creación
+                title.textContent = 'Nuevo Cliente';
+                form.reset();
+                currentEditingClient = null;
+                
+                // Generar código automático
+                const nextCode = generateClientCode();
+                const codeInput = document.getElementById('clientCode');
+                if (codeInput) {
+                    codeInput.value = nextCode;
+                }
+            }
+            
+            modal.classList.add('show');
+            document.body.style.overflow = 'hidden';
+        }
+
+        // Llenar formulario con datos del cliente
+        function fillClientForm(client) {
+            const fields = [
+                'clientCode', 'clientName', 'clientPhone', 'clientEmail', 
+                'clientAddress', 'clientCity', 'clientState', 'clientNotes'
+            ];
+            
+            const clientFields = {
+                clientCode: client.code || '',
+                clientName: client.name || '',
+                clientPhone: client.phone || '',
+                clientEmail: client.email || '',
+                clientAddress: client.address || '',
+                clientCity: client.city || '',
+                clientState: client.state || '',
+                clientNotes: client.notes || ''
+            };
+            
+            fields.forEach(fieldId => {
+                const element = document.getElementById(fieldId);
+                if (element) {
+                    element.value = clientFields[fieldId];
+                }
+            });
+        }
+
+        // Generar código de cliente automático - VERSIÓN SEGURA
+        function generateClientCode() {
+            // ✅ VALIDAR QUE clients ES UN ARRAY
+            if (!Array.isArray(clients)) {
+                return 'CLI001';
+            }
+            
+            const existingCodes = clients.map(c => c.code).filter(code => code);
+            let counter = 1;
+            let newCode;
+            
+            do {
+                newCode = `CLI${String(counter).padStart(3, '0')}`;
+                counter++;
+            } while (existingCodes.includes(newCode));
+            
+            return newCode;
+        }
+
+        // Cerrar formulario de cliente
+        function closeClientForm() {
+            const modal = document.getElementById('clientFormModal');
+            if (modal) {
+                modal.classList.remove('show');
+                document.body.style.overflow = 'auto';
+            }
+            currentEditingClient = null;
+        }
+
+        // Configurar eventos del formulario
+        function setupClientFormEvents() {
+            const form = document.getElementById('clientForm');
+            if (!form) return;
+            
+            form.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                // Obtener valores del formulario con validación
+                const getValue = (id) => {
+                    const element = document.getElementById(id);
+                    return element ? element.value.trim() : '';
+                };
+                
+                const formData = {
+                    code: getValue('clientCode'),
+                    name: getValue('clientName'),
+                    phone: getValue('clientPhone'),
+                    email: getValue('clientEmail'),
+                    address: getValue('clientAddress'),
+                    city: getValue('clientCity'),
+                    state: getValue('clientState'),
+                    notes: getValue('clientNotes')
+                };
+                
+                // Validaciones
+                if (!formData.code || !formData.name || !formData.phone) {
+                    showNotification('Código, nombre y teléfono son obligatorios', 'warning');
+                    return;
+                }
+                
+                // Verificar código único (solo en modo creación)
+                if (!currentEditingClient) {
+                    const existingClient = clients.find(c => c.code === formData.code);
+                    if (existingClient) {
+                        showNotification('El código de cliente ya existe', 'warning');
+                        return;
+                    }
+                }
+                
+                try {
+                    let result;
+                    
+                    if (currentEditingClient) {
+                        result = await updateClient(currentEditingClient, formData);
+                        showNotification('Cliente actualizado exitosamente', 'success');
+                    } else {
+                        result = await createClient(formData);
+                        showNotification('Cliente creado exitosamente', 'success');
+                    }
+                    
+                    closeClientForm();
+                    loadClientsPage();
+                    
+                } catch (error) {
+                    console.error('Error saving client:', error);
+                    showNotification('Error al guardar cliente: ' + error.message, 'error');
+                }
+            });
+        }
+
+        // Editar cliente
+        function editClient(clientId) {
+            openClientForm(clientId);
+        }
+
+        // Confirmar eliminación de cliente
+        function deleteClientConfirm(clientId) {
+            const client = clients.find(c => c.id === clientId);
+            if (!client) {
+                showNotification('Cliente no encontrado', 'error');
+                return;
+            }
+            
+            if (confirm(`¿Estás seguro de eliminar al cliente "${client.name}"?\n\nEsta acción no se puede deshacer.`)) {
+                deleteClientAction(clientId);
+            }
+        }
+
+        // Eliminar cliente - FUNCIÓN RENOMBRADA PARA EVITAR CONFLICTOS
+        async function deleteClientAction(clientId) {
+            try {
+                await deleteClient(clientId);
+                showNotification('Cliente eliminado exitosamente', 'success');
+                loadClientsPage();
+                
+            } catch (error) {
+                console.error('Error deleting client:', error);
+                showNotification('Error al eliminar cliente: ' + error.message, 'error');
+            }
+        }
+
+
+        // Cerrar modales al hacer clic fuera
+        window.onclick = function(event) {
+            const clientModal = document.getElementById('clientModal');
+            const formModal = document.getElementById('clientFormModal');
+            
+            if (event.target === clientModal) {
+                closeClientModal();
+            }
+            if (event.target === formModal) {
+                closeClientForm();
+            }
+        }
+
+        // Cerrar modales con Escape
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeClientModal();
+                closeClientForm();
+            }
+        });
+
+        // Hacer funciones globales
+        window.openClientModal = openClientModal;
+        window.closeClientModal = closeClientModal;
+        window.openClientForm = openClientForm;
+        window.closeClientForm = closeClientForm;
+        window.editClient = editClient;
+        window.deleteClientConfirm = deleteClientConfirm;
+        window.searchClients = searchClients;
+        window.filterClients = filterClients;
+        window.refreshClientOrders = refreshClientOrders;
+        window.viewOrderFromClient = viewOrderFromClient;
+        window.addPaymentFromClient = addPaymentFromClient;
+
+        console.log('✅ Página de clientes inicializada correctamente');
+    </script>
 </body>
 </html>

@@ -7,12 +7,227 @@
     <link rel="stylesheet" href="../css/style.css">
     <link rel="stylesheet" href="../css/employee.css">
     <script src="../js/employee.js"></script>
+    <style>
+        /* Estilos específicos para el selector de clientes */
+        .client-selector-section {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+        }
+
+        .client-search-container {
+            position: relative;
+            margin-bottom: 1rem;
+        }
+
+        .client-search-input {
+            width: 100%;
+            padding: 0.75rem 1rem 0.75rem 2.5rem;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            background-color: white;
+        }
+
+        .client-search-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .client-search-icon {
+            position: absolute;
+            left: 0.75rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #6b7280;
+            font-size: 1rem;
+        }
+
+        .client-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 100;
+            display: none;
+        }
+
+        .client-dropdown.show {
+            display: block;
+        }
+
+        .client-option {
+            padding: 0.75rem 1rem;
+            cursor: pointer;
+            border-bottom: 1px solid #f3f4f6;
+            transition: background-color 0.2s;
+        }
+
+        .client-option:last-child {
+            border-bottom: none;
+        }
+
+        .client-option:hover {
+            background-color: #f3f4f6;
+        }
+
+        .client-option.selected {
+            background-color: #eff6ff;
+            color: #1d4ed8;
+        }
+
+        .client-name {
+            font-weight: 600;
+            color: #1f2937;
+        }
+
+        .client-details {
+            font-size: 0.75rem;
+            color: #6b7280;
+            margin-top: 0.25rem;
+        }
+
+        .selected-client-card {
+            background: #122164;
+            color: white;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            display: none;
+        }
+
+        .selected-client-card.show {
+            display: block;
+        }
+
+        .selected-client-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .selected-client-name {
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        .client-change-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            transition: background-color 0.2s;
+        }
+
+        .client-change-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .selected-client-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 0.5rem;
+            font-size: 0.875rem;
+        }
+
+        .client-info-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .new-client-option {
+            padding: 0.75rem 1rem;
+            background: #f0f9ff;
+            border-bottom: 1px solid #e0f2fe;
+            cursor: pointer;
+            color: #0369a1;
+            font-weight: 600;
+            transition: background-color 0.2s;
+        }
+
+        .new-client-option:hover {
+            background: #e0f2fe;
+        }
+
+        .no-clients-message {
+            padding: 1rem;
+            text-align: center;
+            color: #64748b;
+            font-style: italic;
+        }
+
+        .client-form-quick {
+            background: white;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            padding: 1.5rem;
+            display: none;
+            margin-top: 1rem;
+        }
+
+        .client-form-quick.show {
+            display: block;
+        }
+
+        .quick-form-header {
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .quick-form-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #1f2937;
+        }
+
+        .client-debt-indicator {
+            display: inline-block;
+            padding: 0.125rem 0.5rem;
+            border-radius: 12px;
+            font-size: 0.625rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-left: 0.5rem;
+        }
+
+        .client-debt-indicator.no-debt {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .client-debt-indicator.with-debt {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .client-debt-indicator.overdue {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+    </style>
 </head>
 <body>
     <div class="employee-container">
         <nav class="sidebar" id="sidebar">
             <div class="sidebar-header">
-                <h2>Panel vendedor</h2>
+                <h2>Panel Vendedor</h2>
                 <span id="user-name"></span>
             </div>
             <ul class="nav-menu">
@@ -41,26 +256,77 @@
             <!-- Contenido del formulario de pedido -->
             <div id="order-form-container" class="order-form-container" style="display: none;">
                 
-                <!-- Información del Cliente -->
-                <div class="form-section">
-                    <h3 class="section-title">Información del Cliente</h3>
+                <!-- NUEVA SECCIÓN: Selector de Cliente -->
+                <div class="form-section client-selector-section">
+                    <h3 class="section-title">👤 Información del Cliente</h3>
                     <div style="padding: 1.5rem;">
-                        <div class="form-grid">
-                            <div class="form-group">
-                                <label for="client-name">Nombre del Cliente: *</label>
-                                <input type="text" id="client-name" required placeholder="Nombre completo del cliente">
+                        
+                        <!-- Cliente seleccionado -->
+                        <div id="selected-client-card" class="selected-client-card">
+                            <div class="selected-client-header">
+                                <div>
+                                    <div class="selected-client-name" id="selected-client-name">Cliente Seleccionado</div>
+                                    <div id="selected-client-code" style="font-size: 0.875rem; opacity: 0.9;"></div>
+                                </div>
+                                <button class="client-change-btn" onclick="clearSelectedClient()">
+                                    Cambiar Cliente
+                                </button>
                             </div>
-                            <div class="form-group">
-                                <label for="client-phone">Teléfono:</label>
-                                <input type="tel" id="client-phone" placeholder="Número de teléfono">
+                            <div class="selected-client-info" id="selected-client-info">
+                                <!-- Se llena dinámicamente -->
                             </div>
-                            <div class="form-group">
-                                <label for="client-address">Dirección:</label>
-                                <input type="text" id="client-address" placeholder="Dirección de entrega">
+                        </div>
+
+                        <!-- Buscador de clientes -->
+                        <div id="client-search-section" class="client-search-section">
+                            <div class="client-search-container">
+                                <span class="client-search-icon">🔍</span>
+                                <input 
+                                    type="text" 
+                                    id="client-search-input" 
+                                    class="client-search-input"
+                                    placeholder="Buscar cliente por nombre, teléfono o código..."
+                                    autocomplete="off"
+                                >
+                                <div id="client-dropdown" class="client-dropdown">
+                                    <!-- Se llena dinámicamente -->
+                                </div>
                             </div>
-                            <div class="form-group">
-                                <label for="client-email">Email:</label>
-                                <input type="email" id="client-email" placeholder="correo@ejemplo.com">
+                        </div>
+
+                        <!-- Formulario rápido para nuevo cliente -->
+                        <div id="client-form-quick" class="client-form-quick">
+                            <div class="quick-form-header">
+                                <h4 class="quick-form-title">➕ Nuevo Cliente Rápido</h4>
+                                <button class="client-change-btn" onclick="cancelNewClient()">
+                                    Cancelar
+                                </button>
+                            </div>
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label for="quick-client-name">Nombre Completo *</label>
+                                    <input type="text" id="quick-client-name" required placeholder="Nombre del cliente">
+                                </div>
+                                <div class="form-group">
+                                    <label for="quick-client-phone">Teléfono *</label>
+                                    <input type="tel" id="quick-client-phone" required placeholder="618-123-4567">
+                                </div>
+                                <div class="form-group">
+                                    <label for="quick-client-address">Dirección</label>
+                                    <input type="text" id="quick-client-address" placeholder="Dirección del cliente">
+                                </div>
+                                <div class="form-group">
+                                    <label for="quick-client-email">Email</label>
+                                    <input type="email" id="quick-client-email" placeholder="correo@ejemplo.com">
+                                </div>
+                            </div>
+                            <div class="form-actions">
+                                <button type="button" class="btn btn-secondary" onclick="cancelNewClient()">
+                                    Cancelar
+                                </button>
+                                <button type="button" class="btn btn-primary" onclick="saveQuickClient()">
+                                    Guardar Cliente
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -68,10 +334,10 @@
 
                 <!-- Productos del Subalmacén -->
                 <div class="form-section">
-                    <h3 class="section-title"> Productos Disponibles en mi Subalmacén</h3>
+                    <h3 class="section-title">📦 Productos Disponibles en mi Subalmacén</h3>
                     <div style="padding: 1rem; border-bottom: 1px solid #e2e8f0;">
                         <input type="text" id="product-search" class="search-input" 
-                               placeholder=" Buscar productos en mi subalmacén...">
+                               placeholder="🔍 Buscar productos en mi subalmacén...">
                     </div>
                     
                     <div style="padding: 1.5rem;">
@@ -108,7 +374,7 @@
                     </div>
                 </div>
 
-                <!-- SECCIÓN MEJORADA: Opciones de Pago -->
+                <!-- Opciones de Pago -->
                 <div class="payment-options-section">
                     <h3 class="payment-section-title">
                         💳 Modalidad y Tipo de Pago
@@ -139,7 +405,7 @@
                         </div>
                     </div>
 
-                    <!-- NUEVO: Tipo de pago específico -->
+                    <!-- Tipo de pago específico -->
                     <div class="payment-type-section">
                         <h4 class="payment-type-title">🏦 Tipo de Pago</h4>
                         <div class="payment-type-grid">
@@ -162,7 +428,7 @@
                         </div>
                     </div>
 
-                    <!-- Sección de Abono Inicial (solo visible en crédito) -->
+                    <!-- Sección de Abono Inicial -->
                     <div class="initial-payment-section" id="initial-payment-section">
                         <label for="initial-payment" class="initial-payment-label">
                             💰 Abono Inicial (Opcional)
@@ -174,7 +440,7 @@
                                min="0" 
                                placeholder="0.00"
                                onchange="updatePaymentSummary()">
-                        <div style="margin-top: 0.5rem; font-size: 0.8rem; color: #160d67;">
+                        <div style="margin-top: 0.5rem; font-size: 0.8rem; color: #6366f1;">
                             💡 El cliente puede abonar cualquier cantidad
                         </div>
                     </div>
@@ -200,16 +466,13 @@
                     </div>
                 </div>
 
-                <!-- NUEVA SECCIÓN: Información de Ubicación -->
+                <!-- Información de Ubicación -->
                 <div class="location-section">
-                    <h3 class="section-title">📍 Ubicación de la Venta</h3>
+                    <h3 class="section-title">Ubicación de la Venta</h3>
                     <div style="padding: 1.5rem;">
                         <div class="location-controls">
                             <button type="button" id="get-location-btn" class="btn-location-detailed" onclick="getDetailedLocation()">
-                                📱 Obtener Mi Ubicación
-                            </button>
-                            <button type="button" id="manual-location-btn" class="btn-location-manual" onclick="toggleManualLocation()">
-                                ✏️ Ubicación Manual
+                             Obtener Mi Ubicación
                             </button>
                         </div>
                         
@@ -244,7 +507,7 @@
                     </div>
                 </div>
 
-                <!-- Foto y Notas -->
+                <!-- Información Adicional -->
                 <div class="form-section">
                     <h3 class="section-title">Información Adicional</h3>
                     <div style="padding: 1.5rem;">
@@ -276,7 +539,7 @@
     <script src="../js/api.js"></script>
     
     <script>
-        console.log('🚀 Iniciando página de pedidos con tipos de pago y ubicación mejorados');
+        console.log('🚀 Iniciando página de pedidos con selector de clientes');
 
         // Variables globales
         let substoreProducts = [];
@@ -284,13 +547,82 @@
         let currentLocation = null;
         let isProcessing = false;
         let currentPaymentMethod = 'cash';
-        let currentPaymentType = 'efectivo'; // NUEVA VARIABLE
+        let currentPaymentType = 'efectivo';
         let substoreInfo = null;
         let customPrices = {};
+        
+        // NUEVAS VARIABLES PARA CLIENTES
+        let allClients = [];
+        let selectedClient = null;
+        let isLoadingClients = false;
+
+        const additionalStyles = `
+            .quick-client-form-loading {
+                opacity: 0.7;
+                pointer-events: none;
+            }
+
+            .form-input:focus {
+                outline: none;
+                border-color: #3b82f6;
+                box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+            }
+
+            .form-input.valid {
+                border-color: #10b981;
+            }
+
+            .form-input.invalid {
+                border-color: #ef4444;
+            }
+
+            .new-client-option:hover {
+                background: #dbeafe;
+                transform: translateY(-1px);
+                transition: all 0.2s ease;
+            }
+
+            .client-form-quick .form-actions {
+                position: sticky;
+                bottom: 0;
+                background: white;
+                border-top: 1px solid #e5e7eb;
+                padding: 1rem 0 0 0;
+                margin-top: 1rem;
+            }
+
+            @media (max-width: 768px) {
+                .client-form-quick {
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    z-index: 1000;
+                    background: white;
+                    overflow-y: auto;
+                    padding: 1rem;
+                }
+                
+                .quick-form-header {
+                    position: sticky;
+                    top: 0;
+                    background: white;
+                    z-index: 10;
+                    padding-bottom: 1rem;
+                    border-bottom: 2px solid #e5e7eb;
+                }
+            }
+            `;
+
+// Inyectar estilos
+const styleSheet = document.createElement('style');
+styleSheet.textContent = additionalStyles;
+document.head.appendChild(styleSheet);
 
         // Inicialización
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('📋 Inicializando página de pedidos...');
+            console.log('📋 Inicializando página de pedidos con clientes...');
             
             const user = checkAuth();
             if (!user) return;
@@ -305,11 +637,498 @@
             if (userNameElement) userNameElement.textContent = user.name;
             
             setupEventListeners();
+            setupClientSelector();
             setupMobile();
             loadSubstoreStatus();
+            setupQuickClientFormValidation();
+            loadClients();
         });
 
-        // Configurar event listeners
+        // ===== FUNCIONES PARA MANEJO DE CLIENTES =====
+
+        // Cargar lista de clientes
+        async function loadClients() {
+            if (isLoadingClients) return;
+            
+            console.log('👥 Cargando lista de clientes...');
+            isLoadingClients = true;
+            
+            try {
+                const clients = await getClients();
+                allClients = Array.isArray(clients) ? clients : [];
+                
+                console.log('✅ Clientes cargados:', allClients.length);
+                
+                if (allClients.length === 0) {
+                    console.log('⚠️ No hay clientes registrados');
+                }
+                
+            } catch (error) {
+                console.error('❌ Error cargando clientes:', error);
+                allClients = [];
+                if (window.showNotification) {
+                    window.showNotification('Error cargando lista de clientes', 'warning');
+                }
+            } finally {
+                isLoadingClients = false;
+            }
+        }
+
+        // Configurar el selector de clientes
+        function setupClientSelector() {
+            const searchInput = document.getElementById('client-search-input');
+            const dropdown = document.getElementById('client-dropdown');
+            
+            if (!searchInput || !dropdown) return;
+            
+            // Event listeners para el buscador
+            searchInput.addEventListener('input', handleClientSearch);
+            searchInput.addEventListener('focus', handleClientSearchFocus);
+            searchInput.addEventListener('blur', handleClientSearchBlur);
+            
+            // Cerrar dropdown al hacer clic fuera
+            document.addEventListener('click', function(e) {
+                if (!e.target.closest('.client-search-container')) {
+                    hideClientDropdown();
+                }
+            });
+            
+            console.log('✅ Selector de clientes configurado');
+        }
+
+        // Manejar búsqueda de clientes
+        function handleClientSearch(e) {
+            const searchTerm = e.target.value.toLowerCase().trim();
+            
+            if (searchTerm.length === 0) {
+                hideClientDropdown();
+                return;
+            }
+            
+            // Filtrar clientes
+            const filteredClients = allClients.filter(client => {
+                return (
+                    (client.name && client.name.toLowerCase().includes(searchTerm)) ||
+                    (client.phone && client.phone.includes(searchTerm)) ||
+                    (client.code && client.code.toLowerCase().includes(searchTerm)) ||
+                    (client.email && client.email.toLowerCase().includes(searchTerm))
+                );
+            });
+            
+            displayClientOptions(filteredClients, searchTerm);
+        }
+
+        // Manejar focus en el buscador
+        function handleClientSearchFocus(e) {
+            const searchTerm = e.target.value.toLowerCase().trim();
+            
+            if (searchTerm.length > 0) {
+                handleClientSearch(e);
+            } else {
+                // Mostrar los primeros 10 clientes
+                displayClientOptions(allClients.slice(0, 10));
+            }
+        }
+
+        // Manejar blur del buscador
+        function handleClientSearchBlur(e) {
+            // Delay para permitir clic en dropdown
+            setTimeout(() => {
+                hideClientDropdown();
+            }, 200);
+        }
+
+        // Mostrar opciones de clientes en el dropdown
+        function displayClientOptions(clients, searchTerm = '') {
+            const dropdown = document.getElementById('client-dropdown');
+            if (!dropdown) return;
+            
+            dropdown.innerHTML = '';
+            
+            // ✅ MEJORAR OPCIÓN PARA CREAR NUEVO CLIENTE
+            if (searchTerm.length >= 2) {
+                const newClientOption = document.createElement('div');
+                newClientOption.className = 'new-client-option';
+                
+                // Detectar si el término parece un teléfono
+                const isPhoneLike = /^[\d\-\s\+\(\)]{8,}$/.test(searchTerm);
+                const displayText = isPhoneLike ? `con teléfono "${searchTerm}"` : `con nombre "${searchTerm}"`;
+                
+                newClientOption.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <div style="font-size: 1.2rem;">➕</div>
+                        <div>
+                            <div style="font-weight: 600;">Crear nuevo cliente</div>
+                            <div style="font-size: 0.75rem; opacity: 0.8;">${displayText}</div>
+                        </div>
+                    </div>
+                `;
+                
+                newClientOption.addEventListener('click', () => openNewClientForm(searchTerm));
+                dropdown.appendChild(newClientOption);
+            }
+            
+            // Mostrar clientes existentes
+            if (clients.length === 0 && searchTerm.length > 0) {
+                const noResults = document.createElement('div');
+                noResults.className = 'no-clients-message';
+                noResults.innerHTML = `
+                    <div style="text-align: center; padding: 1rem;">
+                        <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">🔍</div>
+                        <div>No se encontraron clientes</div>
+                        ${searchTerm.length >= 2 ? '<div style="font-size: 0.8rem; margin-top: 0.25rem; opacity: 0.7;">Puedes crear un nuevo cliente arriba</div>' : ''}
+                    </div>
+                `;
+                dropdown.appendChild(noResults);
+            } else {
+                clients.slice(0, 8).forEach(client => {
+                    const option = createClientOption(client);
+                    dropdown.appendChild(option);
+                });
+                
+                if (clients.length > 8) {
+                    const moreResults = document.createElement('div');
+                    moreResults.className = 'no-clients-message';
+                    moreResults.textContent = `+ ${clients.length - 8} clientes más...`;
+                    dropdown.appendChild(moreResults);
+                }
+            }
+            
+            showClientDropdown();
+        }
+
+        // Crear opción de cliente
+        function createClientOption(client) {
+            const option = document.createElement('div');
+            option.className = 'client-option';
+            
+            // Determinar estado de deuda
+            let debtIndicator = '';
+            const totalDebt = client.totalDebt || 0;
+            
+            if (totalDebt > 0) {
+                const debtClass = totalDebt > 1000 ? 'overdue' : 'with-debt';
+                const debtText = totalDebt > 1000 ? 'Vencido' : 'Con deuda';
+                debtIndicator = `<span class="client-debt-indicator ${debtClass}">${debtText}</span>`;
+            } else {
+                debtIndicator = '<span class="client-debt-indicator no-debt">Al corriente</span>';
+            }
+            
+            option.innerHTML = `
+                <div class="client-name">
+                    ${client.name || 'Sin nombre'}${debtIndicator}
+                </div>
+                <div class="client-details">
+                    ${client.code || 'Sin código'} • ${client.phone || 'Sin teléfono'}
+                    ${client.address ? ' • ' + client.address : ''}
+                    ${totalDebt > 0 ? ' • Deuda: ' + formatCurrency(totalDebt) : ''}
+                </div>
+            `;
+            
+            option.addEventListener('click', () => selectClient(client));
+            
+            return option;
+        }
+
+        // Seleccionar cliente
+        function selectClient(client) {
+            console.log('👤 Cliente seleccionado:', client.name);
+            
+            selectedClient = client;
+            
+            // Mostrar tarjeta de cliente seleccionado
+            displaySelectedClient(client);
+            
+            // Ocultar sección de búsqueda
+            hideClientDropdown();
+            document.getElementById('client-search-section').style.display = 'none';
+            document.getElementById('selected-client-card').classList.add('show');
+            
+            // Limpiar buscador
+            document.getElementById('client-search-input').value = '';
+            
+            // Notificación
+            if (window.showNotification) {
+                window.showNotification(`Cliente seleccionado: ${client.name}`, 'success');
+            }
+        }
+
+        // Mostrar cliente seleccionado
+        function displaySelectedClient(client) {
+            const nameElement = document.getElementById('selected-client-name');
+            const codeElement = document.getElementById('selected-client-code');
+            const infoElement = document.getElementById('selected-client-info');
+            
+            if (nameElement) nameElement.textContent = client.name || 'Cliente sin nombre';
+            if (codeElement) codeElement.textContent = client.code || 'Sin código';
+            
+            if (infoElement) {
+                const totalDebt = client.totalDebt || 0;
+                const debtStatus = totalDebt > 0 ? `⚠️ Deuda: ${formatCurrency(totalDebt)}` : '✅ Al corriente';
+                
+                infoElement.innerHTML = `
+                    <div class="client-info-item">
+                        <span></span>
+                        <span>${client.phone || 'Sin teléfono'}</span>
+                    </div>
+                    ${client.email ? `
+                        <div class="client-info-item">
+                            <span></span>
+                            <span>${client.email}</span>
+                        </div>
+                    ` : ''}
+                `;
+            }
+        }
+
+        // Limpiar cliente seleccionado
+        function clearSelectedClient() {
+            console.log('🔄 Limpiando cliente seleccionado');
+            
+            selectedClient = null;
+            
+            // Ocultar tarjeta de cliente seleccionado
+            document.getElementById('selected-client-card').classList.remove('show');
+            
+            // Mostrar sección de búsqueda
+            document.getElementById('client-search-section').style.display = 'block';
+            
+            // Limpiar formulario rápido si está visible
+            cancelNewClient();
+            
+            // Focus en buscador
+            setTimeout(() => {
+                const searchInput = document.getElementById('client-search-input');
+                if (searchInput) searchInput.focus();
+            }, 100);
+        }
+
+        // Abrir formulario de nuevo cliente
+        function openNewClientForm(searchTerm = '') {
+            console.log('📝 Abriendo formulario de nuevo cliente con término:', searchTerm);
+            
+            hideClientDropdown();
+            
+            // Mostrar formulario
+            document.getElementById('client-form-quick').classList.add('show');
+            
+            // ✅ MEJORAR PRE-LLENADO DE DATOS
+            if (searchTerm) {
+                // Detectar si es teléfono o nombre
+                const isPhoneLike = /^[\d\-\s\+\(\)]{8,}$/.test(searchTerm);
+                
+                if (isPhoneLike) {
+                    // Es un teléfono
+                    const phoneInput = document.getElementById('quick-client-phone');
+                    if (phoneInput) {
+                        phoneInput.value = searchTerm;
+                    }
+                    
+                    // Focus en nombre
+                    setTimeout(() => {
+                        const nameInput = document.getElementById('quick-client-name');
+                        if (nameInput) nameInput.focus();
+                    }, 100);
+                } else {
+                    // Es un nombre
+                    const nameInput = document.getElementById('quick-client-name');
+                    if (nameInput) {
+                        nameInput.value = searchTerm;
+                    }
+                    
+                    // Focus en teléfono
+                    setTimeout(() => {
+                        const phoneInput = document.getElementById('quick-client-phone');
+                        if (phoneInput) phoneInput.focus();
+                    }, 100);
+                }
+            } else {
+                // Focus en primer campo
+                setTimeout(() => {
+                    const nameInput = document.getElementById('quick-client-name');
+                    if (nameInput) nameInput.focus();
+                }, 100);
+            }
+        }
+                
+        // Cancelar nuevo cliente
+        function cancelNewClient() {
+            document.getElementById('client-form-quick').classList.remove('show');
+            
+            // Limpiar formulario
+            const fields = ['quick-client-name', 'quick-client-phone', 'quick-client-address', 'quick-client-email'];
+            fields.forEach(fieldId => {
+                const field = document.getElementById(fieldId);
+                if (field) field.value = '';
+            });
+        }
+
+        // Guardar cliente rápido
+        async function saveQuickClient() {
+            console.log('💾 Guardando cliente rápido desde empleado');
+            
+            // Obtener datos del formulario
+            const name = document.getElementById('quick-client-name')?.value?.trim();
+            const phone = document.getElementById('quick-client-phone')?.value?.trim();
+            const address = document.getElementById('quick-client-address')?.value?.trim();
+            const email = document.getElementById('quick-client-email')?.value?.trim();
+            
+            // Validaciones
+            if (!name) {
+                if (window.showNotification) {
+                    window.showNotification('El nombre del cliente es requerido', 'warning');
+                } else {
+                    alert('El nombre del cliente es requerido');
+                }
+                document.getElementById('quick-client-name')?.focus();
+                return;
+            }
+            
+            if (!phone) {
+                if (window.showNotification) {
+                    window.showNotification('El teléfono del cliente es requerido', 'warning');
+                } else {
+                    alert('El teléfono del cliente es requerido');
+                }
+                document.getElementById('quick-client-phone')?.focus();
+                return;
+            }
+            
+            // Validar formato de teléfono (básico)
+            const phoneRegex = /^[\d\-\s\+\(\)]{10,}$/;
+            if (!phoneRegex.test(phone)) {
+                if (window.showNotification) {
+                    window.showNotification('Formato de teléfono inválido', 'warning');
+                } else {
+                    alert('Formato de teléfono inválido');
+                }
+                document.getElementById('quick-client-phone')?.focus();
+                return;
+            }
+            
+            // Verificar si ya existe un cliente con el mismo teléfono
+            const existingClient = allClients.find(c => 
+                c.phone === phone || 
+                (c.name && c.name.toLowerCase() === name.toLowerCase())
+            );
+            
+            if (existingClient) {
+                if (confirm(`Ya existe un cliente con información similar:\n\nNombre: ${existingClient.name}\nTeléfono: ${existingClient.phone}\n\n¿Quieres seleccionar este cliente existente en lugar de crear uno nuevo?`)) {
+                    selectClient(existingClient);
+                    cancelNewClient();
+                    return;
+                }
+            }
+            
+            const clientData = {
+                name,
+                phone,
+                address: address || '',
+                email: email || '',
+                city: 'Victoria de Durango', // ✅ Default para empleados
+                state: 'Durango', // ✅ Default para empleados
+                notes: 'Cliente creado desde app móvil por empleado'
+            };
+            
+            // Mostrar indicador de carga
+            const saveButton = document.querySelector('#client-form-quick .btn-primary');
+            const originalText = saveButton?.textContent;
+            if (saveButton) {
+                saveButton.disabled = true;
+                saveButton.textContent = '⏳ Guardando...';
+            }
+            
+            try {
+                console.log('📤 Enviando datos del cliente:', clientData);
+                
+                // ✅ USAR LA API DE CLIENTES CORREGIDA
+                const response = await fetch(`${window.API_BASE_URL}/api/clients`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
+                    body: JSON.stringify(clientData)
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || `Error ${response.status}: ${response.statusText}`);
+                }
+                
+                const newClient = await response.json();
+                
+                console.log('✅ Cliente creado exitosamente:', newClient);
+                
+                // Agregarlo a la lista local
+                allClients.unshift(newClient);
+                
+                // Seleccionarlo automáticamente
+                selectClient(newClient);
+                
+                // Ocultar formulario
+                cancelNewClient();
+                
+                if (window.showNotification) {
+                    window.showNotification(`Cliente "${newClient.name}" creado exitosamente`, 'success');
+                } else {
+                    alert(`Cliente "${newClient.name}" creado exitosamente`);
+                }
+                
+            } catch (error) {
+                console.error('❌ Error creando cliente:', error);
+                
+                let errorMessage = 'Error al crear cliente';
+                
+                if (error.message.includes('código de cliente ya existe')) {
+                    errorMessage = 'El código de cliente ya existe. Intenta nuevamente.';
+                } else if (error.message.includes('Nombre y teléfono son campos obligatorios')) {
+                    errorMessage = 'Nombre y teléfono son obligatorios';
+                } else if (error.message.includes('Network') || error.message.includes('fetch')) {
+                    errorMessage = 'Error de conexión. Verifica tu internet e intenta nuevamente.';
+                } else {
+                    errorMessage = error.message;
+                }
+                
+                if (window.showNotification) {
+                    window.showNotification(errorMessage, 'error');
+                } else {
+                    alert(errorMessage);
+                }
+                
+            } finally {
+                // Restaurar botón
+                if (saveButton && originalText) {
+                    saveButton.disabled = false;
+                    saveButton.textContent = originalText;
+                }
+            }
+        }
+
+        // Generar código de cliente automático
+        function generateClientCode() {
+            const existingCodes = allClients.map(c => c.code).filter(code => code);
+            let counter = 1;
+            let newCode;
+            
+            do {
+                newCode = `CLI${String(counter).padStart(3, '0')}`;
+                counter++;
+            } while (existingCodes.includes(newCode));
+            
+            return newCode;
+        }
+
+        // Mostrar/ocultar dropdown
+        function showClientDropdown() {
+            document.getElementById('client-dropdown').classList.add('show');
+        }
+
+        function hideClientDropdown() {
+            document.getElementById('client-dropdown').classList.remove('show');
+        }
+
+        // ===== CONFIGURAR EVENT LISTENERS =====
         function setupEventListeners() {
             console.log('🎯 Configurando event listeners...');
             
@@ -328,25 +1147,328 @@
             console.log('✅ Event listeners configurados');
         }
 
-        // ===== NUEVA FUNCIÓN: Seleccionar tipo de pago =====
+        // ===== FUNCIÓN PRINCIPAL: CREAR PEDIDO (CORREGIDA) =====
+        async function handleCreateOrder() {
+            if (isProcessing) return;
+            
+            console.log('📤 Iniciando creación de pedido con cliente:', {
+                client: selectedClient?.name || 'Sin seleccionar',
+                paymentMethod: currentPaymentMethod,
+                paymentType: currentPaymentType,
+                location: currentLocation,
+                customPrices: Object.keys(customPrices).length
+            });
+            
+            // ✅ VALIDACIÓN CORREGIDA: Solo verificar que hay cliente seleccionado
+            if (!selectedClient) {
+                if (window.showNotification) {
+                    window.showNotification('Debes seleccionar un cliente para el pedido', 'warning');
+                }
+                // Scroll hacia arriba para mostrar selector de cliente
+                document.querySelector('.client-selector-section').scrollIntoView({ 
+                    behavior: 'smooth' 
+                });
+                return;
+            }
+            
+            // Validar productos
+            if (!orderProducts || orderProducts.length === 0) {
+                if (window.showNotification) {
+                    window.showNotification('Agrega al menos un producto del subalmacén', 'warning');
+                }
+                return;
+            }
+            
+            // Validar ubicación (opcional pero recomendada)
+            if (!currentLocation) {
+                const confirmWithoutLocation = confirm('⚠️ No hay ubicación registrada.\n\n¿Continuar sin ubicación?\n\nRecomendamos obtener la ubicación para mejorar el servicio.');
+                if (!confirmWithoutLocation) {
+                    return;
+                }
+            }
+            
+            if (!substoreInfo) {
+                if (window.showNotification) {
+                    window.showNotification('Error: No hay información del subalmacén', 'error');
+                }
+                return;
+            }
+            
+            // Obtener información de pago
+            const total = orderProducts.reduce((sum, p) => sum + p.line_total, 0);
+            let initialPayment = 0;
+            
+            if (currentPaymentMethod === 'credit') {
+                initialPayment = parseFloat(document.getElementById('initial-payment')?.value) || 0;
+                
+                if (initialPayment > total) {
+                    if (window.showNotification) {
+                        window.showNotification('El abono inicial no puede ser mayor al total', 'warning');
+                    }
+                    return;
+                }
+            } else {
+                initialPayment = total;
+            }
+            
+            // Verificar si hay precios personalizados
+            let customPricingSummary = null;
+            if (Object.keys(customPrices).length > 0) {
+                customPricingSummary = {
+                    products_with_custom_price: Object.keys(customPrices).length,
+                    total_savings: 0,
+                    custom_price_details: []
+                };
+                
+                orderProducts.forEach(product => {
+                    if (product.custom_price_info) {
+                        customPricingSummary.total_savings += product.custom_price_info.discount_amount * product.quantity;
+                        customPricingSummary.custom_price_details.push({
+                            product_code: product.code,
+                            product_name: product.name,
+                            quantity: product.quantity,
+                            original_price: product.custom_price_info.original_price,
+                            custom_price: product.custom_price_info.custom_price,
+                            total_savings: product.custom_price_info.discount_amount * product.quantity,
+                            reason: product.custom_price_info.reason
+                        });
+                    }
+                });
+            }
+            
+            isProcessing = true;
+            const submitBtn = document.getElementById('submit-order-btn');
+            
+            try {
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.textContent = '⚡ Procesando Venta...';
+                }
+                
+                // ✅ PREPARAR DATOS DEL PEDIDO - USANDO CLIENTE SELECCIONADO
+                const formData = {
+                    client_info: {
+                        client_id: selectedClient.id, // ID del cliente
+                        name: selectedClient.name,
+                        phone: selectedClient.phone || '',
+                        address: selectedClient.address || '',
+                        email: selectedClient.email || '',
+                        code: selectedClient.code || ''
+                    },
+                    products: orderProducts,
+                    payment_method: currentPaymentMethod,
+                    payment_type: currentPaymentType,
+                    inventory_source: 'substore',
+                    trip_id: substoreInfo.id,
+                    location: currentLocation,
+                    notes: document.getElementById('order-notes')?.value?.trim() || '',
+                    total: total,
+                    
+                    // Información de pagos
+                    paid_amount: initialPayment,
+                    balance: total - initialPayment,
+                    is_fully_paid: initialPayment >= total,
+                    payment_status: initialPayment >= total ? 'paid' : (initialPayment > 0 ? 'partial' : 'pending'),
+                    
+                    // Información de precios personalizados
+                    custom_pricing_summary: customPricingSummary
+                };
+                
+                // Manejar foto
+                const photoFile = document.getElementById('order-photo')?.files[0];
+                if (photoFile) {
+                    try {
+                        const photoBase64 = await convertToBase64(photoFile);
+                        formData.photo_url = photoBase64;
+                    } catch (error) {
+                        console.error('Error con la foto:', error);
+                    }
+                }
+                
+                console.log('📤 Enviando pedido con cliente seleccionado:', formData);
+                
+                // Enviar pedido
+                const response = await fetch(`${window.API_BASE_URL}/api/orders`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
+                    body: JSON.stringify(formData)
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    
+                    console.log('🎉 Pedido procesado exitosamente:', result);
+                    
+                    const methodText = currentPaymentMethod === 'cash' ? 'Contado' : 'Crédito';
+                    const orderNumber = result.order?.order_number || 'Generándose...';
+                    const saleNumber = result.sale?.sale_number || 'Generándose...';
+                    const tripNumber = substoreInfo.trip_number;
+                    
+                    // Información de pago detallada
+                    let paymentInfo = `\n💳 Modalidad: ${methodText}`;
+                    paymentInfo += `\n🏦 Tipo: ${getPaymentTypeLabel(currentPaymentType)}`;
+                    
+                    if (currentPaymentMethod === 'credit') {
+                        const balance = total - initialPayment;
+                        if (initialPayment > 0) {
+                            paymentInfo += `\nAbono inicial: ${formatCurrency(initialPayment)}`;
+                        }
+                        if (balance > 0) {
+                            paymentInfo += `\nSaldo pendiente: ${formatCurrency(balance)}`;
+                        } else {
+                            paymentInfo += `\nPedido TOTALMENTE PAGADO`;
+                        }
+                    } else {
+                        paymentInfo += '\nAGO COMPLETO AL CONTADO';
+                    }
+                    
+                    // Información de precios personalizados
+                    let customPriceInfo = '';
+                    if (customPricingSummary && customPricingSummary.products_with_custom_price > 0) {
+                        customPriceInfo = `\n\nPRECIOS PERSONALIZADOS:`;
+                        customPriceInfo += `\n• ${customPricingSummary.products_with_custom_price} producto(s) con precio especial`;
+                        if (customPricingSummary.total_savings > 0) {
+                            customPriceInfo += `\n• Ahorro total: ${formatCurrency(customPricingSummary.total_savings)}`;
+                        }
+                    }
+                    
+                    // Información de ubicación
+                    let locationInfo = '';
+                    if (currentLocation) {
+                        locationInfo = `\n📍 Ubicación: ${currentLocation.address}`;
+                    }
+                    
+                    const confirmationMessage = `🎉 ¡VENTA COMPLETADA EXITOSAMENTE!
+
+📋 Pedido: ${orderNumber}
+💰 Venta: ${saleNumber}
+👤 Cliente: ${selectedClient.name} (${selectedClient.code})
+📦 Productos: ${orderProducts.length}
+💵 Total: ${formatCurrency(formData.total)}${paymentInfo}${customPriceInfo}${locationInfo}
+🚛 Subalmacén: ${tripNumber}
+
+✅ La venta ha sido procesada automáticamente
+📦 El inventario de tu subalmacén ha sido actualizado
+📊 El registro de venta ha sido creado
+👥 Cliente vinculado al pedido
+
+¡Felicidades por tu venta! 🎊`;
+                    
+                    alert(confirmationMessage);
+                    
+                    if (window.showNotification) {
+                        window.showNotification(`¡Venta ${methodText.toLowerCase()} completada para ${selectedClient.name}! 🎉`, 'success');
+                    }
+                    
+                    // Limpiar formulario
+                    clearOrderForm();
+                    
+                    // Recargar productos del subalmacén
+                    await loadSubstoreProducts();
+                    
+                } else {
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || 'Error en el servidor');
+                }
+                
+            } catch (error) {
+                console.error('❌ Error procesando pedido:', error);
+                
+                if (window.showNotification) {
+                    window.showNotification('Error: ' + error.message, 'error');
+                }
+                
+                alert(`❌ Error al procesar la venta:
+
+${error.message}
+
+Verifica la información e intenta nuevamente.`);
+                
+            } finally {
+                isProcessing = false;
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = '✨ Crear Pedido';
+                }
+            }
+        }
+        
+        // ===== FUNCIÓN PARA LIMPIAR FORMULARIO =====
+        function clearOrderForm() {
+            orderProducts = [];
+            customPrices = {};
+            updateOrderTable();
+            
+            // ✅ LIMPIAR CLIENTE SELECCIONADO
+            clearSelectedClient();
+            
+            // Limpiar campos
+            const fields = ['order-notes'];
+            fields.forEach(fieldId => {
+                const field = document.getElementById(fieldId);
+                if (field) field.value = '';
+            });
+            
+            const photoInput = document.getElementById('order-photo');
+            const photoPreview = document.getElementById('photo-preview');
+            if (photoInput) photoInput.value = '';
+            if (photoPreview) photoPreview.innerHTML = '';
+            
+            selectPaymentMethod('cash');
+            selectPaymentType('efectivo');
+            const initialPaymentField = document.getElementById('initial-payment');
+            if (initialPaymentField) initialPaymentField.value = '';
+            
+            // Limpiar ubicación
+            currentLocation = null;
+            const locationStatus = document.getElementById('location-status');
+            if (locationStatus) {
+                locationStatus.innerHTML = `
+                    <div class="location-icon">📍</div>
+                    <div class="location-text">
+                        <div class="location-title">Sin ubicación</div>
+                        <div class="location-subtitle">Obtén tu ubicación actual o ingrésala manualmente</div>
+                    </div>
+                `;
+            }
+            
+            const locationBtn = document.getElementById('get-location-btn');
+            if (locationBtn) {
+                locationBtn.textContent = '📱 Obtener Mi Ubicación';
+                locationBtn.style.backgroundColor = '';
+                locationBtn.disabled = false;
+            }
+            
+            document.querySelectorAll('.quantity-input').forEach(input => {
+                input.value = 1;
+            });
+            
+            // Actualizar vista de productos
+            if (substoreProducts && substoreProducts.length > 0) {
+                displaySubstoreProducts(substoreProducts);
+            }
+        }
+
+        // ===== RESTO DE FUNCIONES (sin cambios) =====
+        
         function selectPaymentType(type) {
             console.log('🏦 Seleccionando tipo de pago:', type);
             
             currentPaymentType = type;
             
-            // Actualizar interfaz visual
             document.querySelectorAll('.payment-type-option').forEach(option => {
                 option.classList.remove('selected');
             });
             
-            // Marcar la opción seleccionada
             document.querySelectorAll('.payment-type-option').forEach(option => {
                 if (option.querySelector('.payment-type-label').textContent === getPaymentTypeLabel(type)) {
                     option.classList.add('selected');
                 }
             });
             
-            // Actualizar resumen
             updatePaymentSummary();
             
             console.log('✅ Tipo de pago actualizado a:', currentPaymentType);
@@ -362,13 +1484,11 @@
             return labels[type] || 'Efectivo';
         }
 
-        // Función existente mejorada
         function selectPaymentMethod(method) {
             console.log('💳 Seleccionando método de pago:', method);
             
             currentPaymentMethod = method;
             
-            // Actualizar interfaz visual
             document.querySelectorAll('.payment-method-option').forEach(option => {
                 option.classList.remove('selected');
             });
@@ -378,7 +1498,6 @@
             
             document.getElementById(`payment-${method}`).checked = true;
             
-            // Mostrar/ocultar sección de abono inicial
             const initialPaymentSection = document.getElementById('initial-payment-section');
             const paymentSummary = document.getElementById('payment-summary');
             
@@ -397,7 +1516,26 @@
             console.log('✅ Método de pago actualizado a:', currentPaymentMethod);
         }
 
-        // ===== NUEVAS FUNCIONES DE UBICACIÓN =====
+        function updatePaymentSummary() {
+            const total = orderProducts.reduce((sum, p) => sum + p.line_total, 0);
+            const initialPayment = parseFloat(document.getElementById('initial-payment')?.value) || 0;
+            const balance = Math.max(0, total - initialPayment);
+            
+            document.getElementById('summary-total').textContent = formatCurrency(total);
+            document.getElementById('summary-initial').textContent = formatCurrency(initialPayment);
+            document.getElementById('summary-balance').textContent = formatCurrency(balance);
+            document.getElementById('summary-payment-type').textContent = getPaymentTypeLabel(currentPaymentType);
+            
+            if (initialPayment > total && total > 0) {
+                document.getElementById('initial-payment').style.borderColor = '#dc2626';
+                document.getElementById('summary-initial').style.color = '#dc2626';
+            } else {
+                document.getElementById('initial-payment').style.borderColor = '#f59e0b';
+                document.getElementById('summary-initial').style.color = 'inherit';
+            }
+        }
+
+        // Funciones de ubicación
         async function getDetailedLocation() {
             const btn = document.getElementById('get-location-btn');
             const status = document.getElementById('location-status');
@@ -408,7 +1546,6 @@
                 btn.disabled = true;
                 btn.textContent = '📡 Obteniendo ubicación...';
                 
-                // Actualizar estado de carga
                 status.innerHTML = `
                     <div class="location-icon">⏳</div>
                     <div class="location-text">
@@ -417,24 +1554,19 @@
                     </div>
                 `;
                 
-                // Obtener ubicación
                 const position = await getCurrentPosition();
                 const { latitude, longitude } = position.coords;
                 
                 console.log('📍 Ubicación obtenida:', { latitude, longitude });
                 
-                // Intentar obtener dirección (reverse geocoding)
                 let address = `Lat: ${latitude.toFixed(6)}, Lng: ${longitude.toFixed(6)}`;
                 
                 try {
-                    // Aquí podrías usar una API de geocoding reverso como Google Maps o OpenStreetMap
-                    // Por ahora, usaremos las coordenadas
                     address = await reverseGeocode(latitude, longitude);
                 } catch (geoError) {
                     console.warn('No se pudo obtener la dirección:', geoError);
                 }
                 
-                // Guardar ubicación
                 currentLocation = {
                     latitude,
                     longitude,
@@ -444,7 +1576,6 @@
                     method: 'gps'
                 };
                 
-                // Actualizar estado exitoso
                 status.innerHTML = `
                     <div class="location-icon">✅</div>
                     <div class="location-text">
@@ -511,7 +1642,7 @@
                     {
                         enableHighAccuracy: true,
                         timeout: 10000,
-                        maximumAge: 300000 // 5 minutos
+                        maximumAge: 300000
                     }
                 );
             });
@@ -519,7 +1650,6 @@
 
         async function reverseGeocode(lat, lng) {
             try {
-                // Usando OpenStreetMap Nominatim (gratuito)
                 const response = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1`);
                 
                 if (!response.ok) throw new Error('Error en geocoding');
@@ -591,29 +1721,7 @@
             }
         }
 
-        // Función mejorada para actualizar resumen de pago
-        function updatePaymentSummary() {
-            const total = orderProducts.reduce((sum, p) => sum + p.line_total, 0);
-            const initialPayment = parseFloat(document.getElementById('initial-payment')?.value) || 0;
-            const balance = Math.max(0, total - initialPayment);
-            
-            // Actualizar elementos del resumen
-            document.getElementById('summary-total').textContent = formatCurrency(total);
-            document.getElementById('summary-initial').textContent = formatCurrency(initialPayment);
-            document.getElementById('summary-balance').textContent = formatCurrency(balance);
-            document.getElementById('summary-payment-type').textContent = getPaymentTypeLabel(currentPaymentType);
-            
-            // Validar que el abono no exceda el total
-            if (initialPayment > total && total > 0) {
-                document.getElementById('initial-payment').style.borderColor = '#dc2626';
-                document.getElementById('summary-initial').style.color = '#dc2626';
-            } else {
-                document.getElementById('initial-payment').style.borderColor = '#f59e0b';
-                document.getElementById('summary-initial').style.color = 'inherit';
-            }
-        }
-
-        // Resto de funciones existentes (loadSubstoreStatus, displaySubstoreStatus, etc.)
+        // Resto de funciones existentes
         async function loadSubstoreStatus() {
             console.log('🔍 Cargando estado del subalmacén...');
             
@@ -688,260 +1796,6 @@
             }
         }
 
-        // Función mejorada para crear pedido
-        async function handleCreateOrder() {
-            if (isProcessing) return;
-            
-            console.log('📤 Iniciando creación de pedido con precios personalizados:', {
-                paymentMethod: currentPaymentMethod,
-                paymentType: currentPaymentType,
-                location: currentLocation,
-                customPrices: Object.keys(customPrices).length
-            });
-            
-            // Validaciones existentes
-            if (!orderProducts || orderProducts.length === 0) {
-                if (window.showNotification) {
-                    window.showNotification('Agrega al menos un producto del subalmacén', 'warning');
-                }
-                return;
-            }
-            
-            const clientName = document.getElementById('client-name')?.value?.trim();
-            if (!clientName) {
-                if (window.showNotification) {
-                    window.showNotification('El nombre del cliente es requerido', 'warning');
-                }
-                document.getElementById('client-name')?.focus();
-                return;
-            }
-            
-            // Validar ubicación (opcional pero recomendada)
-            if (!currentLocation) {
-                const confirmWithoutLocation = confirm('⚠️ No hay ubicación registrada.\n\n¿Continuar sin ubicación?\n\nRecomendamos obtener la ubicación para mejorar el servicio.');
-                if (!confirmWithoutLocation) {
-                    return;
-                }
-            }
-            
-            if (!substoreInfo) {
-                if (window.showNotification) {
-                    window.showNotification('Error: No hay información del subalmacén', 'error');
-                }
-                return;
-            }
-            
-            // Obtener información de pago
-            const total = orderProducts.reduce((sum, p) => sum + p.line_total, 0);
-            let initialPayment = 0;
-            
-            if (currentPaymentMethod === 'credit') {
-                initialPayment = parseFloat(document.getElementById('initial-payment')?.value) || 0;
-                
-                if (initialPayment > total) {
-                    if (window.showNotification) {
-                        window.showNotification('El abono inicial no puede ser mayor al total', 'warning');
-                    }
-                    return;
-                }
-            } else {
-                initialPayment = total;
-            }
-            
-            // Verificar si hay precios personalizados y generar resumen
-            let customPricingSummary = null;
-            if (Object.keys(customPrices).length > 0) {
-                customPricingSummary = {
-                    products_with_custom_price: Object.keys(customPrices).length,
-                    total_savings: 0,
-                    custom_price_details: []
-                };
-                
-                orderProducts.forEach(product => {
-                    if (product.custom_price_info) {
-                        customPricingSummary.total_savings += product.custom_price_info.discount_amount * product.quantity;
-                        customPricingSummary.custom_price_details.push({
-                            product_code: product.code,
-                            product_name: product.name,
-                            quantity: product.quantity,
-                            original_price: product.custom_price_info.original_price,
-                            custom_price: product.custom_price_info.custom_price,
-                            total_savings: product.custom_price_info.discount_amount * product.quantity,
-                            reason: product.custom_price_info.reason
-                        });
-                    }
-                });
-            }
-            
-            isProcessing = true;
-            const submitBtn = document.getElementById('submit-order-btn');
-            
-            try {
-                if (submitBtn) {
-                    submitBtn.disabled = true;
-                    submitBtn.textContent = '⚡ Procesando Venta...';
-                }
-                
-                // Preparar datos con información mejorada
-                const formData = {
-                    client_info: {
-                        name: clientName,
-                        phone: document.getElementById('client-phone')?.value?.trim() || '',
-                        address: document.getElementById('client-address')?.value?.trim() || '',
-                        email: document.getElementById('client-email')?.value?.trim() || ''
-                    },
-                    products: orderProducts,
-                    payment_method: currentPaymentMethod,
-                    payment_type: currentPaymentType,
-                    inventory_source: 'substore',
-                    trip_id: substoreInfo.id,
-                    location: currentLocation,
-                    notes: document.getElementById('order-notes')?.value?.trim() || '',
-                    total: total,
-                    
-                    // Información de pagos
-                    paid_amount: initialPayment,
-                    balance: total - initialPayment,
-                    is_fully_paid: initialPayment >= total,
-                    payment_status: initialPayment >= total ? 'paid' : (initialPayment > 0 ? 'partial' : 'pending'),
-                    
-                    // NUEVA: Información de precios personalizados
-                    custom_pricing_summary: customPricingSummary
-                };
-                
-                // Manejar foto
-                const photoFile = document.getElementById('order-photo')?.files[0];
-                if (photoFile) {
-                    try {
-                        const photoBase64 = await convertToBase64(photoFile);
-                        formData.photo_url = photoBase64;
-                    } catch (error) {
-                        console.error('Error con la foto:', error);
-                    }
-                }
-                
-                console.log('📤 Enviando pedido con precios personalizados:', formData);
-                
-                // Enviar pedido
-                const response = await fetch(`${window.API_BASE_URL}/api/orders`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`
-                    },
-                    body: JSON.stringify(formData)
-                });
-                
-                if (response.ok) {
-                    const result = await response.json();
-                    
-                    console.log('🎉 Pedido procesado exitosamente:', result);
-                    
-                    const methodText = currentPaymentMethod === 'cash' ? 'Contado' : 'Crédito';
-                    const orderNumber = result.order?.order_number || 'Generándose...';
-                    const saleNumber = result.sale?.sale_number || 'Generándose...';
-                    const tripNumber = substoreInfo.trip_number;
-                    
-                    // Información de pago detallada
-                    let paymentInfo = `\n💳 Modalidad: ${methodText}`;
-                    paymentInfo += `\n🏦 Tipo: ${getPaymentTypeLabel(currentPaymentType)}`;
-                    
-                    if (currentPaymentMethod === 'credit') {
-                        const balance = total - initialPayment;
-                        if (initialPayment > 0) {
-                            paymentInfo += `\n💰 Abono inicial: ${formatCurrency(initialPayment)}`;
-                        }
-                        if (balance > 0) {
-                            paymentInfo += `\n📋 Saldo pendiente: ${formatCurrency(balance)}`;
-                        } else {
-                            paymentInfo += `\n✅ Pedido TOTALMENTE PAGADO`;
-                        }
-                    } else {
-                        paymentInfo += '\n💵 PAGO COMPLETO AL CONTADO';
-                    }
-                    
-                    // Información de precios personalizados
-                    let customPriceInfo = '';
-                    if (customPricingSummary && customPricingSummary.products_with_custom_price > 0) {
-                        customPriceInfo = `\n\n💰 PRECIOS PERSONALIZADOS:`;
-                        customPriceInfo += `\n• ${customPricingSummary.products_with_custom_price} producto(s) con precio especial`;
-                        if (customPricingSummary.total_savings > 0) {
-                            customPriceInfo += `\n• Ahorro total: ${formatCurrency(customPricingSummary.total_savings)}`;
-                        }
-                        
-                        customPricingSummary.custom_price_details.forEach(detail => {
-                            if (detail.total_savings > 0) {
-                                customPriceInfo += `\n  - ${detail.product_code}: Ahorro ${formatCurrency(detail.total_savings)}`;
-                                if (detail.reason) {
-                                    customPriceInfo += ` (${detail.reason})`;
-                                }
-                            }
-                        });
-                    }
-                    
-                    // Información de ubicación
-                    let locationInfo = '';
-                    if (currentLocation) {
-                        locationInfo = `\n📍 Ubicación: ${currentLocation.address}`;
-                        if (currentLocation.method === 'gps' && currentLocation.accuracy) {
-                            locationInfo += ` (±${Math.round(currentLocation.accuracy)}m)`;
-                        }
-                    }
-                    
-                    const confirmationMessage = `🎉 ¡VENTA COMPLETADA EXITOSAMENTE!
-
-        📋 Pedido: ${orderNumber}
-        💰 Venta: ${saleNumber}
-        👤 Cliente: ${formData.client_info.name}
-        📦 Productos: ${orderProducts.length}
-        💵 Total: ${formatCurrency(formData.total)}${paymentInfo}${customPriceInfo}${locationInfo}
-        🚛 Subalmacén: ${tripNumber}
-
-        ✅ La venta ha sido procesada automáticamente
-        📦 El inventario de tu subalmacén ha sido actualizado
-        📊 El registro de venta ha sido creado
-
-        ¡Felicidades por tu venta! 🎊`;
-                    
-                    alert(confirmationMessage);
-                    
-                    if (window.showNotification) {
-                        window.showNotification(`¡Venta ${methodText.toLowerCase()} completada! 🎉`, 'success');
-                    }
-                    
-                    // Limpiar formulario (esto también limpia customPrices)
-                    clearOrderForm();
-                    
-                    // Recargar productos del subalmacén
-                    await loadSubstoreProducts();
-                    
-                } else {
-                    const errorData = await response.json();
-                    throw new Error(errorData.message || 'Error en el servidor');
-                }
-                
-            } catch (error) {
-                console.error('❌ Error procesando pedido:', error);
-                
-                if (window.showNotification) {
-                    window.showNotification('Error: ' + error.message, 'error');
-                }
-                
-                alert(`❌ Error al procesar la venta:
-
-        ${error.message}
-
-        Verifica la información e intenta nuevamente.`);
-                
-            } finally {
-                isProcessing = false;
-                if (submitBtn) {
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = '✨ Crear Pedido';
-                }
-            }
-        }
-        // Resto de funciones auxiliares
         async function loadSubstoreProducts() {
             console.log('📦 Cargando productos del subalmacén...');
             
@@ -1184,7 +2038,7 @@
                     
                     const customPriceBadge = product.custom_price_info ? 
                         `<small style="background: #f59e0b; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.7rem; font-weight: 600; margin-left: 0.5rem;" title="${product.custom_price_info.reason}">
-                            ${product.custom_price_info.discount_amount > 0 ? '💰 DESCUENTO' : '⭐ ESPECIAL'}
+                            ${product.custom_price_info.discount_amount > 0 ? 'DESCUENTO' : '⭐ ESPECIAL'}
                         </small>` : '';
                     
                     const priceInfo = product.custom_price_info ? 
@@ -1235,56 +2089,6 @@
             if (countElement) {
                 const methodText = currentPaymentMethod === 'cash' ? 'contado' : 'crédito';
                 countElement.textContent = `${totalItems} productos (${methodText})`;
-            }
-        }
-
-        function clearOrderForm() {
-            orderProducts = [];
-            customPrices = {}; // Limpiar precios personalizados
-            updateOrderTable();
-            
-            const fields = ['client-name', 'client-phone', 'client-address', 'client-email', 'order-notes'];
-            fields.forEach(fieldId => {
-                const field = document.getElementById(fieldId);
-                if (field) field.value = '';
-            });
-            
-            const photoInput = document.getElementById('order-photo');
-            const photoPreview = document.getElementById('photo-preview');
-            if (photoInput) photoInput.value = '';
-            if (photoPreview) photoPreview.innerHTML = '';
-            
-            selectPaymentMethod('cash');
-            selectPaymentType('efectivo');
-            document.getElementById('initial-payment').value = '';
-            
-            // Limpiar ubicación
-            currentLocation = null;
-            const locationStatus = document.getElementById('location-status');
-            if (locationStatus) {
-                locationStatus.innerHTML = `
-                    <div class="location-icon">📍</div>
-                    <div class="location-text">
-                        <div class="location-title">Sin ubicación</div>
-                        <div class="location-subtitle">Obtén tu ubicación actual o ingrésala manualmente</div>
-                    </div>
-                `;
-            }
-            
-            const locationBtn = document.getElementById('get-location-btn');
-            if (locationBtn) {
-                locationBtn.textContent = '📱 Obtener Mi Ubicación';
-                locationBtn.style.backgroundColor = '';
-                locationBtn.disabled = false;
-            }
-            
-            document.querySelectorAll('.quantity-input').forEach(input => {
-                input.value = 1;
-            });
-            
-            // Actualizar vista de productos para remover indicadores de precio personalizado
-            if (substoreProducts && substoreProducts.length > 0) {
-                displaySubstoreProducts(substoreProducts);
             }
         }
 
@@ -1466,392 +2270,6 @@
             }).format(amount);
         }
 
-        // Función para mostrar el botón de precio personalizado en los productos
-        function displaySubstoreProducts(productsToShow) {
-            const container = document.getElementById('products-list');
-            if (!container) return;
-            
-            if (productsToShow.length === 0) {
-                container.innerHTML = `
-                    <div style="text-align: center; padding: 2rem; color: #64748b;">
-                        <p>📦 No hay productos disponibles en tu subalmacén</p>
-                    </div>
-                `;
-                return;
-            }
-            
-            container.innerHTML = productsToShow.map(product => {
-                const stockClass = product.stock > 10 ? 'stock-high' : product.stock > 3 ? 'stock-medium' : 'stock-low';
-                const stockText = `${product.stock} disponibles`;
-                const isOutOfStock = product.stock === 0;
-                
-                // Verificar si tiene precio personalizado
-                const hasCustomPrice = customPrices[product.id];
-                const displayPrice = hasCustomPrice ? hasCustomPrice.price : getProductPrices(product, currentPaymentMethod).box;
-                
-                const paymentBadge = currentPaymentMethod === 'credit' 
-                    ? '<span style="background: #fbbf24; color: #92400e; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">📋 CRÉDITO</span>'
-                    : '<span style="background: #10b981; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">💵 CONTADO</span>';
-                
-                const customPriceIndicator = hasCustomPrice 
-                    ? `<span class="custom-price-indicator" style="background: linear-gradient(135deg, #f59e0b, #d97706); color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.7rem; font-weight: 600; margin-left: 0.5rem;">
-                        ${hasCustomPrice.price < hasCustomPrice.originalPrice ? '💰 DESCUENTO' : '⭐ ESPECIAL'}
-                    </span>`
-                    : '';
-                
-                return `
-                    <div class="product-card substore-product-card">
-                        <div class="substore-badge">SUBALMACÉN</div>
-                        ${paymentBadge}
-                        
-                        <div class="product-header">
-                            <div class="product-code">${product.code || 'N/A'}</div>
-                            <div class="product-price">
-                                ${formatCurrency(displayPrice)}
-                                ${customPriceIndicator}
-                            </div>
-                        </div>
-                        <div class="product-name">${product.name || 'Producto sin nombre'}</div>
-                        <div class="product-details">${product.brand || 'N/A'} • ${product.viscosity || 'N/A'} • ${product.capacity || 'N/A'}</div>
-                        <div class="stock-info ${stockClass}">📦 ${stockText}</div>
-                        
-                        <div class="product-actions">
-                            <input type="number" style="width: 60px; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 6px;" class="quantity-input" data-product-id="${product.id}" 
-                                min="1" max="${product.stock || 1}" value="1" ${isOutOfStock ? 'disabled' : ''}>
-                            <button class="btn btn-primary" onclick="addToOrder(${product.id})" 
-                                    ${isOutOfStock ? 'disabled' : ''}>
-                                ${isOutOfStock ? 'Sin Stock' : 'Agregar'}
-                            </button>
-                            <button class="btn btn-primary" style="background-color: #33557a;" onclick="openPriceOverride(${product.id}, '${product.code}', '${product.name}', ${getProductPrices(product, currentPaymentMethod).box})"
-                                    ${isOutOfStock ? 'disabled' : ''} title="Establecer precio personalizado">
-                                Dif precio
-                            </button>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-        }
-
-        // Función para abrir el modal de precio personalizado
-        function openPriceOverride(productId, productCode, productName, currentPrice) {
-            window.currentProductId = productId;
-            window.currentProductCode = productCode;
-            window.currentProductName = productName;
-            window.originalPrice = currentPrice;
-            window.customPrice = currentPrice;
-
-            // Crear modal si no existe
-            if (!document.getElementById('priceOverrideModal')) {
-                createPriceOverrideModal();
-            }
-
-            // Actualizar información en el modal
-            document.getElementById('product-name-display').textContent = `${productName} (${productCode})`;
-            document.getElementById('current-price-display').textContent = formatCurrency(currentPrice);
-            document.getElementById('new-price-display').textContent = formatCurrency(currentPrice);
-            
-            // Si ya tiene precio personalizado, mostrarlo
-            const existing = customPrices[productId];
-            if (existing) {
-                document.getElementById('custom-price-input').value = existing.price;
-                document.getElementById('price-reason').value = existing.reason;
-                window.customPrice = existing.price;
-                document.getElementById('new-price-display').textContent = formatCurrency(existing.price);
-            } else {
-                document.getElementById('custom-price-input').value = currentPrice;
-                document.getElementById('price-reason').value = '';
-            }
-
-            // Limpiar validaciones
-            const validation = document.getElementById('price-validation');
-            validation.className = 'price-validation';
-            validation.textContent = '';
-
-            // Mostrar modal
-            document.getElementById('priceOverrideModal').classList.add('show');
-            document.body.style.overflow = 'hidden';
-
-            // Focus en el input de precio
-            setTimeout(() => {
-                document.getElementById('custom-price-input').focus();
-                document.getElementById('custom-price-input').select();
-            }, 100);
-        }
-
-        // Función para crear el modal de precio personalizado
-        function createPriceOverrideModal() {
-            const modalHTML = `
-                <div id="priceOverrideModal" class="price-override-modal">
-                    <div class="price-override-content">
-                        <div class="price-override-header">
-                            <h3 class="price-override-title">💰 Precio Personalizado</h3>
-                            <p class="price-override-subtitle" id="product-name-display">Producto</p>
-                        </div>
-
-                        <div class="price-info-card">
-                            <div class="price-comparison">
-                                <div class="price-item current-price">
-                                    <div class="price-label">Precio Actual</div>
-                                    <div class="price-value" id="current-price-display">$0.00</div>
-                                </div>
-                                <div class="price-item new-price">
-                                    <div class="price-label">Precio Nuevo</div>
-                                    <div class="price-value" id="new-price-display">$0.00</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="price-presets">
-                            <div class="presets-label">⚡ Descuentos Rápidos</div>
-                            <div class="presets-grid">
-                                <button class="preset-btn" onclick="applyDiscount(5)">-5%</button>
-                                <button class="preset-btn" onclick="applyDiscount(10)">-10%</button>
-                                <button class="preset-btn" onclick="applyDiscount(15)">-15%</button>
-                                <button class="preset-btn" onclick="applyDiscount(20)">-20%</button>
-                                <button class="preset-btn" onclick="applyDiscount(25)">-25%</button>
-                                <button class="preset-btn" onclick="resetToOriginal()">Original</button>
-                            </div>
-                        </div>
-
-                        <div class="price-input-group">
-                            <label class="price-input-label" for="custom-price-input">💵 Precio Personalizado</label>
-                            <input 
-                                type="number" 
-                                id="custom-price-input" 
-                                class="price-input" 
-                                step="0.01" 
-                                min="1" 
-                                placeholder="Ingresa el precio..."
-                                oninput="updateNewPrice()"
-                            >
-                            <div id="price-validation" class="price-validation"></div>
-                        </div>
-
-                        <div class="price-input-group">
-                            <label class="price-input-label" for="price-reason">📝 Motivo del Precio Especial</label>
-                            <textarea 
-                                id="price-reason" 
-                                class="reason-input" 
-                                placeholder="Ej: Cliente mayorista, descuento por volumen, promoción especial..."
-                            ></textarea>
-                        </div>
-
-                        <div class="price-override-actions">
-                            <button class="btn-cancel-override" onclick="closePriceOverride()">
-                                ❌ Cancelar
-                            </button>
-                            <button class="btn-apply-override" id="apply-btn" onclick="applyPriceOverride()">
-                                ✅ Aplicar Precio
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            `;
-
-            document.body.insertAdjacentHTML('beforeend', modalHTML);
-            
-            // Agregar event listeners
-            document.getElementById('priceOverrideModal').addEventListener('click', function(e) {
-                if (e.target === this) closePriceOverride();
-            });
-
-            document.addEventListener('keydown', function(e) {
-                if (e.key === 'Escape') {
-                    const modal = document.getElementById('priceOverrideModal');
-                    if (modal && modal.classList.contains('show')) {
-                        closePriceOverride();
-                    }
-                }
-            });
-
-            document.getElementById('custom-price-input').addEventListener('keydown', function(e) {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    applyPriceOverride();
-                }
-            });
-        }
-
-        // Función para cerrar el modal
-        function closePriceOverride() {
-            const modal = document.getElementById('priceOverrideModal');
-            if (modal) {
-                modal.classList.remove('show');
-                document.body.style.overflow = 'auto';
-                
-                // Limpiar presets activos
-                document.querySelectorAll('.preset-btn').forEach(btn => {
-                    btn.classList.remove('active');
-                });
-            }
-        }
-
-        // Función para aplicar descuentos predefinidos
-        function applyDiscount(percentage) {
-            const discountedPrice = window.originalPrice * (1 - percentage / 100);
-            window.customPrice = Math.round(discountedPrice * 100) / 100;
-            
-            document.getElementById('custom-price-input').value = window.customPrice;
-            updateNewPrice();
-
-            // Marcar preset como activo
-            document.querySelectorAll('.preset-btn').forEach(btn => {
-                btn.classList.remove('active');
-            });
-            event.target.classList.add('active');
-
-            // Auto-llenar razón
-            if (percentage > 0) {
-                const reasonField = document.getElementById('price-reason');
-                if (!reasonField.value.trim()) {
-                    reasonField.value = `Descuento del ${percentage}% aplicado`;
-                }
-            }
-        }
-
-        // Función para resetear al precio original
-        function resetToOriginal() {
-            window.customPrice = window.originalPrice;
-            document.getElementById('custom-price-input').value = window.originalPrice;
-            updateNewPrice();
-            
-            // Marcar preset como activo
-            document.querySelectorAll('.preset-btn').forEach(btn => {
-                btn.classList.remove('active');
-            });
-            event.target.classList.add('active');
-
-            // Limpiar razón
-            document.getElementById('price-reason').value = '';
-        }
-
-        // Función para actualizar el precio nuevo en tiempo real
-        function updateNewPrice() {
-            const input = document.getElementById('custom-price-input');
-            const newPrice = parseFloat(input.value) || 0;
-            
-            window.customPrice = newPrice;
-            document.getElementById('new-price-display').textContent = formatCurrency(newPrice);
-
-            validatePrice(newPrice);
-            
-            // Limpiar presets activos si el precio fue cambiado manualmente
-            document.querySelectorAll('.preset-btn').forEach(btn => {
-                btn.classList.remove('active');
-            });
-        }
-
-        // Función para validar el precio ingresado
-        function validatePrice(price) {
-            const validation = document.getElementById('price-validation');
-            const applyBtn = document.getElementById('apply-btn');
-            
-            if (price <= 0) {
-                validation.className = 'price-validation error';
-                validation.textContent = '❌ El precio debe ser mayor a $0.00';
-                applyBtn.disabled = true;
-                return;
-            }
-            
-            if (price < window.originalPrice * 0.3) {
-                validation.className = 'price-validation error';
-                validation.textContent = '❌ Precio muy bajo (más del 70% de descuento)';
-                applyBtn.disabled = true;
-                return;
-            }
-            
-            if (price < window.originalPrice * 0.5) {
-                validation.className = 'price-validation warning';
-                validation.textContent = '⚠️ Precio muy bajo: ' + ((window.originalPrice - price) / window.originalPrice * 100).toFixed(1) + '% de descuento';
-                applyBtn.disabled = false;
-                return;
-            }
-            
-            if (price > window.originalPrice * 1.5) {
-                validation.className = 'price-validation warning';
-                validation.textContent = '⚠️ Precio muy alto: ' + ((price - window.originalPrice) / window.originalPrice * 100).toFixed(1) + '% de incremento';
-                applyBtn.disabled = false;
-                return;
-            }
-            
-            if (price === window.originalPrice) {
-                validation.className = 'price-validation';
-                validation.textContent = '';
-                applyBtn.disabled = false;
-                return;
-            }
-            
-            const difference = Math.abs((window.originalPrice - price) / window.originalPrice * 100).toFixed(1);
-            if (price < window.originalPrice) {
-                validation.className = 'price-validation success';
-                validation.textContent = `✅ Descuento del ${difference}% aplicado`;
-            } else {
-                validation.className = 'price-validation success';
-                validation.textContent = `✅ Incremento del ${difference}% aplicado`;
-            }
-            
-            applyBtn.disabled = false;
-        }
-
-        // Función para aplicar el precio personalizado
-        function applyPriceOverride() {
-            const newPrice = parseFloat(document.getElementById('custom-price-input').value);
-            const reason = document.getElementById('price-reason').value.trim();
-            
-            if (newPrice <= 0) {
-                alert('❌ Ingresa un precio válido');
-                return;
-            }
-            
-            if (newPrice < window.originalPrice * 0.3) {
-                alert('❌ El precio es demasiado bajo (más del 70% de descuento)');
-                return;
-            }
-            
-            if (!reason && newPrice !== window.originalPrice) {
-                if (!confirm('⚠️ No especificaste un motivo para el precio especial.\n\n¿Continuar sin motivo?')) {
-                    return;
-                }
-            }
-            
-            // Guardar precio personalizado
-            if (newPrice !== window.originalPrice) {
-                customPrices[window.currentProductId] = {
-                    price: newPrice,
-                    reason: reason,
-                    originalPrice: window.originalPrice,
-                    timestamp: new Date().toISOString()
-                };
-            } else {
-                // Si vuelve al precio original, remover override
-                delete customPrices[window.currentProductId];
-            }
-            
-            console.log('🔄 Precio personalizado aplicado:', {
-                productId: window.currentProductId,
-                productCode: window.currentProductCode,
-                originalPrice: window.originalPrice,
-                newPrice: newPrice,
-                reason: reason,
-                savings: window.originalPrice - newPrice
-            });
-
-            // Actualizar la vista del producto
-            displaySubstoreProducts(substoreProducts);
-            
-            // Mostrar notificación de éxito
-            const action = newPrice < window.originalPrice ? 'Descuento aplicado' : 
-                        newPrice > window.originalPrice ? 'Precio incrementado' : 'Precio restaurado';
-            
-            if (window.showNotification) {
-                window.showNotification(`${action}: ${formatCurrency(newPrice)}`, 'success');
-            } else {
-                alert(`✅ ${action}\n\nNuevo precio: ${formatCurrency(newPrice)}\nMotivo: ${reason || 'Sin motivo especificado'}`);
-            }
-            
-            closePriceOverride();
-        }
-
         function logout() {
             if (confirm('¿Cerrar sesión?')) {
                 localStorage.clear();
@@ -1859,8 +2277,65 @@
             }
         }
 
-
-    // Funciones globales
+        function setupQuickClientFormValidation() {
+            const form = document.getElementById('client-form-quick');
+            if (!form) return;
+            
+            // Validación en tiempo real
+            const nameInput = document.getElementById('quick-client-name');
+            const phoneInput = document.getElementById('quick-client-phone');
+            
+            if (nameInput) {
+                nameInput.addEventListener('input', function() {
+                    this.style.borderColor = this.value.trim() ? '#10b981' : '#f59e0b';
+                });
+            }
+            
+            if (phoneInput) {
+                phoneInput.addEventListener('input', function() {
+                    const phoneRegex = /^[\d\-\s\+\(\)]{10,}$/;
+                    const isValid = phoneRegex.test(this.value.trim());
+                    this.style.borderColor = isValid ? '#10b981' : '#f59e0b';
+                });
+                
+                // Formatear teléfono automáticamente
+                phoneInput.addEventListener('input', function() {
+                    let value = this.value.replace(/\D/g, ''); // Solo números
+                    if (value.length >= 3) {
+                        value = value.replace(/^(\d{3})(\d{3})(\d{4}).*/, '$1-$2-$3');
+                    }
+                    this.value = value;
+                });
+            }
+        }
+        
+        function handleClientApiError(error, operation = 'operación') {
+            console.error(`❌ Error en ${operation}:`, error);
+            
+            let userMessage = `Error en ${operation}`;
+            
+            if (error.message.includes('Network') || error.message.includes('fetch')) {
+                userMessage = 'Error de conexión. Verifica tu internet.';
+            } else if (error.message.includes('401') || error.message.includes('token')) {
+                userMessage = 'Sesión expirada. Por favor inicia sesión nuevamente.';
+                setTimeout(() => {
+                    localStorage.clear();
+                    window.location.href = '/';
+                }, 2000);
+            } else if (error.message.includes('403')) {
+                userMessage = 'No tienes permisos para esta acción.';
+            } else {
+                userMessage = error.message || userMessage;
+            }
+            
+            if (window.showNotification) {
+                window.showNotification(userMessage, 'error');
+            } else {
+                alert(userMessage);
+            }
+        }
+        
+        // Funciones globales
         window.addToOrder = addToOrder;
         window.removeFromOrder = removeFromOrder;
         window.removePhoto = removePhoto;
@@ -1872,8 +2347,11 @@
         window.getDetailedLocation = getDetailedLocation;
         window.toggleManualLocation = toggleManualLocation;
         window.saveManualLocation = saveManualLocation;
+        window.clearSelectedClient = clearSelectedClient;
+        window.cancelNewClient = cancelNewClient;
+        window.saveQuickClient = saveQuickClient;
 
-        console.log('✅ Página de pedidos con tipos de pago y ubicación mejorados inicializada');
+
     </script>
 
 </body>

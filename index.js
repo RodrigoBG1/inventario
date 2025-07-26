@@ -130,8 +130,54 @@ const fallbackDatabase = {
   ],
   orders: [],
   sales: [],
-  inventory_movements: []
+  inventory_movements: [],
+  clients: [
+    {
+      id: 1,
+      code: "CLI001",
+      name: "Juan Pérez García",
+      phone: "618-123-4567",
+      email: "juan@email.com",
+      address: "Calle Principal 123",
+      city: "Victoria de Durango",
+      state: "Durango",
+      notes: "Cliente frecuente",
+      status: "active",
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    },
+    {
+      id: 2,
+      code: "CLI002", 
+      name: "María López Hernández",
+      phone: "618-987-6543",
+      email: "maria@email.com",
+      address: "Av. Constitución 456",
+      city: "Victoria de Durango",
+      state: "Durango",
+      notes: "Pago puntual",
+      status: "active",
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    },
+    {
+      id: 3,
+      code: "CLI003",
+      name: "Carlos Ramírez Soto",
+      phone: "618-555-0123",
+      email: "",
+      address: "Blvd. Dolores del Río 789",
+      city: "Victoria de Durango",
+      state: "Durango",
+      notes: "",
+      status: "active",
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }
+  ]
 };
+
+
 
 // ===== FUNCIONES ACTUALIZADAS PARA MANEJAR MULTI-PRECIOS =====
 
@@ -2651,6 +2697,217 @@ async function verifySupabaseSchema() {
   }
 }
 
+
+// ==== CLIENTES =======
+async function getClientsFromDB() {
+    console.log('📋 getClientsFromDB llamada');
+    
+    if (supabase) {
+        try {
+            console.log('🔍 Consultando clientes en Supabase...');
+            const { data, error } = await supabase
+                .from('clients')
+                .select('*')
+                .order('created_at', { ascending: false });
+            
+            if (error) {
+                console.error('❌ Error en Supabase:', error);
+                throw error;
+            }
+            
+            console.log('✅ Clientes obtenidos de Supabase:', data?.length || 0);
+            return data || [];
+        } catch (error) {
+            console.error('❌ Error getting clients from Supabase:', error);
+            console.log('🔄 Usando fallback en memoria...');
+            return fallbackDatabase.clients || [];
+        }
+    }
+    
+    console.log('📦 Usando datos en memoria');
+    return fallbackDatabase.clients || [];
+}
+
+async function getClientByIdFromDB(id) {
+    console.log('🔍 getClientByIdFromDB llamada para ID:', id);
+    
+    if (supabase) {
+        try {
+            const { data, error } = await supabase
+                .from('clients')
+                .select('*')
+                .eq('id', id)
+                .single();
+            
+            if (error && error.code !== 'PGRST116') {
+                console.error('❌ Error en Supabase:', error);
+                throw error;
+            }
+            
+            console.log('✅ Cliente obtenido de Supabase:', data?.name || 'No encontrado');
+            return data;
+        } catch (error) {
+            console.error('❌ Error getting client by ID from Supabase:', error);
+            console.log('🔄 Usando fallback en memoria...');
+        }
+    }
+    
+    console.log('📦 Buscando en memoria...');
+    const client = (fallbackDatabase.clients || []).find(c => c.id === parseInt(id));
+    console.log('📋 Cliente encontrado en memoria:', client?.name || 'No encontrado');
+    return client || null;
+}
+
+async function createClientInDB(clientData) {
+    console.log('➕ createClientInDB llamada para:', clientData.name);
+    
+    if (supabase) {
+        try {
+            const insertData = {
+                ...clientData,
+                status: 'active',
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+            };
+            
+            console.log('📤 Insertando en Supabase:', insertData);
+            
+            const { data, error } = await supabase
+                .from('clients')
+                .insert([insertData])
+                .select()
+                .single();
+            
+            if (error) {
+                console.error('❌ Error en Supabase:', error);
+                throw error;
+            }
+            
+            console.log('✅ Cliente creado en Supabase:', data);
+            return data;
+        } catch (error) {
+            console.error('❌ Error creating client in Supabase:', error);
+            console.log('🔄 Usando fallback en memoria...');
+        }
+    }
+    
+    // Fallback: crear en memoria
+    console.log('📦 Creando en memoria...');
+    
+    if (!fallbackDatabase.clients) {
+        fallbackDatabase.clients = [];
+    }
+    
+    const newClient = {
+        id: Math.max(0, ...fallbackDatabase.clients.map(c => c.id || 0)) + 1,
+        ...clientData,
+        status: 'active',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+    };
+    
+    fallbackDatabase.clients.push(newClient);
+    console.log('✅ Cliente creado en memoria:', newClient);
+    return newClient;
+}
+
+async function updateClientInDB(id, clientData) {
+    console.log('✏️ updateClientInDB llamada para ID:', id);
+    
+    if (supabase) {
+        try {
+            const updateData = {
+                ...clientData,
+                updated_at: new Date().toISOString()
+            };
+            
+            console.log('📤 Actualizando en Supabase:', updateData);
+            
+            const { data, error } = await supabase
+                .from('clients')
+                .update(updateData)
+                .eq('id', id)
+                .select()
+                .single();
+            
+            if (error) {
+                console.error('❌ Error en Supabase:', error);
+                throw error;
+            }
+            
+            console.log('✅ Cliente actualizado en Supabase:', data);
+            return data;
+        } catch (error) {
+            console.error('❌ Error updating client in Supabase:', error);
+            console.log('🔄 Usando fallback en memoria...');
+        }
+    }
+    
+    // Fallback: actualizar en memoria
+    console.log('📦 Actualizando en memoria...');
+    
+    if (!fallbackDatabase.clients) {
+        fallbackDatabase.clients = [];
+    }
+    
+    const index = fallbackDatabase.clients.findIndex(c => c.id === parseInt(id));
+    if (index === -1) {
+        throw new Error('Cliente no encontrado');
+    }
+    
+    fallbackDatabase.clients[index] = {
+        ...fallbackDatabase.clients[index],
+        ...clientData,
+        updated_at: new Date().toISOString()
+    };
+    
+    console.log('✅ Cliente actualizado en memoria:', fallbackDatabase.clients[index]);
+    return fallbackDatabase.clients[index];
+}
+
+async function deleteClientFromDB(id) {
+    console.log('🗑️ deleteClientFromDB llamada para ID:', id);
+    
+    if (supabase) {
+        try {
+            const { error } = await supabase
+                .from('clients')
+                .delete()
+                .eq('id', id);
+            
+            if (error) {
+                console.error('❌ Error en Supabase:', error);
+                throw error;
+            }
+            
+            console.log('✅ Cliente eliminado en Supabase');
+            return { message: 'Cliente eliminado exitosamente' };
+        } catch (error) {
+            console.error('❌ Error deleting client in Supabase:', error);
+            console.log('🔄 Usando fallback en memoria...');
+        }
+    }
+    
+    // Fallback: eliminar de memoria
+    console.log('📦 Eliminando de memoria...');
+    
+    if (!fallbackDatabase.clients) {
+        fallbackDatabase.clients = [];
+    }
+    
+    const index = fallbackDatabase.clients.findIndex(c => c.id === parseInt(id));
+    if (index === -1) {
+        throw new Error('Cliente no encontrado');
+    }
+    
+    const deletedClient = fallbackDatabase.clients[index];
+    fallbackDatabase.clients.splice(index, 1);
+    
+    console.log('✅ Cliente eliminado de memoria:', deletedClient.name);
+    return { message: 'Cliente eliminado exitosamente' };
+}
+
+
 // ========== ARCHIVOS ESTÁTICOS ==========
 app.use(express.static(path.join(__dirname, 'frontend')));
 
@@ -3533,9 +3790,9 @@ app.get("/api/orders", auth, async (req, res) => {
 // POST Orders - Crear nuevo pedido CON VALIDACIÓN DE STOCK
 app.post("/api/orders", auth, async (req, res) => {
   try {
-    console.log('🔍 POST /api/orders WITH CUSTOM PRICING SUPPORT - User:', req.user?.role, 'ID:', req.user?.id);
+    console.log('🔍 POST /api/orders WITH CLIENT SELECTOR - User:', req.user?.role, 'ID:', req.user?.id);
     
-    const { products, payment_method = 'cash', custom_pricing_summary } = req.body;
+    const { products, payment_method = 'cash', custom_pricing_summary, client_info } = req.body;
     
     // Log de precios personalizados si existen
     if (custom_pricing_summary) {
@@ -3553,6 +3810,16 @@ app.post("/api/orders", auth, async (req, res) => {
         error: 'invalid_products'
       });
     }
+    
+    // ✅ VALIDACIÓN CORREGIDA DE CLIENTE SELECCIONADO
+    if (!client_info || !client_info.name) {
+      return res.status(400).json({ 
+        message: 'Debes seleccionar un cliente para el pedido',
+        error: 'client_required'
+      });
+    }
+    
+    console.log('👤 Cliente seleccionado:', client_info.name, 'ID:', client_info.client_id || 'No ID');
     
     let orderData;
     let inventorySource = 'main_store';
@@ -3584,13 +3851,14 @@ app.post("/api/orders", auth, async (req, res) => {
         total: pricingResult.total,
         inventory_source: 'main_store',
         auto_confirmed: false,
+        client_info: client_info, // ✅ USAR CLIENTE SELECCIONADO
         ...req.body
       };
       
       autoConfirm = false;
       
     } else if (req.user.role === 'employee') {
-      console.log('👤 Vendedor creando pedido con AUTO-CONFIRMACIÓN Y PRECIOS PERSONALIZADOS');
+      console.log('👤 Vendedor creando pedido con AUTO-CONFIRMACIÓN Y CLIENTE SELECCIONADO');
       
       try {
         substoreData = await getEmployeeSubstoreProducts(req.user.id);
@@ -3695,6 +3963,7 @@ app.post("/api/orders", auth, async (req, res) => {
         inventory_source: 'substore',
         confirmed_at: new Date().toISOString(),
         auto_confirmed: true,
+        client_info: client_info, // ✅ USAR CLIENTE SELECCIONADO
         ...req.body
       };
       
@@ -3709,7 +3978,7 @@ app.post("/api/orders", auth, async (req, res) => {
       // Crear el pedido usando la nueva función
       const newOrder = await createOrder(orderData);
       
-      console.log(`✅ Pedido creado desde ${inventorySource}:`, newOrder.id, autoConfirm ? '(AUTO-CONFIRMADO)' : '(PENDIENTE)');
+      console.log(`✅ Pedido creado desde ${inventorySource} para cliente ${client_info.name}:`, newOrder.id, autoConfirm ? '(AUTO-CONFIRMADO)' : '(PENDIENTE)');
       
       // Auto-confirmación para vendedores
       let saleRecord = null;
@@ -3820,7 +4089,7 @@ app.post("/api/orders", auth, async (req, res) => {
       // Preparar respuesta
       const response = {
         success: true,
-        message: autoConfirm ? 'Pedido creado y confirmado automáticamente' : 'Pedido creado exitosamente',
+        message: autoConfirm ? `Pedido creado y confirmado automáticamente para ${client_info.name}` : `Pedido creado exitosamente para ${client_info.name}`,
         order: newOrder,
         sale: saleRecord,
         inventory_source: inventorySource,
@@ -3828,6 +4097,7 @@ app.post("/api/orders", auth, async (req, res) => {
         inventory_update: inventoryUpdate,
         has_custom_pricing: !!orderData.custom_pricing_summary,
         custom_pricing_summary: orderData.custom_pricing_summary,
+        client_info: client_info,
         trip_info: inventorySource === 'substore' ? {
           trip_id: orderData.trip_id,
           trip_number: substoreData?.trip?.trip_number
@@ -3847,7 +4117,7 @@ app.post("/api/orders", auth, async (req, res) => {
     }
     
   } catch (error) {
-    console.error('❌ Error crítico en POST /api/orders con precios personalizados:', error);
+    console.error('❌ Error crítico en POST /api/orders con cliente seleccionado:', error);
     console.error('❌ Stack trace:', error.stack);
     
     res.status(500).json({ 
@@ -6904,6 +7174,493 @@ app.put("/api/admin/employee-discount-limits", auth, adminOnly, async (req, res)
     });
   }
 });
+
+// ====== CLIENTES ========
+app.get("/api/clients", auth, async (req, res) => {
+    try {
+        console.log('📋 GET /api/clients - Usuario:', req.user?.name);
+        
+        const clients = await getClientsFromDB();
+        
+        console.log('✅ Clientes enviados:', clients.length);
+        res.json(clients);
+        
+    } catch (error) {
+        console.error('❌ Error in GET /api/clients:', error);
+        res.status(500).json({ 
+            message: 'Error obteniendo clientes', 
+            error: error.message 
+        });
+    }
+});
+
+// GET - Obtener cliente específico
+app.get("/api/clients/:id", auth, async (req, res) => {
+    try {
+        const clientId = parseInt(req.params.id);
+        console.log('🔍 GET /api/clients/:id - Cliente:', clientId);
+        
+        if (!clientId || isNaN(clientId)) {
+            return res.status(400).json({ message: 'ID de cliente inválido' });
+        }
+        
+        const client = await getClientByIdFromDB(clientId);
+        
+        if (!client) {
+            return res.status(404).json({ message: 'Cliente no encontrado' });
+        }
+        
+        console.log('✅ Cliente encontrado:', client.name);
+        res.json(client);
+        
+    } catch (error) {
+        console.error('❌ Error in GET /api/clients/:id:', error);
+        res.status(500).json({ 
+            message: 'Error obteniendo cliente', 
+            error: error.message 
+        });
+    }
+});
+
+// POST - Crear nuevo cliente
+app.post("/api/clients", auth, async (req, res) => {
+    try {
+        console.log('➕ POST /api/clients - Creando cliente:', req.body.name, 'Usuario:', req.user?.role);
+        
+        const { code, name, phone, email, address, city, state, notes } = req.body;
+        
+        // Validaciones
+        if (!name || !phone) {
+            return res.status(400).json({ 
+                message: 'Nombre y teléfono son campos obligatorios' 
+            });
+        }
+        
+        // ✅ PERMITIR A EMPLEADOS CREAR CLIENTES
+        if (req.user.role !== 'admin' && req.user.role !== 'employee') {
+            return res.status(403).json({ 
+                message: 'No tienes permisos para crear clientes' 
+            });
+        }
+        
+        // Auto-generar código si no se proporciona (especialmente para empleados)
+        let clientCode = code;
+        if (!clientCode) {
+            const existingClients = await getClientsFromDB();
+            const existingCodes = existingClients.map(c => c.code).filter(code => code);
+            let counter = 1;
+            
+            do {
+                clientCode = `CLI${String(counter).padStart(3, '0')}`;
+                counter++;
+            } while (existingCodes.includes(clientCode));
+            
+            console.log('🔢 Código auto-generado:', clientCode);
+        }
+        
+        // Verificar que el código no exista
+        const existingClients = await getClientsFromDB();
+        const existingClient = existingClients.find(c => c.code === clientCode);
+        
+        if (existingClient) {
+            return res.status(400).json({ 
+                message: 'El código de cliente ya existe' 
+            });
+        }
+        
+        // ✅ AGREGAR INFORMACIÓN DEL EMPLEADO QUE CREÓ EL CLIENTE
+        const clientData = {
+            code: clientCode.trim(),
+            name: name.trim(),
+            phone: phone.trim(),
+            email: email?.trim() || '',
+            address: address?.trim() || '',
+            city: city?.trim() || 'Victoria de Durango', // ✅ Default para empleados
+            state: state?.trim() || 'Durango', // ✅ Default para empleados
+            notes: notes?.trim() || '',
+            created_by: req.user.role === 'employee' ? req.user.employee_code : 'ADMIN',
+            created_by_role: req.user.role
+        };
+        
+        const newClient = await createClientInDB(clientData);
+        
+        console.log('✅ Cliente creado por', req.user.role, ':', newClient.name);
+        res.status(201).json(newClient);
+        
+    } catch (error) {
+        console.error('❌ Error in POST /api/clients:', error);
+        res.status(500).json({ 
+            message: 'Error creando cliente', 
+            error: error.message 
+        });
+    }
+});
+
+// PUT - Actualizar cliente existente
+app.put("/api/clients/:id", auth, adminOnly, async (req, res) => {
+    try {
+        const clientId = parseInt(req.params.id);
+        console.log('✏️ PUT /api/clients/:id - Actualizando cliente:', clientId);
+        
+        if (!clientId || isNaN(clientId)) {
+            return res.status(400).json({ message: 'ID de cliente inválido' });
+        }
+        
+        const { code, name, phone, email, address, city, state, notes } = req.body;
+        
+        // Validaciones
+        if (!name || !phone) {
+            return res.status(400).json({ 
+                message: 'Nombre y teléfono son campos obligatorios' 
+            });
+        }
+        
+        // Verificar que el cliente existe
+        const existingClient = await getClientByIdFromDB(clientId);
+        if (!existingClient) {
+            return res.status(404).json({ message: 'Cliente no encontrado' });
+        }
+        
+        // Si se cambió el código, verificar que no exista otro cliente con ese código
+        if (code && code !== existingClient.code) {
+            const allClients = await getClientsFromDB();
+            const duplicateClient = allClients.find(c => c.code === code && c.id !== clientId);
+            
+            if (duplicateClient) {
+                return res.status(400).json({ 
+                    message: 'El código de cliente ya existe' 
+                });
+            }
+        }
+        
+        const clientData = {
+            code: code?.trim() || existingClient.code,
+            name: name.trim(),
+            phone: phone.trim(),
+            email: email?.trim() || '',
+            address: address?.trim() || '',
+            city: city?.trim() || '',
+            state: state?.trim() || '',
+            notes: notes?.trim() || ''
+        };
+        
+        const updatedClient = await updateClientInDB(clientId, clientData);
+        
+        console.log('✅ Cliente actualizado:', updatedClient.name);
+        res.json(updatedClient);
+        
+    } catch (error) {
+        console.error('❌ Error in PUT /api/clients/:id:', error);
+        res.status(500).json({ 
+            message: 'Error actualizando cliente', 
+            error: error.message 
+        });
+    }
+});
+
+// DELETE - Eliminar cliente
+app.delete("/api/clients/:id", auth, adminOnly, async (req, res) => {
+    try {
+        const clientId = parseInt(req.params.id);
+        console.log('🗑️ DELETE /api/clients/:id - Eliminando cliente:', clientId);
+        
+        if (!clientId || isNaN(clientId)) {
+            return res.status(400).json({ message: 'ID de cliente inválido' });
+        }
+        
+        // Verificar que el cliente existe
+        const existingClient = await getClientByIdFromDB(clientId);
+        if (!existingClient) {
+            return res.status(404).json({ message: 'Cliente no encontrado' });
+        }
+        
+        // Verificar si el cliente tiene pedidos asociados
+        const orders = await getOrders();
+        const clientOrders = orders.filter(order => 
+            order.client_info && 
+            (order.client_info.phone === existingClient.phone || 
+             order.client_info.name?.toLowerCase() === existingClient.name?.toLowerCase())
+        );
+        
+        if (clientOrders.length > 0) {
+            return res.status(400).json({ 
+                message: `No se puede eliminar el cliente porque tiene ${clientOrders.length} pedido(s) asociado(s)`,
+                suggestion: 'Considere desactivar el cliente en lugar de eliminarlo'
+            });
+        }
+        
+        const result = await deleteClientFromDB(clientId);
+        
+        console.log('✅ Cliente eliminado:', existingClient.name);
+        res.json(result);
+        
+    } catch (error) {
+        console.error('❌ Error in DELETE /api/clients/:id:', error);
+        res.status(500).json({ 
+            message: 'Error eliminando cliente', 
+            error: error.message 
+        });
+    }
+});
+
+// GET - Buscar clientes
+app.get("/api/clients/search", auth, async (req, res) => {
+    try {
+        const { q, status, city, state } = req.query;
+        console.log('🔍 GET /api/clients/search - Búsqueda:', { q, status, city, state });
+        
+        let clients = await getClientsFromDB();
+        
+        // Filtro por texto de búsqueda
+        if (q && q.trim()) {
+            const searchTerm = q.toLowerCase().trim();
+            clients = clients.filter(client =>
+                client.name.toLowerCase().includes(searchTerm) ||
+                client.phone.includes(searchTerm) ||
+                client.code.toLowerCase().includes(searchTerm) ||
+                (client.email && client.email.toLowerCase().includes(searchTerm))
+            );
+        }
+        
+        // Filtro por estado
+        if (status) {
+            clients = clients.filter(client => client.status === status);
+        }
+        
+        // Filtro por ciudad
+        if (city) {
+            clients = clients.filter(client => 
+                client.city && client.city.toLowerCase().includes(city.toLowerCase())
+            );
+        }
+        
+        // Filtro por estado
+        if (state) {
+            clients = clients.filter(client => 
+                client.state && client.state.toLowerCase().includes(state.toLowerCase())
+            );
+        }
+        
+        console.log('✅ Búsqueda completada:', clients.length, 'resultados');
+        res.json({
+            clients: clients,
+            total: clients.length,
+            search_params: { q, status, city, state }
+        });
+        
+    } catch (error) {
+        console.error('❌ Error in GET /api/clients/search:', error);
+        res.status(500).json({ 
+            message: 'Error en búsqueda de clientes', 
+            error: error.message 
+        });
+    }
+});
+
+// GET - Obtener pedidos de un cliente
+app.get("/api/clients/:id/orders", auth, async (req, res) => {
+    try {
+        const clientId = parseInt(req.params.id);
+        console.log('📋 GET /api/clients/:id/orders - Cliente:', clientId);
+        
+        if (!clientId || isNaN(clientId)) {
+            return res.status(400).json({ message: 'ID de cliente inválido' });
+        }
+        
+        // Verificar que el cliente existe
+        const client = await getClientByIdFromDB(clientId);
+        if (!client) {
+            return res.status(404).json({ message: 'Cliente no encontrado' });
+        }
+        
+        // Obtener pedidos del cliente
+        const allOrders = await getOrders(req.user.id, req.user.role);
+        const clientOrders = allOrders.filter(order => 
+            order.client_info && 
+            (order.client_info.phone === client.phone || 
+             order.client_info.name?.toLowerCase() === client.name?.toLowerCase())
+        );
+        
+        // Ordenar por fecha más reciente
+        clientOrders.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        
+        console.log('✅ Pedidos del cliente obtenidos:', clientOrders.length);
+        res.json(clientOrders);
+        
+    } catch (error) {
+        console.error('❌ Error in GET /api/clients/:id/orders:', error);
+        res.status(500).json({ 
+            message: 'Error obteniendo pedidos del cliente', 
+            error: error.message 
+        });
+    }
+});
+
+// GET - Obtener estadísticas de un cliente
+app.get("/api/clients/:id/stats", auth, async (req, res) => {
+    try {
+        const clientId = parseInt(req.params.id);
+        console.log('📊 GET /api/clients/:id/stats - Cliente:', clientId);
+        
+        if (!clientId || isNaN(clientId)) {
+            return res.status(400).json({ message: 'ID de cliente inválido' });
+        }
+        
+        // Verificar que el cliente existe
+        const client = await getClientByIdFromDB(clientId);
+        if (!client) {
+            return res.status(404).json({ message: 'Cliente no encontrado' });
+        }
+        
+        // Obtener pedidos del cliente
+        const allOrders = await getOrders(req.user.id, req.user.role);
+        const clientOrders = allOrders.filter(order => 
+            order.client_info && 
+            (order.client_info.phone === client.phone || 
+             order.client_info.name?.toLowerCase() === client.name?.toLowerCase())
+        );
+        
+        // Calcular estadísticas
+        const totalOrders = clientOrders.length;
+        const totalAmount = clientOrders.reduce((sum, order) => sum + (parseFloat(order.total) || 0), 0);
+        const totalPaid = clientOrders.reduce((sum, order) => sum + (parseFloat(order.paid_amount) || 0), 0);
+        const totalDebt = totalAmount - totalPaid;
+        
+        const paidOrders = clientOrders.filter(order => {
+            const total = parseFloat(order.total) || 0;
+            const paid = parseFloat(order.paid_amount) || 0;
+            return (total - paid) <= 0;
+        }).length;
+        
+        const pendingOrders = totalOrders - paidOrders;
+        
+        // Último pedido
+        const lastOrder = clientOrders.length > 0 ? 
+            clientOrders.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0] : null;
+        
+        const stats = {
+            client_info: {
+                id: client.id,
+                code: client.code,
+                name: client.name
+            },
+            orders: {
+                total: totalOrders,
+                paid: paidOrders,
+                pending: pendingOrders
+            },
+            amounts: {
+                total_purchased: totalAmount,
+                total_paid: totalPaid,
+                total_debt: totalDebt
+            },
+            last_order: lastOrder ? {
+                id: lastOrder.id,
+                order_number: lastOrder.order_number,
+                total: lastOrder.total,
+                created_at: lastOrder.created_at
+            } : null,
+            customer_since: client.created_at
+        };
+        
+        console.log('✅ Estadísticas del cliente calculadas');
+        res.json(stats);
+        
+    } catch (error) {
+        console.error('❌ Error in GET /api/clients/:id/stats:', error);
+        res.status(500).json({ 
+            message: 'Error obteniendo estadísticas del cliente', 
+            error: error.message 
+        });
+    }
+});
+
+// GET - Obtener estado de cuenta de un cliente
+app.get("/api/clients/:id/account-status", auth, async (req, res) => {
+    try {
+        const clientId = parseInt(req.params.id);
+        console.log('💰 GET /api/clients/:id/account-status - Cliente:', clientId);
+        
+        if (!clientId || isNaN(clientId)) {
+            return res.status(400).json({ message: 'ID de cliente inválido' });
+        }
+        
+        // Verificar que el cliente existe
+        const client = await getClientByIdFromDB(clientId);
+        if (!client) {
+            return res.status(404).json({ message: 'Cliente no encontrado' });
+        }
+        
+        // Obtener pedidos del cliente
+        const allOrders = await getOrders(req.user.id, req.user.role);
+        const clientOrders = allOrders.filter(order => 
+            order.client_info && 
+            (order.client_info.phone === client.phone || 
+             order.client_info.name?.toLowerCase() === client.name?.toLowerCase())
+        );
+        
+        // Calcular estado de cuenta detallado
+        const pendingOrders = clientOrders.filter(order => {
+            const total = parseFloat(order.total) || 0;
+            const paid = parseFloat(order.paid_amount) || 0;
+            return (total - paid) > 0;
+        }).map(order => {
+            const total = parseFloat(order.total) || 0;
+            const paid = parseFloat(order.paid_amount) || 0;
+            const balance = total - paid;
+            
+            // Calcular días vencidos
+            const orderDate = new Date(order.created_at);
+            const daysDiff = Math.floor((new Date() - orderDate) / (1000 * 60 * 60 * 24));
+            
+            return {
+                order_id: order.id,
+                order_number: order.order_number,
+                order_date: order.created_at,
+                total: total,
+                paid: paid,
+                balance: balance,
+                days_overdue: daysDiff > 30 ? daysDiff - 30 : 0,
+                is_overdue: daysDiff > 30
+            };
+        });
+        
+        const totalDebt = pendingOrders.reduce((sum, order) => sum + order.balance, 0);
+        const overdueDebt = pendingOrders
+            .filter(order => order.is_overdue)
+            .reduce((sum, order) => sum + order.balance, 0);
+        
+        const accountStatus = {
+            client_info: {
+                id: client.id,
+                code: client.code,
+                name: client.name
+            },
+            account_summary: {
+                total_debt: totalDebt,
+                overdue_debt: overdueDebt,
+                current_debt: totalDebt - overdueDebt,
+                pending_orders_count: pendingOrders.length,
+                overdue_orders_count: pendingOrders.filter(o => o.is_overdue).length
+            },
+            pending_orders: pendingOrders,
+            status: totalDebt > 0 ? 'with_debt' : 'no_debt',
+            credit_status: overdueDebt > 0 ? 'overdue' : (totalDebt > 0 ? 'current' : 'good'),
+            generated_at: new Date().toISOString()
+        };
+        
+        console.log('✅ Estado de cuenta generado');
+        res.json(accountStatus);
+        
+    } catch (error) {
+        console.error('❌ Error in GET /api/clients/:id/account-status:', error);
+        res.status(500).json({ 
+            message: 'Error obteniendo estado de cuenta', 
+            error: error.message 
+        });
+    }
+});
+
 
 // Función helper para agrupar datos por período
 function groupDataByPeriod(salesData, paymentsData, groupBy) {
