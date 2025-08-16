@@ -949,33 +949,6 @@
     outline-offset: 2px;
 }
 
-/* ===== MODO OSCURO (OPCIONAL) ===== */
-@media (prefers-color-scheme: dark) {
-    :root {
-        --bg-color: #111827;
-        --text-color: #f3f4f6;
-        --border-color: #374151;
-        --card-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-    }
-    
-    .product-card,
-    .form-section,
-    .stat-card {
-        background: #1f2937;
-        border-color: #374151;
-    }
-    
-    .search-input,
-    .quantity-input,
-    .form-group input,
-    .form-group select,
-    .form-group textarea {
-        background: #374151;
-        color: #f3f4f6;
-        border-color: #4b5563;
-    }
-}
-
 /* Estilos específicos para subalmacén */
 .substore-status {
     background: linear-gradient(135deg, #1e40af, #052e5b);
@@ -1208,7 +1181,7 @@
 }
 
 .initial-payment-section {
-    background: #c7cafe;
+    background: #979cff;
     border: 1px solid #1e2c64;
     border-radius: 6px;
     padding: 1rem;
@@ -1222,7 +1195,7 @@
 
 .initial-payment-label {
     font-weight: 600;
-    color: #120e83;
+    color:#f0f9ff;
     margin-bottom: 0.5rem;
     display: block;
 }
@@ -1782,6 +1755,7 @@
     font-weight: 600;
     color: #3b82f6;
 }
+
 /* Estilos para ubicación */
 .location-section {
     margin: 2rem 0;
@@ -1875,318 +1849,710 @@
     margin-top: 1rem;
 }
 
+.price-override-btn {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: white;
+    border: none;
+    padding: 0.4rem 0.8rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-left: 0.5rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
 
- .price-override-btn {
-            background: linear-gradient(135deg, #f59e0b, #d97706);
-            color: white;
-            border: none;
-            padding: 0.4rem 0.8rem;
-            border-radius: 6px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            margin-left: 0.5rem;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
+.price-override-btn:hover {
+    background: linear-gradient(135deg, #d97706, #b45309);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
 
-        .price-override-btn:hover {
-            background: linear-gradient(135deg, #d97706, #b45309);
-            transform: translateY(-1px);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-        }
+.price-override-btn:active {
+    transform: translateY(0);
+}
 
-        .price-override-btn:active {
-            transform: translateY(0);
-        }
+/* Modal de precio personalizado */
+.price-override-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+    backdrop-filter: blur(3px);
+}
 
-        /* Modal de precio personalizado */
-        .price-override-modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.6);
-            display: none;
-            justify-content: center;
-            align-items: center;
-            z-index: 10000;
-            backdrop-filter: blur(3px);
-        }
+.price-override-modal.show {
+    display: flex;
+}
 
-        .price-override-modal.show {
-            display: flex;
-        }
+.price-override-content {
+    background: white;
+    border-radius: 12px;
+    padding: 2rem;
+    max-width: 500px;
+    width: 90%;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+    animation: modalEnter 0.3s ease-out;
+}
 
-        .price-override-content {
-            background: white;
-            border-radius: 12px;
-            padding: 2rem;
-            max-width: 500px;
-            width: 90%;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
-            animation: modalEnter 0.3s ease-out;
-        }
+@keyframes modalEnter {
+    from {
+        opacity: 0;
+        transform: scale(0.9) translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
 
-        @keyframes modalEnter {
-            from {
-                opacity: 0;
-                transform: scale(0.9) translateY(-20px);
-            }
-            to {
-                opacity: 1;
-                transform: scale(1) translateY(0);
-            }
-        }
+.price-override-header {
+    text-align: center;
+    margin-bottom: 1.5rem;
+}
 
-        .price-override-header {
-            text-align: center;
-            margin-bottom: 1.5rem;
-        }
+.price-override-title {
+    color: #1f2937;
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin: 0 0 0.5rem 0;
+}
 
-        .price-override-title {
-            color: #1f2937;
-            font-size: 1.25rem;
-            font-weight: 700;
-            margin: 0 0 0.5rem 0;
-        }
+.price-override-subtitle {
+    color: #6b7280;
+    font-size: 0.9rem;
+    margin: 0;
+}
 
-        .price-override-subtitle {
-            color: #6b7280;
-            font-size: 0.9rem;
-            margin: 0;
-        }
+.price-info-card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+}
 
-        .price-info-card {
+.price-comparison {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.price-item {
+    text-align: center;
+    padding: 0.75rem;
+    border-radius: 6px;
+}
+
+.current-price {
+    background: #dbeafe;
+    border: 1px solid #93c5fd;
+}
+
+.new-price {
+    background: #dcfce7;
+    border: 1px solid #86efac;
+}
+
+.price-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 0.25rem;
+}
+
+.price-value {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #1f2937;
+}
+
+.price-input-group {
+    margin-bottom: 1rem;
+}
+
+.price-input-label {
+    display: block;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 0.5rem;
+}
+
+.price-input {
+    width: 100%;
+    padding: 0.75rem;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 1rem;
+    transition: border-color 0.3s;
+    text-align: center;
+    font-weight: 600;
+}
+
+.price-input:focus {
+    outline: none;
+    border-color: #120a55;
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1);
+}
+
+.reason-input {
+    width: 100%;
+    padding: 0.75rem;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    resize: vertical;
+    min-height: 80px;
+    font-family: inherit;
+}
+
+.reason-input:focus {
+    outline: none;
+    border-color: #f59e0b;
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1);
+}
+
+.price-override-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin-top: 1.5rem;
+}
+
+.btn-cancel-override {
+    background: #6b7280;
+    color: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.btn-cancel-override:hover {
+    background: #4b5563;
+}
+
+.btn-apply-override {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.btn-apply-override:hover {
+    background: linear-gradient(135deg, #d97706, #b45309);
+}
+
+.btn-apply-override:disabled {
+    background: #9ca3af;
+    cursor: not-allowed;
+}
+
+/* Indicador de precio personalizado */
+.custom-price-indicator {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: white;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    margin-left: 0.5rem;
+    display: inline-block;
+}
+
+/* Presets de precios comunes */
+.price-presets {
+    margin-bottom: 1rem;
+}
+
+.presets-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 0.5rem;
+}
+
+.presets-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+}
+
+.preset-btn {
+    background: #f3f4f6;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    padding: 0.5rem;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+}
+
+.preset-btn:hover {
+    background: #e5e7eb;
+    border-color: #9ca3af;
+}
+
+.preset-btn.active {
+    background: #fef3c7;
+    border-color: #100c4b;
+    color: #92400e;
+}
+
+/* Validaciones */
+.price-validation {
+    margin-top: 0.5rem;
+    padding: 0.5rem;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    display: none;
+}
+
+.price-validation.error {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #dc2626;
+    display: block;
+}
+
+.price-validation.warning {
+    background: #fffbeb;
+    border: 1px solid #fed7aa;
+    color: #d97706;
+    display: block;
+}
+
+.price-validation.success {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    color: #059669;
+    display: block;
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+    .price-override-content {
+        padding: 1.5rem;
+        margin: 1rem;
+    }
+
+    .price-comparison {
+        grid-template-columns: 1fr;
+    }
+
+    .presets-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .price-override-actions {
+        flex-direction: column;
+    }
+}
+
+/* ===== ESTILOS PARA PRECIOS PERSONALIZADOS ===== */
+
+/* Botones de precio personalizado */
+.btn-custom-price,
+.btn-edit-custom-price,
+.btn-remove-custom-price {
+    transition: all 0.2s ease;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+}
+
+.btn-custom-price:hover {
+    background: #d97706 !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(217, 119, 6, 0.3);
+}
+
+.btn-edit-custom-price:hover {
+    background: #2563eb !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(37, 99, 235, 0.3);
+}
+
+.btn-remove-custom-price:hover {
+    background: #b91c1c !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(185, 28, 28, 0.3);
+}
+
+/* Animación para productos con precio especial */
+.product-card:has(.btn-edit-custom-price) {
+    border: 2px solid #0c0e61;
+    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+    position: relative;
+    overflow: hidden;
+}
+
+.product-card:has(.btn-edit-custom-price)::before {
+    content: "⭐";
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    font-size: 1.2rem;
+    animation: sparkle 2s infinite;
+}
+
+@keyframes sparkle {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(1.2); }
+}
+
+/* Modal responsivo */
+@media (max-width: 768px) {
+    .modal-content {
+        width: 95% !important;
+        margin: 1rem !important;
+        max-height: 90vh !important;
+    }
+    
+    .form-actions {
+        flex-direction: column !important;
+    }
+    
+    .form-actions button {
+        margin-bottom: 0.5rem;
+    }
+}
+
+/* Indicadores de ahorro */
+.savings-indicator {
+    background: linear-gradient(45deg, #10b981, #059669);
+    color: white;
+    padding: 0.25rem 0.5rem;
+    border-radius: 12px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.8; }
+}
+
+/* Input de precio con validación visual */
+#custom-price-input:invalid {
+    border-color: #dc2626;
+    box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+}
+
+#custom-price-input:valid {
+    border-color: #059669;
+    box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.1);
+}
+
+/* Comparación de precios */
+#price-comparison {
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Badge de precio especial mejorado */
+.custom-price-badge {
+    background: linear-gradient(45deg, #f59e0b, #d97706);
+    color: white;
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    box-shadow: 0 2px 4px rgba(245, 158, 11, 0.3);
+    position: relative;
+}
+
+.custom-price-badge::before {
+    content: "";
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    background: linear-gradient(45deg, #f59e0b, #d97706, #f59e0b);
+    border-radius: 22px;
+    z-index: -1;
+    animation: borderGlow 3s ease-in-out infinite;
+}
+
+@keyframes borderGlow {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+}
+
+/* Efectos hover para las tarjetas de productos */
+.product-card {
+    transition: all 0.3s ease;
+}
+
+.product-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+}
+
+/* Mejoras para productos con precio especial */
+.product-card.has-custom-price {
+    border: 2px solid #f59e0b;
+    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+    position: relative;
+}
+
+.product-card.has-custom-price .product-price {
+    position: relative;
+}
+
+.product-card.has-custom-price .product-price::after {
+    content: "💫";
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    animation: rotate 2s linear infinite;
+}
+
+@keyframes rotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+        .client-selector-section {
             background: #f8fafc;
             border: 1px solid #e2e8f0;
             border-radius: 8px;
-            padding: 1rem;
             margin-bottom: 1.5rem;
         }
 
-        .price-comparison {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1rem;
+        .client-search-container {
+            position: relative;
             margin-bottom: 1rem;
         }
 
-        .price-item {
-            text-align: center;
-            padding: 0.75rem;
-            border-radius: 6px;
-        }
-
-        .current-price {
-            background: #dbeafe;
-            border: 1px solid #93c5fd;
-        }
-
-        .new-price {
-            background: #dcfce7;
-            border: 1px solid #86efac;
-        }
-
-        .price-label {
-            font-size: 0.75rem;
-            font-weight: 600;
-            color: #374151;
-            margin-bottom: 0.25rem;
-        }
-
-        .price-value {
-            font-size: 1.1rem;
-            font-weight: 700;
-            color: #1f2937;
-        }
-
-        .price-input-group {
-            margin-bottom: 1rem;
-        }
-
-        .price-input-label {
-            display: block;
-            font-weight: 600;
-            color: #374151;
-            margin-bottom: 0.5rem;
-        }
-
-        .price-input {
+        .client-search-input {
             width: 100%;
-            padding: 0.75rem;
-            border: 2px solid #e5e7eb;
-            border-radius: 8px;
-            font-size: 1rem;
-            transition: border-color 0.3s;
-            text-align: center;
-            font-weight: 600;
-        }
-
-        .price-input:focus {
-            outline: none;
-            border-color: #f59e0b;
-            box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1);
-        }
-
-        .reason-input {
-            width: 100%;
-            padding: 0.75rem;
-            border: 2px solid #e5e7eb;
-            border-radius: 8px;
-            font-size: 0.9rem;
-            resize: vertical;
-            min-height: 80px;
-            font-family: inherit;
-        }
-
-        .reason-input:focus {
-            outline: none;
-            border-color: #f59e0b;
-            box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1);
-        }
-
-        .price-override-actions {
-            display: flex;
-            gap: 1rem;
-            justify-content: center;
-            margin-top: 1.5rem;
-        }
-
-        .btn-cancel-override {
-            background: #6b7280;
-            color: white;
-            border: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: 8px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-
-        .btn-cancel-override:hover {
-            background: #4b5563;
-        }
-
-        .btn-apply-override {
-            background: linear-gradient(135deg, #f59e0b, #d97706);
-            color: white;
-            border: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: 8px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-
-        .btn-apply-override:hover {
-            background: linear-gradient(135deg, #d97706, #b45309);
-        }
-
-        .btn-apply-override:disabled {
-            background: #9ca3af;
-            cursor: not-allowed;
-        }
-
-        /* Indicador de precio personalizado */
-        .custom-price-indicator {
-            background: linear-gradient(135deg, #f59e0b, #d97706);
-            color: white;
-            padding: 0.25rem 0.5rem;
-            border-radius: 4px;
-            font-size: 0.7rem;
-            font-weight: 600;
-            margin-left: 0.5rem;
-            display: inline-block;
-        }
-
-        /* Presets de precios comunes */
-        .price-presets {
-            margin-bottom: 1rem;
-        }
-
-        .presets-label {
-            font-size: 0.85rem;
-            font-weight: 600;
-            color: #374151;
-            margin-bottom: 0.5rem;
-        }
-
-        .presets-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 0.5rem;
-        }
-
-        .preset-btn {
-            background: #f3f4f6;
+            padding: 0.75rem 1rem 0.75rem 2.5rem;
             border: 1px solid #d1d5db;
             border-radius: 6px;
-            padding: 0.5rem;
-            font-size: 0.8rem;
-            cursor: pointer;
-            transition: all 0.2s;
-            text-align: center;
+            font-size: 0.875rem;
+            background-color: white;
         }
 
-        .preset-btn:hover {
-            background: #e5e7eb;
-            border-color: #9ca3af;
+        .client-search-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
         }
 
-        .preset-btn.active {
-            background: #fef3c7;
-            border-color: #f59e0b;
-            color: #92400e;
+        .client-search-icon {
+            position: absolute;
+            left: 0.75rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #6b7280;
+            font-size: 1rem;
         }
 
-        /* Validaciones */
-        .price-validation {
-            margin-top: 0.5rem;
-            padding: 0.5rem;
+        .client-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #d1d5db;
             border-radius: 6px;
-            font-size: 0.8rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 100;
             display: none;
         }
 
-        .price-validation.error {
-            background: #fef2f2;
-            border: 1px solid #fecaca;
+        .client-dropdown.show {
+            display: block;
+        }
+
+        .client-option {
+            padding: 0.75rem 1rem;
+            cursor: pointer;
+            border-bottom: 1px solid #f3f4f6;
+            transition: background-color 0.2s;
+        }
+
+        .client-option:last-child {
+            border-bottom: none;
+        }
+
+        .client-option:hover {
+            background-color: #f3f4f6;
+        }
+
+        .client-option.selected {
+            background-color: #eff6ff;
+            color: #1d4ed8;
+        }
+
+        .client-name {
+            font-weight: 600;
+            color: #1f2937;
+        }
+
+        .client-details {
+            font-size: 0.75rem;
+            color: #6b7280;
+            margin-top: 0.25rem;
+        }
+
+        .selected-client-card {
+            background: #122164;
+            color: white;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            display: none;
+        }
+
+        .selected-client-card.show {
+            display: block;
+        }
+
+        .selected-client-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .selected-client-name {
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        .client-change-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            transition: background-color 0.2s;
+        }
+
+        .client-change-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .selected-client-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 0.5rem;
+            font-size: 0.875rem;
+        }
+
+        .client-info-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .new-client-option {
+            padding: 0.75rem 1rem;
+            background: #f0f9ff;
+            border-bottom: 1px solid #e0f2fe;
+            cursor: pointer;
+            color: #0a3d59;
+            font-weight: 600;
+            transition: background-color 0.2s;
+        }
+
+        .new-client-option:hover {
+            background: #e0f2fe;
+        }
+
+        .no-clients-message {
+            padding: 1rem;
+            text-align: center;
+            color: #64748b;
+            font-style: italic;
+        }
+
+        .client-form-quick {
+            background: white;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            padding: 1.5rem;
+            display: none;
+            margin-top: 1rem;
+        }
+
+        .client-form-quick.show {
+            display: block;
+        }
+
+        .quick-form-header {
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .quick-form-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #1f2937;
+        }
+
+        .client-debt-indicator {
+            display: inline-block;
+            padding: 0.125rem 0.5rem;
+            border-radius: 12px;
+            font-size: 0.625rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-left: 0.5rem;
+        }
+
+        .client-debt-indicator.no-debt {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .client-debt-indicator.with-debt {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .client-debt-indicator.overdue {
+            background: #fee2e2;
             color: #dc2626;
-            display: block;
-        }
-
-        .price-validation.warning {
-            background: #fffbeb;
-            border: 1px solid #fed7aa;
-            color: #d97706;
-            display: block;
-        }
-
-        .price-validation.success {
-            background: #f0fdf4;
-            border: 1px solid #bbf7d0;
-            color: #059669;
-            display: block;
-        }
-
-        /* Responsive */
-        @media (max-width: 480px) {
-            .price-override-content {
-                padding: 1.5rem;
-                margin: 1rem;
-            }
-
-            .price-comparison {
-                grid-template-columns: 1fr;
-            }
-
-            .presets-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-
-            .price-override-actions {
-                flex-direction: column;
-            }
         }

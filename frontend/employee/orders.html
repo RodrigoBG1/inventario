@@ -7,221 +7,6 @@
     <link rel="stylesheet" href="../css/style.css">
     <link rel="stylesheet" href="../css/employee.css">
     <script src="../js/employee.js"></script>
-    <style>
-        /* Estilos específicos para el selector de clientes */
-        .client-selector-section {
-            background: #f8fafc;
-            border: 1px solid #e2e8f0;
-            border-radius: 8px;
-            margin-bottom: 1.5rem;
-        }
-
-        .client-search-container {
-            position: relative;
-            margin-bottom: 1rem;
-        }
-
-        .client-search-input {
-            width: 100%;
-            padding: 0.75rem 1rem 0.75rem 2.5rem;
-            border: 1px solid #d1d5db;
-            border-radius: 6px;
-            font-size: 0.875rem;
-            background-color: white;
-        }
-
-        .client-search-input:focus {
-            outline: none;
-            border-color: #3b82f6;
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-        }
-
-        .client-search-icon {
-            position: absolute;
-            left: 0.75rem;
-            top: 50%;
-            transform: translateY(-50%);
-            color: #6b7280;
-            font-size: 1rem;
-        }
-
-        .client-dropdown {
-            position: absolute;
-            top: 100%;
-            left: 0;
-            right: 0;
-            background: white;
-            border: 1px solid #d1d5db;
-            border-radius: 6px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            max-height: 200px;
-            overflow-y: auto;
-            z-index: 100;
-            display: none;
-        }
-
-        .client-dropdown.show {
-            display: block;
-        }
-
-        .client-option {
-            padding: 0.75rem 1rem;
-            cursor: pointer;
-            border-bottom: 1px solid #f3f4f6;
-            transition: background-color 0.2s;
-        }
-
-        .client-option:last-child {
-            border-bottom: none;
-        }
-
-        .client-option:hover {
-            background-color: #f3f4f6;
-        }
-
-        .client-option.selected {
-            background-color: #eff6ff;
-            color: #1d4ed8;
-        }
-
-        .client-name {
-            font-weight: 600;
-            color: #1f2937;
-        }
-
-        .client-details {
-            font-size: 0.75rem;
-            color: #6b7280;
-            margin-top: 0.25rem;
-        }
-
-        .selected-client-card {
-            background: #122164;
-            color: white;
-            padding: 1rem;
-            border-radius: 8px;
-            margin-bottom: 1rem;
-            display: none;
-        }
-
-        .selected-client-card.show {
-            display: block;
-        }
-
-        .selected-client-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 0.5rem;
-        }
-
-        .selected-client-name {
-            font-size: 1.1rem;
-            font-weight: 600;
-        }
-
-        .client-change-btn {
-            background: rgba(255, 255, 255, 0.2);
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            color: white;
-            padding: 0.25rem 0.75rem;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 0.75rem;
-            transition: background-color 0.2s;
-        }
-
-        .client-change-btn:hover {
-            background: rgba(255, 255, 255, 0.3);
-        }
-
-        .selected-client-info {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 0.5rem;
-            font-size: 0.875rem;
-        }
-
-        .client-info-item {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .new-client-option {
-            padding: 0.75rem 1rem;
-            background: #f0f9ff;
-            border-bottom: 1px solid #e0f2fe;
-            cursor: pointer;
-            color: #0369a1;
-            font-weight: 600;
-            transition: background-color 0.2s;
-        }
-
-        .new-client-option:hover {
-            background: #e0f2fe;
-        }
-
-        .no-clients-message {
-            padding: 1rem;
-            text-align: center;
-            color: #64748b;
-            font-style: italic;
-        }
-
-        .client-form-quick {
-            background: white;
-            border: 1px solid #d1d5db;
-            border-radius: 8px;
-            padding: 1.5rem;
-            display: none;
-            margin-top: 1rem;
-        }
-
-        .client-form-quick.show {
-            display: block;
-        }
-
-        .quick-form-header {
-            display: flex;
-            justify-content: between;
-            align-items: center;
-            margin-bottom: 1rem;
-            padding-bottom: 0.5rem;
-            border-bottom: 1px solid #e5e7eb;
-        }
-
-        .quick-form-title {
-            font-size: 1rem;
-            font-weight: 600;
-            color: #1f2937;
-        }
-
-        .client-debt-indicator {
-            display: inline-block;
-            padding: 0.125rem 0.5rem;
-            border-radius: 12px;
-            font-size: 0.625rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            margin-left: 0.5rem;
-        }
-
-        .client-debt-indicator.no-debt {
-            background: #dcfce7;
-            color: #166534;
-        }
-
-        .client-debt-indicator.with-debt {
-            background: #fef3c7;
-            color: #92400e;
-        }
-
-        .client-debt-indicator.overdue {
-            background: #fee2e2;
-            color: #dc2626;
-        }
-    </style>
 </head>
 <body>
     <div class="employee-container">
@@ -407,7 +192,7 @@
 
                     <!-- Tipo de pago específico -->
                     <div class="payment-type-section">
-                        <h4 class="payment-type-title">🏦 Tipo de Pago</h4>
+                        <h4 class="payment-type-title">Tipo de Pago</h4>
                         <div class="payment-type-grid">
                             <div class="payment-type-option selected" onclick="selectPaymentType('efectivo')">
                                 <div class="payment-type-icon">💵</div>
@@ -431,17 +216,18 @@
                     <!-- Sección de Abono Inicial -->
                     <div class="initial-payment-section" id="initial-payment-section">
                         <label for="initial-payment" class="initial-payment-label">
-                            💰 Abono Inicial (Opcional)
+                            Abono Inicial (Opcional)
                         </label>
                         <input type="number" 
                                id="initial-payment" 
                                class="initial-payment-input"
-                               step="0.01" 
+                               step="0.50" 
                                min="0" 
                                placeholder="0.00"
-                               onchange="updatePaymentSummary()">
-                        <div style="margin-top: 0.5rem; font-size: 0.8rem; color: #6366f1;">
-                            💡 El cliente puede abonar cualquier cantidad
+                               onchange="updatePaymentSummary()"
+                               style = "border-color: rgb(29, 12, 78);">
+                        <div style="margin-top: 0.5rem; font-size: 0.8rem; color: #11124c;">
+                            El cliente puede abonar cualquier cantidad
                         </div>
                     </div>
 
@@ -1861,27 +1647,73 @@ Verifica la información e intenta nuevamente.`);
                 const isOutOfStock = product.stock === 0;
                 
                 const prices = getProductPrices(product, currentPaymentMethod);
+                const hasCustomPrice = customPrices[product.id];
+                
+                // Determinar el precio a mostrar
+                const displayPrice = hasCustomPrice ? customPrices[product.id].price : prices.box;
+                const originalPrice = prices.box;
                 
                 const paymentBadge = currentPaymentMethod === 'credit' 
                     ? '<span style="background: #fbbf24; color: #92400e; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">📋 CRÉDITO</span>'
                     : '<span style="background: #10b981; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">💵 CONTADO</span>';
                 
+                // Badge de precio personalizado
+                const customPriceBadge = hasCustomPrice 
+                    ? '<span style="background: #f59e0b; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; margin-left: 0.5rem;">⭐ PRECIO ESPECIAL</span>'
+                    : '';
+                
+                // Información de precio personalizado
+                const customPriceInfo = hasCustomPrice 
+                    ? `<div style="margin-top: 0.5rem; padding: 0.5rem; background: #fef3c7; border-radius: 4px; font-size: 0.8rem;">
+                        <strong>Precio original:</strong> ${formatCurrency(originalPrice)}<br>
+                        <strong>Precio especial:</strong> ${formatCurrency(customPrices[product.id].price)}<br>
+                        <strong>Motivo:</strong> ${customPrices[product.id].reason}<br>
+                        <strong>Ahorro:</strong> ${formatCurrency(originalPrice - customPrices[product.id].price)}
+                    </div>`
+                    : '';
+                
                 return `
                     <div class="product-card substore-product-card">
                         <div class="substore-badge">SUBALMACÉN</div>
                         ${paymentBadge}
+                        ${customPriceBadge}
                         
                         <div class="product-header">
                             <div class="product-code">${product.code || 'N/A'}</div>
-                            <div class="product-price">${formatCurrency(prices.box)}</div>
+                            <div class="product-price">
+                                ${hasCustomPrice 
+                                    ? `<span style="text-decoration: line-through; color: #6b7280; font-size: 0.8rem;">${formatCurrency(originalPrice)}</span><br>${formatCurrency(displayPrice)}`
+                                    : formatCurrency(displayPrice)
+                                }
+                            </div>
                         </div>
                         <div class="product-name">${product.name || 'Producto sin nombre'}</div>
                         <div class="product-details">${product.brand || 'N/A'} • ${product.viscosity || 'N/A'} • ${product.capacity || 'N/A'}</div>
                         <div class="stock-info ${stockClass}">📦 ${stockText}</div>
                         
+                        ${customPriceInfo}
+                        
+                        <!-- BOTONES DE PRECIO PERSONALIZADO -->
+                        <div class="custom-price-actions" style="margin: 0.75rem 0; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                            ${!hasCustomPrice 
+                                ? `<button class="btn-custom-price" onclick="openCustomPriceModal(${product.id})" 
+                                    style="background: #f59e0b; color: white; border: none; padding: 0.375rem 0.75rem; border-radius: 4px; font-size: 0.75rem; cursor: pointer; flex: 1;">
+                                    💰 Precio Especial
+                                </button>`
+                                : `<button class="btn-edit-custom-price" onclick="editCustomPrice(${product.id})" 
+                                    style="background: #3b82f6; color: white; border: none; padding: 0.375rem 0.75rem; border-radius: 4px; font-size: 0.75rem; cursor: pointer; flex: 1;">
+                                    ✏️ Editar
+                                </button>
+                                <button class="btn-remove-custom-price" onclick="removeCustomPrice(${product.id})" 
+                                    style="background: #dc2626; color: white; border: none; padding: 0.375rem 0.75rem; border-radius: 4px; font-size: 0.75rem; cursor: pointer;">
+                                    🗑️
+                                </button>`
+                            }
+                        </div>
+                        
                         <div class="product-actions">
                             <input type="number" class="quantity-input" data-product-id="${product.id}" 
-                                   min="1" max="${product.stock || 1}" value="1" ${isOutOfStock ? 'disabled' : ''}>
+                                min="1" max="${product.stock || 1}" value="1" ${isOutOfStock ? 'disabled' : ''}>
                             <button class="btn btn-primary" onclick="addToOrder(${product.id})" 
                                     ${isOutOfStock ? 'disabled' : ''}>
                                 ${isOutOfStock ? 'Sin Stock' : 'Agregar'}
@@ -1890,6 +1722,281 @@ Verifica la información e intenta nuevamente.`);
                     </div>
                 `;
             }).join('');
+        }
+        
+        function openCustomPriceModal(productId) {
+            const product = substoreProducts.find(p => p.id === productId);
+            if (!product) return;
+            
+            const prices = getProductPrices(product, currentPaymentMethod);
+            const originalPrice = prices.box;
+            
+            // Crear modal dinámicamente
+            const modal = document.createElement('div');
+            modal.id = 'custom-price-modal';
+            modal.innerHTML = `
+                <div class="modal-overlay" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; align-items: center; justify-content: center;">
+                    <div class="modal-content" style="background: white; border-radius: 8px; padding: 1.5rem; max-width: 400px; width: 90%; max-height: 80vh; overflow-y: auto;">
+                        <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid #e5e7eb;">
+                            <h3 style="margin: 0; color: #1f2937;">💰 Precio Especial</h3>
+                            <button onclick="closeCustomPriceModal()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #6b7280;">&times;</button>
+                        </div>
+                        
+                        <div class="product-info" style="background: #f3f4f6; padding: 1rem; border-radius: 6px; margin-bottom: 1rem;">
+                            <div style="font-weight: 600; color: #1f2937;">${product.code} - ${product.name}</div>
+                            <div style="font-size: 0.875rem; color: #6b7280; margin-top: 0.25rem;">${product.brand} • ${product.capacity}</div>
+                            <div style="font-size: 0.875rem; color: #059669; margin-top: 0.5rem;">
+                                <strong>Precio normal:</strong> ${formatCurrency(originalPrice)}
+                            </div>
+                        </div>
+                        
+                        <form id="custom-price-form" onsubmit="saveCustomPrice(event, ${productId})">
+                            <div class="form-group" style="margin-bottom: 1rem;">
+                                <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #374151;">Nuevo Precio:</label>
+                                <input type="number" id="custom-price-input" step="0.50" min="0" max="${originalPrice}" 
+                                    placeholder="0.00" required 
+                                    style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 1rem;">
+                                <div style="font-size: 0.75rem; color: #6b7280; margin-top: 0.25rem;">
+                                    Máximo: ${formatCurrency(originalPrice)}
+                                </div>
+                            </div>
+                            
+                            <div class="form-group" style="margin-bottom: 1rem;">
+                                <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #374151;">Motivo del precio especial:</label>
+                                <select id="custom-price-reason" required 
+                                        style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 1rem;">
+                                    <option value="">Selecciona un motivo</option>
+                                    <option value="Cliente frecuente">Cliente frecuente</option>
+                                    <option value="Promoción especial">Promoción especial</option>
+                                    <option value="Compra por volumen">Compra por volumen</option>
+                                    <option value="Producto próximo a vencer">Producto próximo a vencer</option>
+                                    <option value="Oferta de temporada">Oferta de temporada</option>
+                                    <option value="Precio de competencia">Precio de competencia</option>
+                                    <option value="Autorizado por supervisor">Autorizado por supervisor</option>
+                                    <option value="Otro">Otro motivo</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group" id="custom-reason-input" style="margin-bottom: 1rem; display: none;">
+                                <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #374151;">Especifica el motivo:</label>
+                                <input type="text" id="other-reason-input" placeholder="Describe el motivo..."
+                                    style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 1rem;">
+                            </div>
+                            
+                            <div id="price-comparison" style="background: #f0f9ff; padding: 1rem; border-radius: 6px; margin-bottom: 1rem; display: none;">
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                                    <span>Precio original:</span>
+                                    <span id="comparison-original">${formatCurrency(originalPrice)}</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                                    <span>Nuevo precio:</span>
+                                    <span id="comparison-new">$0.00</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; font-weight: 600; color: #059669; border-top: 1px solid #e0f2fe; padding-top: 0.5rem;">
+                                    <span>Ahorro:</span>
+                                    <span id="comparison-savings">$0.00</span>
+                                </div>
+                            </div>
+                            
+                            <div class="form-actions" style="display: flex; gap: 0.5rem;">
+                                <button type="button" onclick="closeCustomPriceModal()" 
+                                        style="flex: 1; padding: 0.75rem; background: #6b7280; color: white; border: none; border-radius: 6px; cursor: pointer;">
+                                    Cancelar
+                                </button>
+                                <button type="submit" 
+                                        style="flex: 1; padding: 0.75rem; background: #059669; color: white; border: none; border-radius: 6px; cursor: pointer;">
+                                    💰 Aplicar Precio
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            // Event listeners para el modal
+            setupCustomPriceModalEvents(originalPrice);
+            
+            // Focus en el input de precio
+            setTimeout(() => {
+                const priceInput = document.getElementById('custom-price-input');
+                if (priceInput) priceInput.focus();
+            }, 100);
+        }
+
+        function setupCustomPriceModalEvents(originalPrice) {
+            const priceInput = document.getElementById('custom-price-input');
+            const reasonSelect = document.getElementById('custom-price-reason');
+            const customReasonDiv = document.getElementById('custom-reason-input');
+            const comparison = document.getElementById('price-comparison');
+            
+            // Mostrar/ocultar campo de motivo personalizado
+            if (reasonSelect) {
+                reasonSelect.addEventListener('change', function() {
+                    if (this.value === 'Otro') {
+                        customReasonDiv.style.display = 'block';
+                        document.getElementById('other-reason-input').required = true;
+                    } else {
+                        customReasonDiv.style.display = 'none';
+                        document.getElementById('other-reason-input').required = false;
+                    }
+                });
+            }
+            
+            // Actualizar comparación en tiempo real
+            if (priceInput) {
+                priceInput.addEventListener('input', function() {
+                    const newPrice = parseFloat(this.value) || 0;
+                    const savings = originalPrice - newPrice;
+                    
+                    if (newPrice > 0) {
+                        comparison.style.display = 'block';
+                        document.getElementById('comparison-new').textContent = formatCurrency(newPrice);
+                        document.getElementById('comparison-savings').textContent = formatCurrency(savings);
+                        
+                        // Cambiar color del ahorro
+                        const savingsElement = document.getElementById('comparison-savings');
+                        if (savings > 0) {
+                            savingsElement.style.color = '#059669';
+                        } else if (savings < 0) {
+                            savingsElement.style.color = '#dc2626';
+                        } else {
+                            savingsElement.style.color = '#6b7280';
+                        }
+                    } else {
+                        comparison.style.display = 'none';
+                    }
+                    
+                    // Validación de precio
+                    if (newPrice > originalPrice) {
+                        this.style.borderColor = '#dc2626';
+                    } else if (newPrice > 0) {
+                        this.style.borderColor = '#059669';
+                    } else {
+                        this.style.borderColor = '#d1d5db';
+                    }
+                });
+            }
+        }
+
+        // 4. GUARDAR PRECIO PERSONALIZADO
+        function saveCustomPrice(event, productId) {
+            event.preventDefault();
+            
+            const product = substoreProducts.find(p => p.id === productId);
+            if (!product) return;
+            
+            const priceInput = document.getElementById('custom-price-input');
+            const reasonSelect = document.getElementById('custom-price-reason');
+            const otherReasonInput = document.getElementById('other-reason-input');
+            
+            const newPrice = parseFloat(priceInput.value);
+            const originalPrice = getProductPrices(product, currentPaymentMethod).box;
+            const reason = reasonSelect.value === 'Otro' ? otherReasonInput.value : reasonSelect.value;
+            
+            // Validaciones
+            if (!newPrice || newPrice <= 0) {
+                alert('Ingresa un precio válido');
+                priceInput.focus();
+                return;
+            }
+            
+            if (newPrice > originalPrice) {
+                alert('El precio especial no puede ser mayor al precio original');
+                priceInput.focus();
+                return;
+            }
+            
+            if (!reason) {
+                alert('Selecciona o especifica un motivo');
+                reasonSelect.focus();
+                return;
+            }
+            
+            // Guardar precio personalizado
+            customPrices[productId] = {
+                price: newPrice,
+                originalPrice: originalPrice,
+                reason: reason,
+                timestamp: new Date().toISOString(),
+                employee: JSON.parse(localStorage.getItem('user'))?.name || 'Empleado'
+            };
+            
+            console.log('💰 Precio personalizado guardado:', customPrices[productId]);
+            
+            // Cerrar modal
+            closeCustomPriceModal();
+            
+            // Refrescar vista de productos
+            displaySubstoreProducts(substoreProducts);
+            
+            // Notificación
+            if (window.showNotification) {
+                window.showNotification(`Precio especial aplicado a ${product.name}`, 'success');
+            }
+        }
+
+        // 5. EDITAR PRECIO PERSONALIZADO
+        function editCustomPrice(productId) {
+            if (!customPrices[productId]) return;
+            
+            // Abrir modal con datos existentes
+            openCustomPriceModal(productId);
+            
+            // Rellenar campos
+            setTimeout(() => {
+                const priceInput = document.getElementById('custom-price-input');
+                const reasonSelect = document.getElementById('custom-price-reason');
+                const otherReasonInput = document.getElementById('other-reason-input');
+                
+                if (priceInput) priceInput.value = customPrices[productId].price;
+                
+                if (reasonSelect) {
+                    const reason = customPrices[productId].reason;
+                    const standardReasons = Array.from(reasonSelect.options).map(opt => opt.value);
+                    
+                    if (standardReasons.includes(reason)) {
+                        reasonSelect.value = reason;
+                    } else {
+                        reasonSelect.value = 'Otro';
+                        document.getElementById('custom-reason-input').style.display = 'block';
+                        if (otherReasonInput) otherReasonInput.value = reason;
+                    }
+                }
+                
+                // Trigger eventos para mostrar comparación
+                if (priceInput) {
+                    priceInput.dispatchEvent(new Event('input'));
+                }
+            }, 100);
+        }
+
+        // 6. REMOVER PRECIO PERSONALIZADO
+        function removeCustomPrice(productId) {
+            const product = substoreProducts.find(p => p.id === productId);
+            if (!product || !customPrices[productId]) return;
+            
+            if (confirm(`¿Quitar precio especial de ${product.name}?`)) {
+                delete customPrices[productId];
+                
+                console.log('🗑️ Precio personalizado removido para producto:', productId);
+                
+                // Refrescar vista
+                displaySubstoreProducts(substoreProducts);
+                
+                if (window.showNotification) {
+                    window.showNotification(`Precio especial removido de ${product.name}`, 'info');
+                }
+            }
+        }
+
+        // 7. CERRAR MODAL
+        function closeCustomPriceModal() {
+            const modal = document.getElementById('custom-price-modal');
+            if (modal) {
+                modal.remove();
+            }
         }
 
         function getProductPrices(product, paymentMethod) {
@@ -2350,6 +2457,11 @@ Verifica la información e intenta nuevamente.`);
         window.clearSelectedClient = clearSelectedClient;
         window.cancelNewClient = cancelNewClient;
         window.saveQuickClient = saveQuickClient;
+        window.openCustomPriceModal = openCustomPriceModal;
+        window.editCustomPrice = editCustomPrice;
+        window.removeCustomPrice = removeCustomPrice;
+        window.closeCustomPriceModal = closeCustomPriceModal;
+        window.saveCustomPrice = saveCustomPrice;
 
 
     </script>
